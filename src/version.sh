@@ -7,7 +7,7 @@
 # This file generates version.c.
 # Stolen from ircd-ratbox.
 #
-# $Id: version.sh 356 2002-03-13 17:27:38Z nenolod $
+# $Id: version.sh 399 2002-03-15 13:27:51Z nenolod $
 #
 
 spitshell=cat
@@ -35,7 +35,7 @@ awk '{if (NF == 6) \
 else \
          { print $1 " "  $2 " " $3 " " $7 " at " $4 " " $5 " " $6 }}'`
 
-buildid=`echo "\$Revision: 356 $" | \
+buildid=`echo "\$Revision: 399 $" | \
 	awk '{ print $2 }'`;
 
 $spitshell >version.c <<!SUB!THIS!
@@ -104,6 +104,7 @@ const char *infotext[] =
 };
 !SUB!THIS!
 
+# .
 # .
 # .
 # .

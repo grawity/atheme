@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 William Pitcock, et al.
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains linked list functions.
  * Idea from ircd-hybrid.
  *
- * $Id: node.c 310 2005-06-02 05:21:34Z nenolod $
+ * $Id: node.c 398 2002-03-15 13:27:37Z nenolod $
  */
 
 #include "atheme.h"
@@ -13,8 +13,10 @@
 list_t sralist;
 list_t tldlist;
 list_t klnlist;
+list_t sidlist[HASHSIZE];
 list_t servlist[HASHSIZE];
 list_t userlist[HASHSIZE];
+list_t uidlist[HASHSIZE];
 list_t chanlist[HASHSIZE];
 list_t mulist[HASHSIZE];
 list_t mclist[HASHSIZE];
@@ -543,7 +545,7 @@ user_t *user_add(char *nick, char *user, char *host, server_t *server)
 
 	u = BlockHeapAlloc(user_heap);
 
-	u->hash = UHASH((unsigned char *)nick);
+	u->hash  = UHASH((unsigned char *)nick);
 
 	node_add(u, n, &userlist[u->hash]);
 
@@ -764,6 +766,12 @@ chanban_t *chanban_add(channel_t *chan, char *mask)
 void chanban_delete(chanban_t *c)
 {
 	node_t *n;
+
+	if (!c)
+	{
+		slog(LG_DEBUG, "chanban_delete(): called for nonexistant ban");
+		return;
+	}
 
 	n = node_find(c, &c->chan->bans);
 	node_del(n, &c->chan->bans);

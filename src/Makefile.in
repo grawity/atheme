@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 343 2002-03-13 14:59:00Z nenolod $
+# $Id: Makefile.in 397 2002-03-15 13:19:03Z nenolod $
 #
 
 CC		= @CC@
@@ -23,7 +23,7 @@ CFLAGS		= -g -O2 -Wunused -Wall -ggdb -pedantic -Wshadow -Wmissing-declarations 
 
 CFLAGS		+= -DPREFIX=\"@prefix@\" -I../include
 
-VERSION		= 0.1
+VERSION		= 0.1.1
 
 LIBS		= @LIBS@
 LDFLAGS		= @LDFLAGS@

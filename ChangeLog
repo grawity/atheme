@@ -1,0 +1,823 @@
+------------------------------------------------------------------------
+r354 | nenolod | 2002-03-13 12:23:57 -0500 (Wed, 13 Mar 2002) | 2 lines
+
+Increment build stamp for 0.1 release.
+
+------------------------------------------------------------------------
+r336 | nenolod | 2005-06-04 18:13:29 -0400 (Sat, 04 Jun 2005) | 2 lines
+
+Bump release stamp again.
+
+------------------------------------------------------------------------
+r332 | nenolod | 2005-06-04 17:58:07 -0400 (Sat, 04 Jun 2005) | 2 lines
+
+Bump release stamp.
+
+------------------------------------------------------------------------
+r307 | nenolod | 2005-06-01 15:10:52 -0400 (Wed, 01 Jun 2005) | 2 lines
+
+Increment release stamp. Thanks, [Brain] for your work on protocol/inspircd.c
+
+------------------------------------------------------------------------
+r303 | nenolod | 2005-06-01 11:21:47 -0400 (Wed, 01 Jun 2005) | 2 lines
+
+Bump build-id release stamp.
+
+------------------------------------------------------------------------
+r264 | nenolod | 2005-05-31 11:00:41 -0400 (Tue, 31 May 2005) | 2 lines
+
+Bump release stamp again.
+
+------------------------------------------------------------------------
+r261 | nenolod | 2005-05-31 10:16:52 -0400 (Tue, 31 May 2005) | 2 lines
+
+Bump revision stamp again.
+
+------------------------------------------------------------------------
+r259 | nenolod | 2005-05-31 10:12:54 -0400 (Tue, 31 May 2005) | 2 lines
+
+Bump release stamp (we should probably release a new build since bahamut ircd support was b0rked.)
+
+------------------------------------------------------------------------
+r253 | nenolod | 2005-05-30 21:21:24 -0400 (Mon, 30 May 2005) | 2 lines
+
+Increment buildid.
+
+------------------------------------------------------------------------
+r250 | nenolod | 2005-05-30 19:34:18 -0400 (Mon, 30 May 2005) | 2 lines
+
+Tweak the build-id variable a little bit.
+
+------------------------------------------------------------------------
+r249 | nenolod | 2005-05-30 19:11:52 -0400 (Mon, 30 May 2005) | 2 lines
+
+Increment the build stamp.
+
+------------------------------------------------------------------------
+r238 | nenolod | 2005-05-30 14:23:43 -0400 (Mon, 30 May 2005) | 2 lines
+
+Record the output of uname -a when linking.
+
+------------------------------------------------------------------------
+r227 | nenolod | 2005-05-29 21:48:09 -0400 (Sun, 29 May 2005) | 2 lines
+
+Enable TOPICAPPEND command.
+
+------------------------------------------------------------------------
+r223 | nenolod | 2005-05-29 21:08:57 -0400 (Sun, 29 May 2005) | 2 lines
+
+Begin work on channel topic tracking.
+
+------------------------------------------------------------------------
+r222 | nenolod | 2005-05-29 21:05:54 -0400 (Sun, 29 May 2005) | 2 lines
+
+Add MODE command to OService.
+
+------------------------------------------------------------------------
+r217 | nick125 | 2005-05-29 20:43:37 -0400 (Sun, 29 May 2005) | 1 line
+
+Added TOPICAPPEND
+------------------------------------------------------------------------
+r213 | nenolod | 2005-05-29 19:52:15 -0400 (Sun, 29 May 2005) | 2 lines
+
+Note caveats concerning UnrealIRCd support in README
+
+------------------------------------------------------------------------
+r207 | nenolod | 2005-05-29 16:41:31 -0400 (Sun, 29 May 2005) | 2 lines
+
+Fix an issue where CService bans spew a bunch of useless crap, the buffer should have been properly initialized.
+
+------------------------------------------------------------------------
+r206 | nenolod | 2005-05-29 16:26:54 -0400 (Sun, 29 May 2005) | 2 lines
+
+Mark banlist recursion as working.
+
+------------------------------------------------------------------------
+r202 | nenolod | 2005-05-29 16:07:02 -0400 (Sun, 29 May 2005) | 2 lines
+
+Finish implementation of channel ban tracking.
+
+------------------------------------------------------------------------
+r197 | nenolod | 2005-05-29 15:23:06 -0400 (Sun, 29 May 2005) | 2 lines
+
+Check to make sure that users are logged in, add prototypes to extern.h for ban/unban, wire ban/unban to CService core.
+
+------------------------------------------------------------------------
+r187 | nick125 | 2005-05-29 14:20:14 -0400 (Sun, 29 May 2005) | 1 line
+
+added framework for ban
+------------------------------------------------------------------------
+r180 | nenolod | 2005-05-29 04:17:21 -0400 (Sun, 29 May 2005) | 2 lines
+
+Finish the implementation of the STAFFONLY flag.
+
+------------------------------------------------------------------------
+r174 | nenolod | 2005-05-29 03:56:25 -0400 (Sun, 29 May 2005) | 2 lines
+
+Add support for bahamut's extended modes. (+c, +M, +R, and +O).
+
+------------------------------------------------------------------------
+r173 | nenolod | 2005-05-29 03:51:08 -0400 (Sun, 29 May 2005) | 2 lines
+
+Just move everything back to channels.h, since it's all provided by RFC.
+
+------------------------------------------------------------------------
+r172 | nenolod | 2005-05-29 03:47:51 -0400 (Sun, 29 May 2005) | 2 lines
+
+Touch release file.
+
+------------------------------------------------------------------------
+r170 | nenolod | 2005-05-29 03:43:40 -0400 (Sun, 29 May 2005) | 2 lines
+
+standard modes (CMODE_OP/CMODE_VOICE) are now living in channels.h as not to break dependencies. (sanify protocol headers, phase 3 of 3)
+
+------------------------------------------------------------------------
+r167 | nenolod | 2005-05-29 03:36:18 -0400 (Sun, 29 May 2005) | 2 lines
+
+Make sure protocol sources refer to the protocol-specific headerfiles.
+
+------------------------------------------------------------------------
+r166 | nenolod | 2005-05-29 03:35:23 -0400 (Sun, 29 May 2005) | 2 lines
+
+Also, add a header for bahamut.
+
+------------------------------------------------------------------------
+r165 | nenolod | 2005-05-29 03:34:30 -0400 (Sun, 29 May 2005) | 2 lines
+
+Moving protocol-specific stuff into protocol-specific headers.
+
+------------------------------------------------------------------------
+r163 | nenolod | 2005-05-29 03:23:53 -0400 (Sun, 29 May 2005) | 2 lines
+
+Remove POINTLESS legacy code. mode_list[] contains all of the same information, there is no need for duplication.
+
+------------------------------------------------------------------------
+r162 | nenolod | 2005-05-29 03:15:46 -0400 (Sun, 29 May 2005) | 2 lines
+
+include files are somewhat cleaned up, will get back to this later
+
+------------------------------------------------------------------------
+r160 | nenolod | 2005-05-29 03:11:20 -0400 (Sun, 29 May 2005) | 2 lines
+
+Add a missing include file.
+
+------------------------------------------------------------------------
+r159 | nenolod | 2005-05-29 03:09:27 -0400 (Sun, 29 May 2005) | 2 lines
+
+More cleanups -- now builds with new include separation.
+
+------------------------------------------------------------------------
+r158 | nenolod | 2005-05-29 03:04:02 -0400 (Sun, 29 May 2005) | 2 lines
+
+Split even more stuff out.
+
+------------------------------------------------------------------------
+r157 | nenolod | 2005-05-29 02:54:27 -0400 (Sun, 29 May 2005) | 2 lines
+
+Split out some more structures in atheme.h
+
+------------------------------------------------------------------------
+r156 | nenolod | 2005-05-29 02:48:22 -0400 (Sun, 29 May 2005) | 2 lines
+
+Split out linked-list manipulation functions.
+
+------------------------------------------------------------------------
+r155 | nenolod | 2005-05-29 02:45:10 -0400 (Sun, 29 May 2005) | 2 lines
+
+Get some sort of header on confparse.h
+
+------------------------------------------------------------------------
+r154 | nenolod | 2005-05-29 02:42:48 -0400 (Sun, 29 May 2005) | 2 lines
+
+Remove the indent script, it messes with things too much.
+
+------------------------------------------------------------------------
+r153 | nenolod | 2005-05-29 02:37:51 -0400 (Sun, 29 May 2005) | 2 lines
+
+More fixes
+
+------------------------------------------------------------------------
+r151 | nenolod | 2005-05-29 02:34:36 -0400 (Sun, 29 May 2005) | 2 lines
+
+Buildsystem fix.
+
+------------------------------------------------------------------------
+r150 | nenolod | 2005-05-29 02:33:19 -0400 (Sun, 29 May 2005) | 2 lines
+
+Split out conf/confp.c related data structures, and flags.c related data structures.
+
+------------------------------------------------------------------------
+r148 | nenolod | 2005-05-29 02:26:16 -0400 (Sun, 29 May 2005) | 2 lines
+
+inc -> include
+
+------------------------------------------------------------------------
+r147 | nenolod | 2005-05-29 02:24:05 -0400 (Sun, 29 May 2005) | 2 lines
+
+Add stdinc.h for including system header files.
+
+------------------------------------------------------------------------
+r146 | nenolod | 2005-05-29 02:11:26 -0400 (Sun, 29 May 2005) | 2 lines
+
+Non-critical bugfix.
+
+------------------------------------------------------------------------
+r145 | nick125 | 2005-05-29 02:10:22 -0400 (Sun, 29 May 2005) | 1 line
+
+
+------------------------------------------------------------------------
+r144 | nenolod | 2005-05-29 02:06:03 -0400 (Sun, 29 May 2005) | 2 lines
+
+Implement channel entry messages.
+
+------------------------------------------------------------------------
+r143 | nenolod | 2005-05-29 02:00:14 -0400 (Sun, 29 May 2005) | 2 lines
+
+Add data structures for on-join entry messages.
+
+------------------------------------------------------------------------
+r142 | nenolod | 2005-05-29 01:17:20 -0400 (Sun, 29 May 2005) | 3 lines
+
+Fix an issue with make install trying to install files that no longer 
+exist.
+
+------------------------------------------------------------------------
+r141 | nenolod | 2005-05-29 01:00:25 -0400 (Sun, 29 May 2005) | 2 lines
+
+Move position of wallops() to protocol files, as some ircd's find globops to be more proper for such notices.
+
+------------------------------------------------------------------------
+r140 | nenolod | 2005-05-29 00:51:28 -0400 (Sun, 29 May 2005) | 2 lines
+
+Make sure changes are synchronized before committing, collisions are bad.
+
+------------------------------------------------------------------------
+r139 | nenolod | 2005-05-29 00:50:37 -0400 (Sun, 29 May 2005) | 2 lines
+
+Implement tldprefix, so that tld changes are portable.
+
+------------------------------------------------------------------------
+r138 | nenolod | 2005-05-29 00:48:10 -0400 (Sun, 29 May 2005) | 2 lines
+
+Cosmetic change to flags.c
+
+------------------------------------------------------------------------
+r137 | nenolod | 2005-05-29 00:29:06 -0400 (Sun, 29 May 2005) | 2 lines
+
+Remove an unused variable.
+
+------------------------------------------------------------------------
+r136 | nenolod | 2005-05-29 00:22:48 -0400 (Sun, 29 May 2005) | 2 lines
+
+Update CService documentation.
+
+------------------------------------------------------------------------
+r135 | nenolod | 2005-05-29 00:16:43 -0400 (Sun, 29 May 2005) | 2 lines
+
+Add TOPIC command to CService.
+
+------------------------------------------------------------------------
+r134 | nenolod | 2005-05-28 23:22:33 -0400 (Sat, 28 May 2005) | 2 lines
+
+Add support for bahamut TSMODE.
+
+------------------------------------------------------------------------
+r133 | nenolod | 2005-05-28 23:11:52 -0400 (Sat, 28 May 2005) | 2 lines
+
+Add a footer to CService's flags output.
+
+------------------------------------------------------------------------
+r132 | nenolod | 2005-05-28 23:05:50 -0400 (Sat, 28 May 2005) | 2 lines
+
+Support bahamut AKILL/RAKILL.
+
+------------------------------------------------------------------------
+r131 | nenolod | 2005-05-28 22:57:43 -0400 (Sat, 28 May 2005) | 2 lines
+
+Support the infidel-like bahamut "smart sjoin".
+
+------------------------------------------------------------------------
+r130 | nenolod | 2005-05-28 22:49:40 -0400 (Sat, 28 May 2005) | 2 lines
+
+Fix CAPAB negotiation for bahamut.
+
+------------------------------------------------------------------------
+r129 | nenolod | 2005-05-28 22:45:40 -0400 (Sat, 28 May 2005) | 2 lines
+
+Work on bahamut protocol support continues, change some namespaces in dist/
+
+------------------------------------------------------------------------
+r128 | nenolod | 2005-05-28 22:27:57 -0400 (Sat, 28 May 2005) | 2 lines
+
+Fix a problem in configure where the protocol file was being overrode.
+
+------------------------------------------------------------------------
+r127 | nenolod | 2005-05-28 22:20:28 -0400 (Sat, 28 May 2005) | 2 lines
+
+More documentation changes.
+
+------------------------------------------------------------------------
+r126 | nenolod | 2005-05-28 22:18:10 -0400 (Sat, 28 May 2005) | 2 lines
+
+Update README and INSTALL documentation.
+
+------------------------------------------------------------------------
+r125 | nenolod | 2005-05-28 22:09:23 -0400 (Sat, 28 May 2005) | 2 lines
+
+Move server_login() to protocol files.
+
+------------------------------------------------------------------------
+r124 | nenolod | 2005-05-28 21:55:26 -0400 (Sat, 28 May 2005) | 2 lines
+
+Add experimental bahamut support, and clarify a few things in ratbox.c
+
+------------------------------------------------------------------------
+r123 | nenolod | 2005-05-28 21:52:14 -0400 (Sat, 28 May 2005) | 2 lines
+
+Add ircd type-selection to configure.
+
+------------------------------------------------------------------------
+r122 | nenolod | 2005-05-28 21:44:24 -0400 (Sat, 28 May 2005) | 2 lines
+
+irc.c -> protocol/ratbox.c
+
+------------------------------------------------------------------------
+r121 | nenolod | 2005-05-28 21:41:39 -0400 (Sat, 28 May 2005) | 2 lines
+
+Add some primordial ooze for protocol separation in ./configure.
+
+------------------------------------------------------------------------
+r120 | nenolod | 2005-05-28 21:38:17 -0400 (Sat, 28 May 2005) | 2 lines
+
+Since gmtime() is being used here instead of localtime(), an offset is not required to be sent in an email.
+
+------------------------------------------------------------------------
+r119 | nenolod | 2005-05-28 21:32:13 -0400 (Sat, 28 May 2005) | 2 lines
+
+Clean up expire_check() a little.
+
+------------------------------------------------------------------------
+r118 | nenolod | 2005-05-28 21:28:36 -0400 (Sat, 28 May 2005) | 2 lines
+
+Remove duplicate code.
+
+------------------------------------------------------------------------
+r117 | nenolod | 2005-05-28 21:28:10 -0400 (Sat, 28 May 2005) | 2 lines
+
+Move KLINE/UNKLINE code to irc.c, and move join() there as well, since SJOIN is a protocol thing too.
+
+------------------------------------------------------------------------
+r116 | nenolod | 2005-05-28 21:25:09 -0400 (Sat, 28 May 2005) | 2 lines
+
+Move introduce_user() to irc.c, as that is protocol-specific.
+
+------------------------------------------------------------------------
+r115 | nenolod | 2005-05-28 21:19:48 -0400 (Sat, 28 May 2005) | 2 lines
+
+Move mode declarations to irc.c, so that we can start working on moving that to protocol/ratbox.c
+
+------------------------------------------------------------------------
+r114 | nenolod | 2005-05-28 19:34:35 -0400 (Sat, 28 May 2005) | 2 lines
+
+Prepare channel mode declarations for moving into irc.c (which will become protocol/ratbox.c)
+
+------------------------------------------------------------------------
+r113 | nenolod | 2005-05-28 19:29:47 -0400 (Sat, 28 May 2005) | 2 lines
+
+Move cmode data structure declaration out of cmode.c and into the header, so that cmode literals can be moved out of cmode.c
+
+------------------------------------------------------------------------
+r112 | nenolod | 2005-05-28 19:26:47 -0400 (Sat, 28 May 2005) | 2 lines
+
+Seperate protocol and non-protocol specific stuff, so that Atheme can be more easily ported to other ircd software.
+
+------------------------------------------------------------------------
+r111 | nenolod | 2005-05-28 19:19:53 -0400 (Sat, 28 May 2005) | 2 lines
+
+Run indent through on a machine that has indent, and add KICK/KICKBAN commands to CService.
+
+------------------------------------------------------------------------
+r110 | nenolod | 2005-05-28 19:07:14 -0400 (Sat, 28 May 2005) | 2 lines
+
+Add an example for the new +/-* syntax for CService
+
+------------------------------------------------------------------------
+r109 | nenolod | 2005-05-28 19:05:07 -0400 (Sat, 28 May 2005) | 2 lines
+
+Add support for +/-* (asterisk) in flags statements, short for give/take all.
+
+------------------------------------------------------------------------
+r108 | nenolod | 2005-05-28 19:02:43 -0400 (Sat, 28 May 2005) | 2 lines
+
+Add a help topic for the flags command.
+
+------------------------------------------------------------------------
+r107 | nenolod | 2005-05-28 18:54:28 -0400 (Sat, 28 May 2005) | 9 lines
+
+The commit script automatically updates the ChangeLog in trunk/,
+ensuring that ChangeLog in svn is only one revision behind. It
+uses src/version.sh as the source to ensure that every commit is
+in the ChangeLog.
+
+The indent script was also automatically updated to automatically
+indent the new sections of the source code (cservice/*, gservice/*
+and oservice/*).
+
+------------------------------------------------------------------------
+r106 | nenolod | 2005-05-28 18:47:44 -0400 (Sat, 28 May 2005) | 2 lines
+
+Clean up /info output.
+
+------------------------------------------------------------------------
+r105 | nenolod | 2005-05-28 18:39:33 -0400 (Sat, 28 May 2005) | 2 lines
+
+Fix some documentation errors in the kline and flags commands.
+
+------------------------------------------------------------------------
+r104 | nenolod | 2005-05-28 18:36:20 -0400 (Sat, 28 May 2005) | 2 lines
+
+Testing CIA functionality.
+
+------------------------------------------------------------------------
+r103 | nenolod | 2005-05-28 18:33:19 -0400 (Sat, 28 May 2005) | 2 lines
+
+Testing whether or not CIA works.
+
+------------------------------------------------------------------------
+r102 | nenolod | 2005-05-28 15:39:26 -0400 (Sat, 28 May 2005) | 2 lines
+
+Fix a potential issue with kline/unkline in ratbox 2.1.
+
+------------------------------------------------------------------------
+r101 | nenolod | 2005-05-28 15:22:02 -0400 (Sat, 28 May 2005) | 2 lines
+
+Fix an or vs. and condition here.
+
+------------------------------------------------------------------------
+r100 | nenolod | 2005-05-28 15:10:59 -0400 (Sat, 28 May 2005) | 2 lines
+
+Make it not auto-op founders/successors.
+
+------------------------------------------------------------------------
+r99 | nenolod | 2005-05-28 15:06:00 -0400 (Sat, 28 May 2005) | 2 lines
+
+Fix a compile error.
+
+------------------------------------------------------------------------
+r98 | nenolod | 2005-05-28 15:03:28 -0400 (Sat, 28 May 2005) | 2 lines
+
+Check both for hosts and accounts when validating access in op/voice.
+
+------------------------------------------------------------------------
+r97 | nenolod | 2005-05-27 23:01:48 -0400 (Fri, 27 May 2005) | 2 lines
+
+Bugfix.
+
+------------------------------------------------------------------------
+r96 | nenolod | 2005-05-27 21:23:35 -0400 (Fri, 27 May 2005) | 2 lines
+
+Commit 0.1 release.
+
+------------------------------------------------------------------------
+r95 | nenolod | 2005-05-27 14:47:42 -0400 (Fri, 27 May 2005) | 2 lines
+
+Fix a bug in GService's GLOBAL command.
+
+------------------------------------------------------------------------
+r94 | nenolod | 2005-05-27 14:40:04 -0400 (Fri, 27 May 2005) | 2 lines
+
+Add akick documentation.
+
+------------------------------------------------------------------------
+r93 | nenolod | 2005-05-27 14:38:07 -0400 (Fri, 27 May 2005) | 2 lines
+
+Update TODO file.
+
+------------------------------------------------------------------------
+r92 | nenolod | 2005-05-27 14:37:06 -0400 (Fri, 27 May 2005) | 2 lines
+
+Implement initial support for akick lists.
+
+------------------------------------------------------------------------
+r91 | nenolod | 2005-05-27 10:54:34 -0400 (Fri, 27 May 2005) | 2 lines
+
+Replace strlcat/strlcpy functions with those from Linux.
+
+------------------------------------------------------------------------
+r90 | nenolod | 2005-05-23 00:08:56 -0400 (Mon, 23 May 2005) | 2 lines
+
+Try again. *sigh*
+
+------------------------------------------------------------------------
+r89 | nenolod | 2005-05-23 00:06:37 -0400 (Mon, 23 May 2005) | 2 lines
+
+Fix a crash.
+
+------------------------------------------------------------------------
+r88 | nenolod | 2005-05-23 00:03:26 -0400 (Mon, 23 May 2005) | 2 lines
+
+Add a snoop() to SET URL
+
+------------------------------------------------------------------------
+r87 | nenolod | 2005-05-23 00:01:54 -0400 (Mon, 23 May 2005) | 2 lines
+
+Add SET:URL
+
+------------------------------------------------------------------------
+r86 | nenolod | 2005-05-22 23:20:04 -0400 (Sun, 22 May 2005) | 2 lines
+
+Fix whitespace in OService HELP
+
+------------------------------------------------------------------------
+r85 | nenolod | 2005-05-22 23:12:43 -0400 (Sun, 22 May 2005) | 2 lines
+
+Fix a compile error.
+
+------------------------------------------------------------------------
+r84 | nenolod | 2005-05-22 23:11:11 -0400 (Sun, 22 May 2005) | 2 lines
+
+Enable help command.
+
+------------------------------------------------------------------------
+r83 | nenolod | 2005-05-22 23:10:19 -0400 (Sun, 22 May 2005) | 2 lines
+
+Add help.c
+
+------------------------------------------------------------------------
+r82 | nenolod | 2005-05-22 23:07:02 -0400 (Sun, 22 May 2005) | 2 lines
+
+Add OService::Help.
+
+------------------------------------------------------------------------
+r81 | nenolod | 2005-05-22 23:01:31 -0400 (Sun, 22 May 2005) | 2 lines
+
+Update TODO.
+
+------------------------------------------------------------------------
+r80 | nenolod | 2005-05-22 23:01:01 -0400 (Sun, 22 May 2005) | 2 lines
+
+Enable OService.
+
+------------------------------------------------------------------------
+r79 | nenolod | 2005-05-22 22:59:50 -0400 (Sun, 22 May 2005) | 2 lines
+
+Enable oservice interception.
+
+------------------------------------------------------------------------
+r78 | nenolod | 2005-05-22 22:54:59 -0400 (Sun, 22 May 2005) | 2 lines
+
+Build system updates.
+
+------------------------------------------------------------------------
+r77 | nenolod | 2005-05-22 22:52:01 -0400 (Sun, 22 May 2005) | 2 lines
+
+Services.c has no actual command handlers now.
+
+------------------------------------------------------------------------
+r76 | nenolod | 2005-05-22 22:45:47 -0400 (Sun, 22 May 2005) | 2 lines
+
+Add update, raw and rehash commands back in.
+
+------------------------------------------------------------------------
+r75 | nenolod | 2005-05-22 22:40:24 -0400 (Sun, 22 May 2005) | 2 lines
+
+Split OService KLINE out from services.c
+
+------------------------------------------------------------------------
+r74 | nenolod | 2005-05-22 22:33:37 -0400 (Sun, 22 May 2005) | 2 lines
+
+Add oservice.
+
+------------------------------------------------------------------------
+r73 | nenolod | 2005-05-22 17:50:44 -0400 (Sun, 22 May 2005) | 2 lines
+
+Add a TODO file.
+
+------------------------------------------------------------------------
+r72 | nenolod | 2005-05-22 17:42:05 -0400 (Sun, 22 May 2005) | 2 lines
+
+Update version.sh script.
+
+------------------------------------------------------------------------
+r71 | nenolod | 2005-05-22 17:37:50 -0400 (Sun, 22 May 2005) | 2 lines
+
+Rearrange the help directory.
+
+------------------------------------------------------------------------
+r70 | nenolod | 2005-05-22 17:31:03 -0400 (Sun, 22 May 2005) | 2 lines
+
+Finish GService.
+
+------------------------------------------------------------------------
+r68 | nenolod | 2005-05-22 16:51:04 -0400 (Sun, 22 May 2005) | 2 lines
+
+Add primary data structures for OService.
+
+------------------------------------------------------------------------
+r67 | nenolod | 2005-05-22 16:49:23 -0400 (Sun, 22 May 2005) | 2 lines
+
+Re-enable sendpass and status commands.
+
+------------------------------------------------------------------------
+r66 | nenolod | 2005-05-22 16:36:48 -0400 (Sun, 22 May 2005) | 2 lines
+
+We're very broken right now, yes we are.
+
+------------------------------------------------------------------------
+r65 | nenolod | 2005-05-22 16:25:43 -0400 (Sun, 22 May 2005) | 2 lines
+
+Move tokenization functions to tokenize.c.
+
+------------------------------------------------------------------------
+r64 | nenolod | 2005-05-22 16:11:39 -0400 (Sun, 22 May 2005) | 2 lines
+
+Add some directories.
+
+------------------------------------------------------------------------
+r63 | nenolod | 2002-02-26 08:41:53 -0500 (Tue, 26 Feb 2002) | 2 lines
+
+New API for notice() and cmd_find().
+
+------------------------------------------------------------------------
+r62 | nenolod | 2002-02-26 08:22:24 -0500 (Tue, 26 Feb 2002) | 2 lines
+
+Add handler for GService processing.
+
+------------------------------------------------------------------------
+r61 | nenolod | 2002-02-26 08:18:27 -0500 (Tue, 26 Feb 2002) | 2 lines
+
+Add cservice.c (cservice parsing)
+
+------------------------------------------------------------------------
+r60 | nenolod | 2002-02-26 08:09:19 -0500 (Tue, 26 Feb 2002) | 2 lines
+
+GService is now announced to the network without a crash.
+
+------------------------------------------------------------------------
+r59 | nenolod | 2002-02-25 16:27:06 -0500 (Mon, 25 Feb 2002) | 2 lines
+
+Add doc and help directories from Shrike.
+
+------------------------------------------------------------------------
+r58 | nenolod | 2002-02-25 16:22:21 -0500 (Mon, 25 Feb 2002) | 2 lines
+
+Fix a few errors in both the example conf, and the parser controller.
+
+------------------------------------------------------------------------
+r57 | nenolod | 2002-02-25 16:07:41 -0500 (Mon, 25 Feb 2002) | 2 lines
+
+Implement needed code to convert over to atheme-style config format.
+
+------------------------------------------------------------------------
+r56 | nenolod | 2002-02-25 15:54:42 -0500 (Mon, 25 Feb 2002) | 2 lines
+
+Start working on the global noticer service.
+
+------------------------------------------------------------------------
+r55 | nenolod | 2005-05-18 19:32:15 -0400 (Wed, 18 May 2005) | 3 lines
+
+Fix a problem in ban();
+
+
+------------------------------------------------------------------------
+r54 | nenolod | 2005-05-18 19:23:19 -0400 (Wed, 18 May 2005) | 2 lines
+
+Allow cmode() to place bans.
+
+------------------------------------------------------------------------
+r53 | nenolod | 2005-05-18 19:15:15 -0400 (Wed, 18 May 2005) | 2 lines
+
+Fix a bug where services will crash if removing all flags from a host entry.
+
+------------------------------------------------------------------------
+r51 | nenolod | 2005-05-18 19:03:11 -0400 (Wed, 18 May 2005) | 2 lines
+
+If flags is 0x0, then remove the channel access entry.
+
+------------------------------------------------------------------------
+r50 | nenolod | 2005-05-18 19:00:09 -0400 (Wed, 18 May 2005) | 2 lines
+
+Implement base framework for akick lists.
+
+------------------------------------------------------------------------
+r49 | nenolod | 2005-05-18 18:41:31 -0400 (Wed, 18 May 2005) | 2 lines
+
+Some work in various places in the tree.
+
+------------------------------------------------------------------------
+r48 | nenolod | 2005-05-18 18:32:20 -0400 (Wed, 18 May 2005) | 2 lines
+
+Add framework for akick system, and fix an autovoice bug.
+
+------------------------------------------------------------------------
+r47 | nenolod | 2005-05-18 18:06:01 -0400 (Wed, 18 May 2005) | 2 lines
+
+Fix some issues with flags. Not sure why there are 'changed' files here.
+
+------------------------------------------------------------------------
+r46 | nenolod | 2005-05-18 14:31:55 -0400 (Wed, 18 May 2005) | 2 lines
+
+Finish seperating cservice stuff from services.c.
+
+------------------------------------------------------------------------
+r45 | nenolod | 2005-05-18 14:22:52 -0400 (Wed, 18 May 2005) | 3 lines
+
+Broke out info.c and recover.c from services.c.
+
+
+------------------------------------------------------------------------
+r44 | nenolod | 2005-05-18 14:14:45 -0400 (Wed, 18 May 2005) | 2 lines
+
+Split out invite and voice/devoice from services.c.
+
+------------------------------------------------------------------------
+r42 | nenolod | 2005-05-18 13:58:31 -0400 (Wed, 18 May 2005) | 2 lines
+
+Fix formatting again.
+
+------------------------------------------------------------------------
+r41 | nenolod | 2005-05-18 13:54:39 -0400 (Wed, 18 May 2005) | 2 lines
+
+More formatting adjustments in flags.c
+
+------------------------------------------------------------------------
+r40 | nenolod | 2005-05-18 13:53:52 -0400 (Wed, 18 May 2005) | 2 lines
+
+More adjustment.
+
+------------------------------------------------------------------------
+r39 | nenolod | 2005-05-18 13:52:24 -0400 (Wed, 18 May 2005) | 2 lines
+
+Line stuff up.
+
+------------------------------------------------------------------------
+r38 | nenolod | 2005-05-18 13:50:44 -0400 (Wed, 18 May 2005) | 2 lines
+
+Pretty up the FLAGS output.
+
+------------------------------------------------------------------------
+r37 | nenolod | 2005-05-18 13:43:44 -0400 (Wed, 18 May 2005) | 2 lines
+
+Split XOP functions out of services.c
+
+------------------------------------------------------------------------
+r35 | nenolod | 2005-05-18 13:22:43 -0400 (Wed, 18 May 2005) | 2 lines
+
+Split out login and logout from services.c.
+
+------------------------------------------------------------------------
+r34 | nenolod | 2005-05-18 13:13:04 -0400 (Wed, 18 May 2005) | 2 lines
+
+Split flags out of services.c
+
+------------------------------------------------------------------------
+r33 | nenolod | 2005-05-18 13:03:43 -0400 (Wed, 18 May 2005) | 2 lines
+
+Move cservice stuff to cservice/.
+
+------------------------------------------------------------------------
+r32 | nenolod | 2005-05-18 12:59:11 -0400 (Wed, 18 May 2005) | 2 lines
+
+do_ functions renamed to cs_ functions.
+
+------------------------------------------------------------------------
+r31 | nenolod | 2002-02-23 07:07:28 -0500 (Sat, 23 Feb 2002) | 2 lines
+
+Add atheme.conf file.
+
+------------------------------------------------------------------------
+r30 | nenolod | 2002-02-23 06:49:25 -0500 (Sat, 23 Feb 2002) | 2 lines
+
+Separate config options from chansvs struct.
+
+------------------------------------------------------------------------
+r29 | nenolod | 2002-02-23 06:23:07 -0500 (Sat, 23 Feb 2002) | 2 lines
+
+Update version commit.
+
+------------------------------------------------------------------------
+r28 | nenolod | 2002-02-23 06:20:11 -0500 (Sat, 23 Feb 2002) | 2 lines
+
+Displays the current project revision in /version reply now.
+
+------------------------------------------------------------------------
+r27 | nenolod | 2002-02-23 06:18:05 -0500 (Sat, 23 Feb 2002) | 2 lines
+
+Some adjustments here.
+
+------------------------------------------------------------------------
+r26 | nenolod | 2002-02-23 06:16:37 -0500 (Sat, 23 Feb 2002) | 2 lines
+
+Test some fixes.
+
+------------------------------------------------------------------------
+r17 | nenolod | 2005-05-11 13:50:41 -0400 (Wed, 11 May 2005) | 2 lines
+
+Add $Id$ tracking.
+
+------------------------------------------------------------------------
+r1 | nenolod | 2005-05-11 00:01:25 -0400 (Wed, 11 May 2005) | 2 lines
+
+Import shrike-devel.
+
+------------------------------------------------------------------------

@@ -1,0 +1,16 @@
+Help for LOGOUT:
+
+LOGOUT logs you out of services so that you
+can log into another username or whatever else
+melts your butter. Note that you are automatically
+logged out when you sign off.
+
+If the last two parameters are present it will
+logout whomever is currently logged in as the
+supplied username.
+
+Syntax: LOGOUT [username] [password]
+
+Examples:
+    /msg &nick& LOGOUT
+    /msg &nick& LOGOUT foo bar

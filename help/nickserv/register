@@ -1,0 +1,9 @@
+Help for REGISTER:
+
+REGISTER allows you to register a nickname
+so that you have better control over it.
+
+Syntax: REGISTER <password> <email>
+
+Examples:
+    /msg &nick& REGISTER bar foo@bar.com

@@ -1,0 +1,10 @@
+Help for INFO:
+
+INFO displays username or channel information such
+as registration time, flags, and other details.
+
+Syntax: INFO <username|#channel>
+
+Examples:
+    /msg &nick& INFO foo
+    /msg &nick& INFO #foo

@@ -1,0 +1,167 @@
+# Copyright (c) 2003-2004 E. Will et al.
+# Rights to this code are documented in doc/LICENSE.
+#
+# This file contains build instructions.
+#
+# $Id: Makefile.in 343 2002-03-13 14:59:00Z nenolod $
+#
+
+CC		= @CC@
+RM		= @RM@
+MV		= @MV@
+CP		= @CP@
+INSTALL		= @INSTALL@
+PREFIX		= @prefix@
+BIN		= atheme@EXEEXT@
+MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include
+
+# Default CFLAGS
+#CFLAGS		= -g -O2 -Wall
+
+# Developer CFLAGS
+CFLAGS		= -g -O2 -Wunused -Wall -ggdb -pedantic -Wshadow -Wmissing-declarations -Wno-long-long
+
+CFLAGS		+= -DPREFIX=\"@prefix@\" -I../include
+
+VERSION		= 0.1
+
+LIBS		= @LIBS@
+LDFLAGS		= @LDFLAGS@
+CPPFLAGS	= @CPPFLAGS@
+
+default: all
+
+BASE_SRCS =			\
+	atheme.c		\
+	balloc.c		\
+	cmode.c			\
+	conf.c			\
+	confp.c			\
+	cservice.c		\
+	db.c			\
+	event.c			\
+	flags.c			\
+	function.c		\
+	gservice.c		\
+	help.c			\
+	match.c			\
+	nickserv.c		\
+	node.c			\
+	oservice.c		\
+	parse.c			\
+	services.c		\
+	socket.c		\
+	tokenize.c		\
+	version.c
+
+CSERVICE_SRCS =			\
+	cservice/akick.c	\
+	cservice/ban.c		\
+	cservice/drop.c		\
+	cservice/flags.c	\
+	cservice/kick.c		\
+	cservice/info.c		\
+	cservice/invite.c	\
+	cservice/login.c	\
+	cservice/logout.c	\
+	cservice/help.c		\
+	cservice/op.c		\
+	cservice/recover.c	\
+	cservice/register.c	\
+	cservice/sendpass.c	\
+	cservice/set.c		\
+	cservice/status.c	\
+	cservice/topic.c	\
+	cservice/voice.c	\
+	cservice/xop.c
+
+GSERVICE_SRCS =			\
+	gservice/help.c		\
+	gservice/global.c
+
+OSERVICE_SRCS =			\
+	oservice/help.c		\
+	oservice/kline.c	\
+	oservice/inject.c	\
+	oservice/mode.c		\
+	oservice/raw.c		\
+	oservice/rehash.c	\
+	oservice/restart.c	\
+	oservice/shutdown.c	\
+	oservice/update.c
+
+NICKSERV_SRCS =			\
+	nickserv/drop.c		\
+	nickserv/ghost.c	\
+	nickserv/help.c		\
+	nickserv/identify.c	\
+	nickserv/info.c		\
+	nickserv/register.c	\
+	nickserv/sendpass.c	\
+	nickserv/set.c		\
+	nickserv/status.c
+
+PROTOCOL_SRCS = @IRCD_PROTOCOL@
+
+SRCS = ${BASE_SRCS} ${CSERVICE_SRCS} ${GSERVICE_SRCS} ${OSERVICE_SRCS} ${NICKSERV_SRCS} ${PROTOCOL_SRCS}
+
+OBJS = ${SRCS:.c=.o}
+
+all: version atheme
+
+build: all
+
+atheme: $(OBJS)
+	${CC} ${CFLAGS} ${LDFLAGS} -o $@ ${OBJS} ${LIBS}
+	$(MV) version.c version.c.last
+
+install: build
+	$(INSTALL) -m 755 -d $(PREFIX)
+	$(INSTALL) -m 755 -d $(PREFIX)/bin
+	$(INSTALL) -m 755 -d $(PREFIX)/etc
+	$(INSTALL) -m 755 -d $(PREFIX)/var
+	$(INSTALL) -m 755 -c $(BIN) $(PREFIX)/bin
+	$(INSTALL) -m 640 -c ../dist/example.conf $(PREFIX)/etc
+	$(INSTALL) -m 640 -c ../dist/example-traditional.conf $(PREFIX)/etc
+	if [ ! -r $(PREFIX)/etc/atheme.db ]; then \
+		$(INSTALL) -m 640 -c ../dist/atheme.db $(PREFIX)/etc ; \
+	fi
+	if [ ! -r $(PREFIX)/etc/atheme.chk ]; then \
+		$(INSTALL) -m 640 -c ../dist/atheme.chk $(PREFIX)/etc ; \
+	fi
+	if [ -e $(PREFIX)/doc ]; then \
+		$(RM) -rf $(PREFIX)/doc ; \
+	fi
+	if [ -e $(PREFIX)/help ]; then \
+		$(RM) -rf $(PREFIX)/help ; \
+	fi
+	$(CP) -R ../doc $(PREFIX)
+	$(CP) -R ../help $(PREFIX)
+
+	@echo "----------------------------------------------------------------"
+	@echo ">>> Remember to cd to ${PREFIX} and edit your config file.";
+	@echo "----------------------------------------------------------------"
+
+deinstall:
+	if [ -d ${PREFIX} ] ; then \
+		$(RM) -rf ${PREFIX}; \
+	fi
+
+version:
+	/bin/sh ./version.sh $(VERSION)
+
+.c.o:
+	${CC} ${CPPFLAGS} ${CFLAGS} -c $< -o $@
+
+.PHONY: depend clean distclean
+depend:
+	${MKDEP} ${CPPFLAGS} ${BASE_SRCS} > .depend
+
+clean:
+	${RM} -f *.o *.exe *~ version.c atheme.core core atheme
+	${RM} -f cservice/*.o gservice/*.o oservice/*.o protocol/*.o nickserv/*.o
+
+distclean: clean
+	${RM} -f Makefile version.c.last
+
+include .depend

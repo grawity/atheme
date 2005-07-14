@@ -5,7 +5,7 @@
  * This file contains linked list functions.
  * Idea from ircd-hybrid.
  *
- * $Id: node.c 398 2002-03-15 13:27:37Z nenolod $
+ * $Id: node.c 760 2005-07-14 04:37:31Z nenolod $
  */
 
 #include "atheme.h"
@@ -1359,7 +1359,7 @@ chanacs_t *chanacs_find(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 
 		if (level != 0x0)
 		{
-			if ((ca->myuser == myuser) && (ca->level & level))
+			if ((ca->myuser == myuser) && ((ca->level & level) == level))
 				return ca;
 		}
 		else if (ca->myuser == myuser)
@@ -1383,7 +1383,7 @@ chanacs_t *chanacs_find_host(mychan_t *mychan, char *host, uint32_t level)
 
 		if (level != 0x0)
 		{
-			if ((ca->host) && (!match(ca->host, host)) && (ca->level & level))
+			if ((ca->host) && (!match(ca->host, host)) && ((ca->level & level) == level))
 				return ca;
 		}
 		else if ((ca->host) && (!match(ca->host, host)))

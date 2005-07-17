@@ -1,11 +1,11 @@
 Help for SET NEVEROP:
 
-SET NEVEROP prevents services from automatically
-setting channel access modes.  This command may
-be used for a single username or an entire channel.
+SET NEVEROP prevents a username from being added
+to channel access lists.  This is useful if
+a user does not wish to be added to other channel's
+access lists.
 
-Syntax: SET <username|#channel> NEVEROP ON|OFF
+Syntax: SET <username> NEVEROP ON|OFF
 
-Examples:
+Example:
     /msg &nick& SET foo NEVEROP ON
-    /msg &nick& SET #foo NEVEROP OFF

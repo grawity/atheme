@@ -1,9 +1,9 @@
-# Copyright (c) 2003-2004 E. Will et al.
+# Copyright (c) 2005 Atheme Development Group
 # Rights to this code are documented in doc/LICENSE.
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 343 2002-03-13 14:59:00Z nenolod $
+# $Id: Makefile.in 908 2005-07-17 04:00:28Z w00t $
 #
 
 CC		= @CC@
@@ -13,19 +13,12 @@ CP		= @CP@
 INSTALL		= @INSTALL@
 PREFIX		= @prefix@
 BIN		= atheme@EXEEXT@
-MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include
+MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include @PGINC@
+CFLAGS		= @CFLAGS@ -I../include @PGINC@
 
-# Default CFLAGS
-#CFLAGS		= -g -O2 -Wall
+VERSION		= @PACKAGE_VERSION@
 
-# Developer CFLAGS
-CFLAGS		= -g -O2 -Wunused -Wall -ggdb -pedantic -Wshadow -Wmissing-declarations -Wno-long-long
-
-CFLAGS		+= -DPREFIX=\"@prefix@\" -I../include
-
-VERSION		= 0.1
-
-LIBS		= @LIBS@
+LIBS		= @LIBS@ @PQLIB@
 LDFLAGS		= @LDFLAGS@
 CPPFLAGS	= @CPPFLAGS@
 
@@ -35,75 +28,36 @@ BASE_SRCS =			\
 	atheme.c		\
 	balloc.c		\
 	cmode.c			\
+	commandtree.c		\
 	conf.c			\
-	confp.c			\
+	confparse.c		\
 	cservice.c		\
-	db.c			\
+	dbhandler.c		\
 	event.c			\
 	flags.c			\
 	function.c		\
 	gservice.c		\
 	help.c			\
+	hook.c			\
 	match.c			\
+	module.c		\
 	nickserv.c		\
 	node.c			\
 	oservice.c		\
 	parse.c			\
+	phandler.c		\
+	pmodule.c		\
 	services.c		\
+	servtree.c		\
+	signal.c		\
 	socket.c		\
 	tokenize.c		\
+	ubase64.c		\
+	uid.c			\
+	uplink.c		\
 	version.c
 
-CSERVICE_SRCS =			\
-	cservice/akick.c	\
-	cservice/ban.c		\
-	cservice/drop.c		\
-	cservice/flags.c	\
-	cservice/kick.c		\
-	cservice/info.c		\
-	cservice/invite.c	\
-	cservice/login.c	\
-	cservice/logout.c	\
-	cservice/help.c		\
-	cservice/op.c		\
-	cservice/recover.c	\
-	cservice/register.c	\
-	cservice/sendpass.c	\
-	cservice/set.c		\
-	cservice/status.c	\
-	cservice/topic.c	\
-	cservice/voice.c	\
-	cservice/xop.c
-
-GSERVICE_SRCS =			\
-	gservice/help.c		\
-	gservice/global.c
-
-OSERVICE_SRCS =			\
-	oservice/help.c		\
-	oservice/kline.c	\
-	oservice/inject.c	\
-	oservice/mode.c		\
-	oservice/raw.c		\
-	oservice/rehash.c	\
-	oservice/restart.c	\
-	oservice/shutdown.c	\
-	oservice/update.c
-
-NICKSERV_SRCS =			\
-	nickserv/drop.c		\
-	nickserv/ghost.c	\
-	nickserv/help.c		\
-	nickserv/identify.c	\
-	nickserv/info.c		\
-	nickserv/register.c	\
-	nickserv/sendpass.c	\
-	nickserv/set.c		\
-	nickserv/status.c
-
-PROTOCOL_SRCS = @IRCD_PROTOCOL@
-
-SRCS = ${BASE_SRCS} ${CSERVICE_SRCS} ${GSERVICE_SRCS} ${OSERVICE_SRCS} ${NICKSERV_SRCS} ${PROTOCOL_SRCS}
+SRCS = ${BASE_SRCS}
 
 OBJS = ${SRCS:.c=.o}
 
@@ -159,7 +113,6 @@ depend:
 
 clean:
 	${RM} -f *.o *.exe *~ version.c atheme.core core atheme
-	${RM} -f cservice/*.o gservice/*.o oservice/*.o protocol/*.o nickserv/*.o
 
 distclean: clean
 	${RM} -f Makefile version.c.last

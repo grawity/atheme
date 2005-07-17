@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the routines that deal with the configuration.
  *
- * $Id: conf.c 317 2005-06-02 17:52:21Z nenolod $
+ * $Id: conf.c 948 2005-07-17 20:39:21Z nenolod $
  */
 
 #include "atheme.h"
@@ -20,17 +20,19 @@ static int c_cservice(CONFIGENTRY *);
 static int c_gservice(CONFIGENTRY *);
 static int c_oservice(CONFIGENTRY *);
 static int c_general(CONFIGENTRY *);
+static int c_database(CONFIGENTRY *);
+static int c_uplink(CONFIGENTRY *);
 static int c_nickserv(CONFIGENTRY *);
+static int c_loadmodule(CONFIGENTRY *);
 
 static int c_si_name(CONFIGENTRY *);
 static int c_si_desc(CONFIGENTRY *);
 static int c_si_uplink(CONFIGENTRY *);
+static int c_si_numeric(CONFIGENTRY *);
 static int c_si_port(CONFIGENTRY *);
-static int c_si_pass(CONFIGENTRY *);
 static int c_si_vhost(CONFIGENTRY *);
 static int c_si_recontime(CONFIGENTRY *);
 static int c_si_restarttime(CONFIGENTRY *);
-static int c_si_expire(CONFIGENTRY *);
 static int c_si_netname(CONFIGENTRY *);
 static int c_si_adminname(CONFIGENTRY *);
 static int c_si_adminemail(CONFIGENTRY *);
@@ -39,6 +41,7 @@ static int c_si_loglevel(CONFIGENTRY *);
 static int c_si_maxusers(CONFIGENTRY *);
 static int c_si_maxchans(CONFIGENTRY *);
 static int c_si_auth(CONFIGENTRY *);
+static int c_si_mdlimit(CONFIGENTRY *);
 static int c_si_casemapping(CONFIGENTRY *);
 
 /* CService client information. */
@@ -46,6 +49,7 @@ static int c_ci_nick(CONFIGENTRY *);
 static int c_ci_user(CONFIGENTRY *);
 static int c_ci_host(CONFIGENTRY *);
 static int c_ci_real(CONFIGENTRY *);
+static int c_ci_fantasy(CONFIGENTRY *);
 
 /* GService client information. */
 static int c_gl_nick(CONFIGENTRY *);
@@ -65,6 +69,14 @@ static int c_ni_user(CONFIGENTRY *);
 static int c_ni_host(CONFIGENTRY *);
 static int c_ni_real(CONFIGENTRY *);
 static int c_ni_enable(CONFIGENTRY *);
+static int c_ni_spam(CONFIGENTRY *);
+
+/* Database information. */
+static int c_db_user(CONFIGENTRY *);
+static int c_db_host(CONFIGENTRY *);
+static int c_db_password(CONFIGENTRY *);
+static int c_db_database(CONFIGENTRY *);
+static int c_db_port(CONFIGENTRY *);
 
 static int c_gi_chan(CONFIGENTRY *);
 static int c_gi_silent(CONFIGENTRY *);
@@ -76,7 +88,10 @@ static int c_gi_raw(CONFIGENTRY *);
 static int c_gi_flood_msgs(CONFIGENTRY *);
 static int c_gi_flood_time(CONFIGENTRY *);
 static int c_gi_kline_time(CONFIGENTRY *);
+static int c_gi_commit_interval(CONFIGENTRY *);
+static int c_gi_expire(CONFIGENTRY *);
 static int c_gi_sras(CONFIGENTRY *);
+static int c_gi_secure(CONFIGENTRY *);
 
 struct ConfTable
 {
@@ -98,7 +113,6 @@ static struct Token uflags[] = {
 
 static struct Token cflags[] = {
   { "HOLD",    MC_HOLD    },
-  { "NEVEROP", MC_NEVEROP },
   { "SECURE",  MC_SECURE  },
   { "VERBOSE", MC_VERBOSE },
   { "NONE",    0          },
@@ -114,7 +128,10 @@ static struct ConfTable conf_root_table[] = {
   { "OPERSERV", 1, c_oservice },
   { "OSERVICE", 1, c_oservice },
   { "NICKSERV", 1, c_nickserv },
+  { "UPLINK",   1, c_uplink   },
   { "GENERAL", 1, c_general },
+  { "DATABASE", 0, c_database },
+  { "LOADMODULE", 1, c_loadmodule },
   { NULL, 0, NULL }
 };
 
@@ -122,12 +139,12 @@ static struct ConfTable conf_si_table[] = {
   { "NAME",        0, c_si_name        },
   { "DESC",        0, c_si_desc        },
   { "UPLINK",      0, c_si_uplink      },
+  { "NUMERIC",     0, c_si_numeric     },
   { "PORT",        0, c_si_port        },
-  { "PASS",        1, c_si_pass        },
   { "VHOST",       0, c_si_vhost       },
   { "RECONTIME",   1, c_si_recontime   },
   { "RESTARTTIME", 1, c_si_restarttime },
-  { "EXPIRE",      1, c_si_expire      },
+  { "EXPIRE",      1, c_gi_expire      },	/* for legacy configs */
   { "NETNAME",     1, c_si_netname     },
   { "ADMINNAME",   1, c_si_adminname   },
   { "ADMINEMAIL",  1, c_si_adminemail  },
@@ -136,6 +153,7 @@ static struct ConfTable conf_si_table[] = {
   { "MAXUSERS",    1, c_si_maxusers    },
   { "MAXCHANS",    1, c_si_maxchans    },
   { "AUTH",        1, c_si_auth        },
+  { "MDLIMIT",     1, c_si_mdlimit     },
   { "CASEMAPPING", 0, c_si_casemapping },
   { NULL, 0, NULL }
 };
@@ -145,6 +163,7 @@ static struct ConfTable conf_ci_table[] = {
   { "USER",        0, c_ci_user        },
   { "HOST",        0, c_ci_host        },
   { "REAL",        0, c_ci_real        },
+  { "FANTASY",     0, c_ci_fantasy     },
   { NULL, 0, NULL }
 };
 
@@ -170,21 +189,34 @@ static struct ConfTable conf_ni_table[] = {
   { "HOST",        0, c_ni_host        },
   { "REAL",        0, c_ni_real        },
   { "ENABLE",      0, c_ni_enable      },
+  { "SPAM",        0, c_ni_spam        },
+  { NULL, 0, NULL }
+};
+
+static struct ConfTable conf_db_table[] = {
+  { "USER",	1, c_db_user },
+  { "HOST",	1, c_db_host },
+  { "PASSWORD",	1, c_db_password },
+  { "DATABASE",	1, c_db_database },
+  { "PORT",	1, c_db_port },
   { NULL, 0, NULL }
 };
 
 static struct ConfTable conf_gi_table[] = {
-  { "CHAN",        1, c_gi_chan        },
-  { "SILENT",      1, c_gi_silent      },
-  { "JOIN_CHANS",  1, c_gi_join_chans  },
-  { "LEAVE_CHANS", 1, c_gi_leave_chans },
-  { "UFLAGS",      1, c_gi_uflags      },
-  { "CFLAGS",      1, c_gi_cflags      },
-  { "RAW",         1, c_gi_raw         },
-  { "FLOOD_MSGS",  1, c_gi_flood_msgs  },
-  { "FLOOD_TIME",  1, c_gi_flood_time  },
-  { "KLINE_TIME",  1, c_gi_kline_time  },
-  { "SRAS",        1, c_gi_sras        },
+  { "CHAN",            1, c_gi_chan            },
+  { "SILENT",          1, c_gi_silent          },
+  { "JOIN_CHANS",      1, c_gi_join_chans      },
+  { "LEAVE_CHANS",     1, c_gi_leave_chans     },
+  { "UFLAGS",          1, c_gi_uflags          },
+  { "CFLAGS",          1, c_gi_cflags          },
+  { "RAW",             1, c_gi_raw             },
+  { "SECURE",          1, c_gi_secure          },
+  { "FLOOD_MSGS",      1, c_gi_flood_msgs      },
+  { "FLOOD_TIME",      1, c_gi_flood_time      },
+  { "KLINE_TIME",      1, c_gi_kline_time      },
+  { "COMMIT_INTERVAL", 0, c_gi_commit_interval },
+  { "EXPIRE",          1, c_gi_expire          },
+  { "SRAS",            1, c_gi_sras            },
   { NULL, 0, NULL }
 };
 
@@ -229,8 +261,6 @@ void conf_parse(void)
 
 void conf_init(void)
 {
-	if (me.pass)
-		free(me.pass);
 	if (me.netname)
 		free(me.netname);
 	if (me.adminname)
@@ -246,9 +276,9 @@ void conf_init(void)
 	if (config_options.global)
 		free(config_options.global);
 
-	me.pass = me.netname = me.adminname = me.adminemail = me.mta = chansvs.nick = config_options.chan = config_options.global = NULL;
+	me.netname = me.adminname = me.adminemail = me.mta = chansvs.nick = config_options.chan = config_options.global = NULL;
 
-	me.recontime = me.restarttime = me.expire = me.maxusers = me.maxchans = config_options.flood_msgs = config_options.flood_time = config_options.kline_time = 0;
+	me.recontime = me.restarttime = me.maxusers = me.maxchans = config_options.flood_msgs = config_options.flood_time = config_options.kline_time = config_options.commit_interval = config_options.expire = 0;
 
 	/* we don't reset loglevel because too much stuff uses it */
 	config_options.defuflags = config_options.defcflags = 0x00000000;
@@ -256,6 +286,8 @@ void conf_init(void)
 	config_options.silent = config_options.join_chans = config_options.leave_chans = config_options.raw = FALSE;
 
 	me.auth = AUTH_NONE;
+
+	me.mdlimit = 30;
 
 	if (!(runflags & RF_REHASHING))
 	{
@@ -334,6 +366,95 @@ static int c_nickserv(CONFIGENTRY *ce)
 	return 0;
 }
 
+static int c_database(CONFIGENTRY *ce)
+{
+	subblock_handler(ce, conf_db_table);
+	return 0;
+}
+
+static int c_loadmodule(CONFIGENTRY *ce)
+{
+	char pathbuf[4096];
+	char *name;
+
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	name = ce->ce_vardata;
+
+	if (*name == '/')
+	{
+		module_load(name);
+		return 0;
+	}
+	else
+	{
+		snprintf(pathbuf, 4096, "%s/%s", PREFIX, name);
+		module_load(pathbuf);
+		return 0;
+	}
+}
+
+static int c_uplink(CONFIGENTRY *ce)
+{
+	char *name;
+	char *host = NULL, *vhost = NULL, *password = NULL, *numeric = NULL;
+	uint32_t port = 0;
+
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	name = sstrdup(ce->ce_vardata);
+
+	for (ce = ce->ce_entries; ce; ce = ce->ce_next)
+	{
+		if (!strcasecmp("HOST", ce->ce_varname))
+		{
+			if (ce->ce_vardata == NULL)
+				PARAM_ERROR(ce);
+
+			host = sstrdup(ce->ce_vardata);
+		}
+		else if (!strcasecmp("VHOST", ce->ce_varname))
+                {
+                        if (ce->ce_vardata == NULL)
+                                PARAM_ERROR(ce);
+
+                        vhost = sstrdup(ce->ce_vardata);
+                }
+                else if (!strcasecmp("NUMERIC", ce->ce_varname))
+                {
+                        if (ce->ce_vardata == NULL)
+                                PARAM_ERROR(ce);
+
+                        numeric = sstrdup(ce->ce_vardata);
+                }
+                else if (!strcasecmp("PASSWORD", ce->ce_varname))
+                {
+                        if (ce->ce_vardata == NULL)
+                                PARAM_ERROR(ce);
+
+                        password = sstrdup(ce->ce_vardata);
+                }
+                else if (!strcasecmp("PORT", ce->ce_varname))
+                {
+                        if (ce->ce_vardata == NULL)
+                                PARAM_ERROR(ce);
+
+			port = ce->ce_vardatanum;
+                }
+		else
+		{
+			slog(LG_ERROR, "%s:%d: Invalid configuration option uplink::%s",
+				ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_varname);
+			continue;
+		}
+	}
+
+	uplink_add(name, host, password, vhost, numeric, port);
+	return 0;
+}
+
 static int c_general(CONFIGENTRY *ce)
 {
 	subblock_handler(ce, conf_gi_table);
@@ -370,6 +491,16 @@ static int c_si_uplink(CONFIGENTRY *ce)
 	return 0;
 }
 
+static int c_si_numeric(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	me.numeric = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
 static int c_si_port(CONFIGENTRY *ce)
 {
 	if (ce->ce_vardata == NULL)
@@ -380,12 +511,12 @@ static int c_si_port(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_pass(CONFIGENTRY *ce)
+static int c_si_mdlimit(CONFIGENTRY *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
 
-	me.pass = sstrdup(ce->ce_vardata);
+	me.mdlimit = ce->ce_vardatanum;
 
 	return 0;
 }
@@ -416,16 +547,6 @@ static int c_si_restarttime(CONFIGENTRY *ce)
 		PARAM_ERROR(ce);
 
 	me.restarttime = ce->ce_vardatanum;
-
-	return 0;
-}
-
-static int c_si_expire(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	me.expire = (ce->ce_vardatanum * 60 * 60 * 24);
 
 	return 0;
 }
@@ -582,6 +703,13 @@ static int c_ci_real(CONFIGENTRY *ce)
 	return 0;
 }
 
+static int c_ci_fantasy(CONFIGENTRY *ce)
+{
+	chansvs.fantasy = TRUE;
+
+	return 0;
+}
+
 static int c_gi_chan(CONFIGENTRY *ce)
 {
 	if (ce->ce_vardata == NULL)
@@ -595,6 +723,12 @@ static int c_gi_chan(CONFIGENTRY *ce)
 static int c_gi_silent(CONFIGENTRY *ce)
 {
 	config_options.silent = TRUE;
+	return 0;
+}
+
+static int c_gi_secure(CONFIGENTRY *ce)
+{
+	config_options.secure = TRUE;
 	return 0;
 }
 
@@ -690,6 +824,26 @@ static int c_gi_kline_time(CONFIGENTRY *ce)
 	return 0;
 }
 
+static int c_gi_commit_interval(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	config_options.commit_interval = (ce->ce_vardatanum * 60);
+
+	return 0;
+}
+
+static int c_gi_expire(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	config_options.expire = (ce->ce_vardatanum * 60 * 60 * 24);
+
+	return 0;
+}
+
 static int c_oi_nick(CONFIGENTRY *ce)
 {
 	if (ce->ce_vardata == NULL)
@@ -776,6 +930,12 @@ static int c_ni_enable(CONFIGENTRY *ce)
 	return 0;
 }
 
+static int c_ni_spam(CONFIGENTRY *ce)
+{
+	nicksvs.spam = TRUE;
+	return 0;
+}
+
 static int c_gl_nick(CONFIGENTRY *ce)
 {
 	if (ce->ce_vardata == NULL)
@@ -826,12 +986,60 @@ static int c_gi_sras(CONFIGENTRY *ce)
 	return 0;
 }
 
+static int c_db_user(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	database_options.user = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_db_host(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	database_options.host = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_db_password(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	database_options.pass = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_db_database(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	database_options.database = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_db_port(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardatanum == 0)
+		PARAM_ERROR(ce);
+
+	database_options.port = ce->ce_vardatanum;
+
+	return 0;
+}
+
 static void copy_me(struct me *src, struct me *dst)
 {
-	dst->pass = sstrdup(src->pass);
 	dst->recontime = src->recontime;
 	dst->restarttime = src->restarttime;
-	dst->expire = src->expire;
 	dst->netname = sstrdup(src->netname);
 	dst->adminname = sstrdup(src->adminname);
 	dst->adminemail = sstrdup(src->adminemail);
@@ -844,7 +1052,6 @@ static void copy_me(struct me *src, struct me *dst)
 
 static void free_cstructs(struct me *mesrc, struct chansvs *svssrc)
 {
-	free(mesrc->pass);
 	free(mesrc->netname);
 	free(mesrc->adminname);
 	free(mesrc->adminemail);
@@ -913,25 +1120,7 @@ boolean_t conf_check(void)
 	}
 
 	if (!me.desc)
-		me.desc = sstrdup("Shrike IRC Services");
-
-	if (!me.uplink)
-	{
-		slog(LG_INFO, "conf_check(): no `uplink' set in %s", config_file);
-		return FALSE;
-	}
-
-	if (!me.port)
-	{
-		slog(LG_INFO, "conf_check(): no `port' set in %s; defaulting to 6667", config_file);
-		me.port = 6667;
-	}
-
-	if (!me.pass)
-	{
-		slog(LG_INFO, "conf_check(): no `pass' set in %s", config_file);
-		return FALSE;
-	}
+		me.desc = sstrdup("Atheme IRC Services");
 
 	if ((!me.recontime) || (me.recontime < 10))
 	{
@@ -1001,6 +1190,16 @@ boolean_t conf_check(void)
 
 	if (config_options.flood_msgs && !config_options.flood_time)
 		config_options.flood_time = 10;
+
+
+	/* recall that commit_interval is in seconds */
+	if ((!config_options.commit_interval)
+		|| (config_options.commit_interval < 60)
+		|| (config_options.commit_interval > 3600))
+	{
+		slog(LG_INFO, "conf_check(): invalid `commit_interval' set in %s; " "defaulting to 5 minutes", config_file);
+		config_options.commit_interval = 300;
+	}
 
 	return TRUE;
 }

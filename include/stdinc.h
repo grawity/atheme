@@ -4,7 +4,7 @@
  *
  * This is the header which includes all of the system stuff.
  *
- * $Id: stdinc.h 159 2005-05-29 07:09:27Z nenolod $
+ * $Id: stdinc.h 448 2005-06-10 08:05:10Z nenolod $
  */
 
 #ifndef STDINC_H
@@ -38,6 +38,13 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+
+#ifdef HAVE_DLFCN_H
+#include <dlfcn.h>
+#endif
+
+#include <libgen.h>
+#include <dirent.h>
 
 typedef enum { ERROR = -1, FALSE, TRUE } l_boolean_t;
 #undef boolean_t

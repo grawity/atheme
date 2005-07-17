@@ -4,7 +4,7 @@
  *
  * Data structures for channel information.
  *
- * $Id: channels.h 224 2005-05-30 01:25:57Z nenolod $
+ * $Id: channels.h 709 2005-07-10 02:39:08Z nenolod $
  */
 
 #ifndef CHANNELS_H
@@ -25,7 +25,7 @@ struct channel_
 
   uint32_t nummembers;
 
-  uint32_t ts;
+  time_t ts;
   int32_t hash;
 
   char *topic;

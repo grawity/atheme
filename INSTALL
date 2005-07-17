@@ -1,10 +1,10 @@
-Atheme -- a set of services for TSora networks
-==============================================
+Atheme -- a set of services for IRC networks
+============================================
 
 This program is free but copyrighted software; see the LICENSE file for
 details.
 
-Information about Atheme may be found at http://atheme.oscnet.org/.
+Information about Atheme may be found at http://www.atheme.org/.
 
 TABLE OF CONTENTS
 -----------------
@@ -48,9 +48,8 @@ If you're running a large network (more than 2000 users) I suggest passing the
 
 If you are running an ircd other than one used on EFnet (ratbox, hybrid or
 csircd), you will need to check which ircd type you need to use. IRCd's known
-to be supported by Atheme are listed in the README file.
-
-To select an ircd type, use the --with-protocol=<ircd type here> option.
+to be supported by Atheme are now listed in the example config, as IRCd
+support has moved to modules.
 
 The "configure" script will run several tests, write several files, and exit.
 Once this is done you will want to compile Atheme. To do this, simply type:

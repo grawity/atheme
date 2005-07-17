@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# $Id: install-sh 17 2005-05-11 17:50:41Z nenolod $
+# $Id: install-sh 702 2005-07-10 01:53:43Z nenolod $
 #
 # install - install a program, script, or datafile
 # This comes from X11R5 (mit/util/scripts/install.sh).

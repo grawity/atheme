@@ -1,34 +1,22 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the main() routine.
  *
- * $Id: oservice.c 222 2005-05-30 01:05:54Z nenolod $
+ * $Id: oservice.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
 
-struct command_ os_commands[] = {
-	{"HELP", AC_IRCOP, os_help},
-	{"GLOBAL", AC_IRCOP, gs_global},	/* Might as well have it here... --nenolod */
-	{"KLINE", AC_IRCOP, os_kline},
-	{"MODE", AC_IRCOP, os_mode},
-	{"UPDATE", AC_SRA, os_update},
-	{"REHASH", AC_SRA, os_rehash},
-	{"RAW", AC_SRA, os_raw},
-	{"INJECT", AC_SRA, os_inject},
-	{"RESTART", AC_SRA, os_restart},
-	{"SHUTDOWN", AC_SRA, os_shutdown},
-	{NULL}
-};
+list_t os_cmdtree;
 
 /* main services client routine */
 void oservice(char *origin, uint8_t parc, char *parv[])
 {
 	char *cmd, *s;
 	char orig[BUFSIZE];
-	struct command_ *c;
 
 	/* this should never happen */
 	if (parv[0][0] == '&')
@@ -38,10 +26,10 @@ void oservice(char *origin, uint8_t parc, char *parv[])
 	}
 
 	/* make a copy of the original for debugging */
-	strlcpy(orig, parv[1], BUFSIZE);
+	strlcpy(orig, parv[parc - 1], BUFSIZE);
 
 	/* lets go through this to get the command */
-	cmd = strtok(parv[1], " ");
+	cmd = strtok(parv[parc - 1], " ");
 
 	if (!cmd)
 		return;
@@ -83,7 +71,5 @@ void oservice(char *origin, uint8_t parc, char *parv[])
 		return;
 
 	/* take the command through the hash table */
-	if ((c = cmd_find(opersvs.nick, origin, cmd, os_commands)))
-		if (c->func)
-			c->func(origin);
+	command_exec(opersvs.disp, origin, cmd, &os_cmdtree);
 }

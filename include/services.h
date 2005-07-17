@@ -4,7 +4,7 @@
  *
  * Data structures related to services psuedo-clients.
  *
- * $Id: services.h 320 2005-06-02 20:31:57Z nenolod $
+ * $Id: services.h 638 2005-06-29 20:34:21Z nenolod $
  */
 
 #ifndef SERVICES_H
@@ -17,8 +17,11 @@ struct chansvs
   char *user;                   /* the IRC client's username  */
   char *host;                   /* the IRC client's hostname  */
   char *real;                   /* the IRC client's realname  */
+  char *disp;			/* the IRC client's dispname  */
 
-  user_t *me;                   /* our user_t struct          */
+  boolean_t fantasy;		/* enable fantasy commands    */
+
+  service_t *me;                /* our user_t struct          */
 } chansvs;
 
 struct globsvs
@@ -27,8 +30,9 @@ struct globsvs
   char *user;
   char *host;
   char *real;
+  char *disp;			/* the IRC client's dispname  */
    
-  user_t *me;
+  service_t *me;
 } globsvs;
 
 struct opersvs
@@ -37,21 +41,24 @@ struct opersvs
   char *user;
   char *host;
   char *real;
+  char *disp;			/* the IRC client's dispname  */
    
-  user_t *me;
+  service_t *me;
 } opersvs;
 
 /* optional services */
 struct nicksvs
 {
   boolean_t  enable;
+  boolean_t  spam;
 
   char   *nick;
   char   *user;
   char   *host;
   char   *real;
+  char   *disp;			/* the IRC client's dispname  */
 
-  user_t *me;
+  service_t *me;
 } nicksvs;
 
 #endif

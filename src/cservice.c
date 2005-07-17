@@ -1,64 +1,44 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the main() routine.
  *
- * $Id: cservice.c 227 2005-05-30 01:48:09Z nenolod $
+ * $Id: cservice.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
 
-struct command_ cs_commands[] = {
-	{"LOGIN", AC_NONE, cs_login},
-	{"LOGOUT", AC_NONE, cs_logout},
-	{"HELP", AC_NONE, cs_help},
-	{"SET", AC_NONE, cs_set},
-	{"SOP", AC_NONE, cs_sop},
-	{"AOP", AC_NONE, cs_aop},
-	{"VOP", AC_NONE, cs_vop},
-	{"OP", AC_NONE, cs_op},
-	{"DEOP", AC_NONE, cs_deop},
-	{"VOICE", AC_NONE, cs_voice},
-	{"DEVOICE", AC_NONE, cs_devoice},
-	{"INVITE", AC_NONE, cs_invite},
-	{"INFO", AC_NONE, cs_info},
-	{"RECOVER", AC_NONE, cs_recover},
-	{"REGISTER", AC_NONE, cs_register},
-	{"DROP", AC_NONE, cs_drop},
-	{"FLAGS", AC_NONE, cs_flags},
-	{"STATUS", AC_NONE, cs_status},
-	{"AKICK", AC_NONE, cs_akick},
-	{"KICK", AC_NONE, cs_kick},
-	{"KICKBAN", AC_NONE, cs_kickban},
-	{"TOPIC", AC_NONE, cs_topic},
-	{"TOPICAPPEND", AC_NONE, cs_topicappend},
-	{"BAN", AC_NONE, cs_ban},
-	{"UNBAN", AC_NONE, cs_unban},
-	{"SENDPASS", AC_IRCOP, cs_sendpass},
-	{NULL}
-};
-
+list_t cs_cmdtree;
+list_t cs_fcmdtree;
 
 /* main services client routine */
 void cservice(char *origin, uint8_t parc, char *parv[])
 {
 	char *cmd, *s;
 	char orig[BUFSIZE];
-	struct command_ *c;
+	boolean_t is_fcommand = FALSE;
+	hook_cmessage_data_t cdata;
 
 	/* this should never happen */
-	if (parv[0][0] == '&')
+	if (parv[parc - 2][0] == '&')
 	{
 		slog(LG_ERROR, "services(): got parv with local channel: %s", parv[0]);
 		return;
 	}
 
+	/* is this a fantasy command? */
+	if (parv[parc - 2][0] == '#' && chansvs.fantasy == TRUE)
+		is_fcommand = TRUE;
+	else if (parv[parc - 2][0] == '#')
+		return;
+
 	/* make a copy of the original for debugging */
-	strlcpy(orig, parv[1], BUFSIZE);
+	strlcpy(orig, parv[parc - 1], BUFSIZE);
 
 	/* lets go through this to get the command */
-	cmd = strtok(parv[1], " ");
+	cmd = strtok(parv[parc - 1], " ");
 
 	if (!cmd)
 		return;
@@ -100,7 +80,14 @@ void cservice(char *origin, uint8_t parc, char *parv[])
 		return;
 
 	/* take the command through the hash table */
-	if ((c = cmd_find(chansvs.nick, origin, cmd, cs_commands)))
-		if (c->func)
-			c->func(origin);
+	if (!is_fcommand)
+		command_exec(chansvs.disp, origin, cmd, &cs_cmdtree);
+	else
+	{
+		fcommand_exec(parv[parc - 2], origin, cmd, &cs_fcmdtree);
+
+		cdata.c = channel_find(parv[parc - 2]);
+		cdata.msg = parv[parc - 1];
+		hook_call_event("channel_message", &cdata);
+	}
 }

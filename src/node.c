@@ -1,39 +1,39 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains linked list functions.
  * Idea from ircd-hybrid.
  *
- * $Id: node.c 310 2005-06-02 05:21:34Z nenolod $
+ * $Id: node.c 912 2005-07-17 06:10:36Z nenolod $
  */
 
 #include "atheme.h"
 
 list_t sralist;
 list_t tldlist;
+list_t uplinks;
 list_t klnlist;
+list_t sidlist[HASHSIZE];
 list_t servlist[HASHSIZE];
 list_t userlist[HASHSIZE];
+list_t uidlist[HASHSIZE];
 list_t chanlist[HASHSIZE];
-list_t mulist[HASHSIZE];
 list_t mclist[HASHSIZE];
+list_t mulist[HASHSIZE];
 
 list_t sendq;
 
 static BlockHeap *node_heap;
 static BlockHeap *sra_heap;
 static BlockHeap *tld_heap;
-static BlockHeap *kline_heap;
 static BlockHeap *serv_heap;
 static BlockHeap *user_heap;
 static BlockHeap *chan_heap;
-static BlockHeap *myuser_heap;
-static BlockHeap *mychan_heap;
 
 static BlockHeap *chanuser_heap;
-static BlockHeap *chanacs_heap;
 static BlockHeap *chanban_heap;
+static BlockHeap *uplink_heap;
 
 /*************
  * L I S T S *
@@ -44,18 +44,14 @@ void init_nodes(void)
 	node_heap = BlockHeapCreate(sizeof(node_t), HEAP_NODE);
 	sra_heap = BlockHeapCreate(sizeof(sra_t), 2);
 	tld_heap = BlockHeapCreate(sizeof(tld_t), 4);
-	kline_heap = BlockHeapCreate(sizeof(kline_t), 16);
 	serv_heap = BlockHeapCreate(sizeof(server_t), HEAP_SERVER);
 	user_heap = BlockHeapCreate(sizeof(user_t), HEAP_USER);
 	chan_heap = BlockHeapCreate(sizeof(channel_t), HEAP_CHANNEL);
-	myuser_heap = BlockHeapCreate(sizeof(myuser_t), HEAP_USER);
-	mychan_heap = BlockHeapCreate(sizeof(mychan_t), HEAP_CHANNEL);
 	chanuser_heap = BlockHeapCreate(sizeof(chanuser_t), HEAP_CHANUSER);
-	chanban_heap = BlockHeapCreate(sizeof(chanacs_t), HEAP_CHANUSER);
-	chanacs_heap = BlockHeapCreate(sizeof(chanacs_t), HEAP_CHANACS);
+	chanban_heap = BlockHeapCreate(sizeof(chanban_t), HEAP_CHANUSER);
+	uplink_heap = BlockHeapCreate(sizeof(uplink_t), 4);
 
-	if (!node_heap || !tld_heap || !kline_heap || !serv_heap || !user_heap || !chan_heap || !myuser_heap || !mychan_heap || !sra_heap || !chanuser_heap || !chanacs_heap || 
-		!chanban_heap)
+	if (!node_heap || !tld_heap || !serv_heap || !user_heap || !chan_heap || !sra_heap || !chanuser_heap || !chanban_heap || !uplink_heap)
 	{
 		slog(LG_INFO, "init_nodes(): block allocator failed.");
 		exit(EXIT_FAILURE);
@@ -184,6 +180,81 @@ void node_move(node_t *m, list_t *oldlist, list_t *newlist)
 
 	oldlist->count--;
 	newlist->count++;
+}
+
+/*****************
+ * U P L I N K S *
+ *****************/
+
+uplink_t *uplink_add(char *name, char *host, char *password, char *vhost, char *numeric, int port)
+{
+	uplink_t *u;
+	node_t *n;
+
+	slog(LG_DEBUG, "uplink_add(): %s -> %s:%d", me.name, name, port);
+
+	if ((u = uplink_find(name)))
+	{
+		slog(LG_INFO, "Duplicate uplink %s.", name);
+		return NULL;
+	}
+
+	u = BlockHeapAlloc(uplink_heap);
+	u->name = sstrdup(name);
+	u->host = sstrdup(host);
+	u->pass = sstrdup(password);
+
+	if (vhost)
+		u->vhost = sstrdup(vhost);
+	else
+		u->vhost = sstrdup("0.0.0.0");
+
+	if (numeric)
+		u->numeric = sstrdup(numeric);
+	else if (me.numeric)
+		u->numeric = sstrdup(me.numeric);
+
+	u->port = port;
+
+	n = node_create();
+
+	u->node = n;
+
+	node_add(u, n, &uplinks);
+
+	cnt.uplink++;
+
+	return u;
+}
+
+void uplink_delete(uplink_t *u)
+{
+	node_t *n = node_find(u, &uplinks);
+
+	free(u->name);
+	free(u->host);
+	free(u->pass);
+	free(u->vhost);
+	free(u->numeric);
+
+	node_del(n, &uplinks);
+
+	BlockHeapFree(uplink_heap, u);
+}
+
+uplink_t *uplink_find(char *name)
+{
+	node_t *n;
+
+	LIST_FOREACH(n, uplinks.head)
+	{
+		uplink_t *u = n->data;
+
+		if (!strcasecmp(u->name, name))
+			return u;
+	}
+
+	return NULL;
 }
 
 /***********
@@ -322,125 +393,11 @@ tld_t *tld_find(char *name)
 	return NULL;
 }
 
-/***************
- * K L I N E S *
- ***************/
-
-kline_t *kline_add(char *user, char *host, char *reason, long duration)
-{
-	kline_t *k;
-	node_t *n = node_create();
-	static uint32_t kcnt = 0;
-
-	slog(LG_DEBUG, "kline_add(): %s@%s -> %s (%ld)", user, host, reason, duration);
-
-	k = BlockHeapAlloc(kline_heap);
-
-	node_add(k, n, &klnlist);
-
-	k->user = sstrdup(user);
-	k->host = sstrdup(host);
-	k->reason = sstrdup(reason);
-	k->duration = duration;
-	k->settime = CURRTIME;
-	k->expires = CURRTIME + duration;
-	k->number = ++kcnt;
-
-	cnt.kline++;
-
-	kline_sts("*", user, host, duration, reason);
-
-	return k;
-}
-
-void kline_delete(char *user, char *host)
-{
-	kline_t *k = kline_find(user, host);
-	node_t *n;
-
-	if (!k)
-	{
-		slog(LG_DEBUG, "kline_delete(): called for nonexistant kline: %s@%s", user, host);
-
-		return;
-	}
-
-	slog(LG_DEBUG, "kline_delete(): %s@%s -> %s", k->user, k->host, k->reason);
-
-	n = node_find(k, &klnlist);
-	node_del(n, &klnlist);
-	node_free(n);
-
-	free(k->user);
-	free(k->host);
-	free(k->reason);
-	free(k->setby);
-
-	BlockHeapFree(kline_heap, k);
-
-	unkline_sts("*", user, host);
-
-	cnt.kline--;
-}
-
-kline_t *kline_find(char *user, char *host)
-{
-	kline_t *k;
-	node_t *n;
-
-	LIST_FOREACH(n, klnlist.head)
-	{
-		k = (kline_t *)n->data;
-
-		if ((!match(k->user, user)) && (!match(k->host, host)))
-			return k;
-	}
-
-	return NULL;
-}
-
-kline_t *kline_find_num(long number)
-{
-	kline_t *k;
-	node_t *n;
-
-	LIST_FOREACH(n, klnlist.head)
-	{
-		k = (kline_t *)n->data;
-
-		if (k->number == number)
-			return k;
-	}
-
-	return NULL;
-}
-
-void kline_expire(void *arg)
-{
-	kline_t *k;
-	node_t *n, *tn;
-
-	LIST_FOREACH_SAFE(n, tn, klnlist.head)
-	{
-		k = (kline_t *)n->data;
-
-		if (k->duration == 0)
-			continue;
-
-		if (k->expires <= CURRTIME)
-		{
-			snoop("KLINE:EXPIRE: \2%s@%s\2 set \2%s\2 ago by \2%s\2", k->user, k->host, time_ago(k->settime), k->setby);
-
-			kline_delete(k->user, k->host);
-		}
-	}
-}
-
 /*****************
  * S E R V E R S *
  *****************/
 
-server_t *server_add(char *name, uint8_t hops, char *desc)
+server_t *server_add(char *name, uint8_t hops, char *id, char *desc)
 {
 	server_t *s;
 	node_t *n = node_create();
@@ -451,6 +408,13 @@ server_t *server_add(char *name, uint8_t hops, char *desc)
 	s = BlockHeapAlloc(serv_heap);
 
 	s->hash = SHASH((unsigned char *)name);
+
+	if (ircd->uses_uid == TRUE)
+	{
+		s->sid = sstrdup(id);
+		s->shash = SHASH((unsigned char *)id);
+		node_add(s, n, &sidlist[s->shash]);
+	}
 
 	node_add(s, n, &servlist[s->hash]);
 
@@ -519,6 +483,17 @@ server_t *server_find(char *name)
 	server_t *s;
 	node_t *n;
 
+	if (ircd->uses_uid == TRUE)
+	{
+		LIST_FOREACH(n, sidlist[SHASH((unsigned char *)name)].head)
+		{
+			s = (server_t *)n->data;
+
+			if (!strcasecmp(name, s->sid))
+				return s;
+		}
+	}
+
 	LIST_FOREACH(n, servlist[SHASH((unsigned char *)name)].head)
 	{
 		s = (server_t *)n->data;
@@ -534,7 +509,7 @@ server_t *server_find(char *name)
  * U S E R S *
  *************/
 
-user_t *user_add(char *nick, char *user, char *host, server_t *server)
+user_t *user_add(char *nick, char *user, char *host, char *vhost, char *uid, server_t *server)
 {
 	user_t *u;
 	node_t *n = node_create();
@@ -543,18 +518,33 @@ user_t *user_add(char *nick, char *user, char *host, server_t *server)
 
 	u = BlockHeapAlloc(user_heap);
 
-	u->hash = UHASH((unsigned char *)nick);
+	u->hash  = UHASH((unsigned char *)nick);
+
+	if (ircd->uses_uid == TRUE)
+	{
+		u->uid  = sstrdup(uid);
+		u->uhash = UHASH((unsigned char *)uid);
+		node_add(u, n, &uidlist[u->uhash]);
+	}
 
 	node_add(u, n, &userlist[u->hash]);
 
 	u->nick = sstrdup(nick);
 	u->user = sstrdup(user);
 	u->host = sstrdup(host);
+
+	if (vhost)
+		u->vhost = sstrdup(vhost);
+	else
+		u->vhost = sstrdup(host);
+
 	u->server = server;
 
 	u->server->users++;
 
 	cnt.user++;
+
+	hook_call_event("user_add", u);
 
 	return u;
 }
@@ -572,6 +562,8 @@ void user_delete(char *nick)
 	}
 
 	slog(LG_DEBUG, "user_delete(): removing user: %s -> %s", u->nick, u->server->name);
+
+	hook_call_event("user_delete", u);
 
 	u->server->users--;
 
@@ -598,9 +590,14 @@ void user_delete(char *nick)
 		u->myuser = NULL;
 	}
 
-	free(u->nick);
-	free(u->user);
-	free(u->host);
+	if (u->nick)
+		free(u->nick);
+
+	if (u->user)
+		free(u->user);
+
+	if (u->host)
+		free(u->host);
 
 	BlockHeapFree(user_heap, u);
 
@@ -611,20 +608,25 @@ user_t *user_find(char *nick)
 {
 	user_t *u;
 	node_t *n;
-	uint32_t i;
 
-	for (i = 0; i < HASHSIZE; i++)
+	if (ircd->uses_uid == TRUE)
 	{
-		LIST_FOREACH(n, userlist[i].head)
+		LIST_FOREACH(n, uidlist[SHASH((unsigned char *)nick)].head)
 		{
 			u = (user_t *)n->data;
 
-			if (!irccasecmp(nick, u->nick))
+			if (!irccasecmp(nick, u->uid))
 				return u;
 		}
 	}
 
-	slog(LG_DEBUG, "user_find(): called for nonexistant user `%s'", nick);
+	LIST_FOREACH(n, userlist[SHASH((unsigned char *)nick)].head)
+	{
+		u = (user_t *)n->data;
+
+		if (!irccasecmp(nick, u->nick))
+			return u;
+	}
 
 	return NULL;
 }
@@ -678,6 +680,8 @@ channel_t *channel_add(char *name, uint32_t ts)
 	if (!irccasecmp(config_options.chan, c->name))
 		join(config_options.chan, chansvs.nick);
 
+	hook_call_event("channel_add", c);
+
 	return c;
 }
 
@@ -694,6 +698,8 @@ void channel_delete(char *name)
 	}
 
 	slog(LG_DEBUG, "channel_delete(): %s", c->name);
+
+	hook_call_event("channel_delete", c);
 
 	/* we assume all lists should be null */
 
@@ -765,6 +771,12 @@ void chanban_delete(chanban_t *c)
 {
 	node_t *n;
 
+	if (!c)
+	{
+		slog(LG_DEBUG, "chanban_delete(): called for nonexistant ban");
+		return;
+	}
+
 	n = node_find(c, &c->chan->bans);
 	node_del(n, &c->chan->bans);
 	node_free(n);
@@ -792,6 +804,18 @@ chanban_t *chanban_find(channel_t *chan, char *mask)
  * C H A N  U S E R S *
  **********************/
 
+/*
+ * Rewritten 06/23/05 by nenolod:
+ *
+ * Iterate through the list of prefix characters we know about.
+ * Continue to do so until all prefixes are covered. Then add the
+ * nick to the channel, with the privs he has acquired thus far.
+ *
+ * Once, and only once we have done that do we start in on checking
+ * privileges. Otherwise we have a very inefficient way of doing
+ * things. It worked fine for shrike, but the old code was restricted
+ * to handling only @, @+ and + as prefixes.
+ */
 chanuser_t *chanuser_add(channel_t *chan, char *nick)
 {
 	user_t *u;
@@ -801,6 +825,7 @@ chanuser_t *chanuser_add(channel_t *chan, char *nick)
 	mychan_t *mc;
 	uint32_t flags = 0;
 	char hostbuf[BUFSIZE];
+	int i = 0;
 
 	if (*chan->name != '#')
 	{
@@ -808,43 +833,14 @@ chanuser_t *chanuser_add(channel_t *chan, char *nick)
 		return NULL;
 	}
 
-	while (*nick != '\0')
+	while (!(u = user_find(nick)) && *nick != '\0')
 	{
-		if (*nick == '@')
-		{
-			flags |= CMODE_OP;
-			nick++;
-
-			if (*nick == '+')
-				u = user_find(nick + 1);
-			else
-				u = user_find(nick);
-
-			/* see if we need to deop them */
-			if ((mc = mychan_find(chan->name)))
-			{
-				if (MC_SECURE & mc->flags)
-				{
-					if ((!u->myuser) || (!is_founder(mc, u->myuser) && (u != chansvs.me) && !is_xop(mc, u->myuser, (CA_OP | CA_AUTOOP))))
-					{
-						cmode(chansvs.nick, mc->name, "-o", u->nick);
-						flags &= ~CMODE_OP;
-					}
-				}
-			}
-
-			continue;
-		}
-		if (*nick == '+')
-		{
-			flags |= CMODE_VOICE;
-			nick++;
-			continue;
-		}
-		break;
+		for (i = 0; prefix_mode_list[i].mode; i++)
+			if (*nick == prefix_mode_list[i].mode)
+				flags |= prefix_mode_list[i].value;
+		nick++;
 	}
 
-	u = user_find(nick);
 	if (u == NULL)
 	{
 		slog(LG_DEBUG, "chanuser_add(): nonexist user: %s", nick);
@@ -889,6 +885,10 @@ chanuser_t *chanuser_add(channel_t *chan, char *nick)
 
 	cnt.chanuser++;
 
+	/* If they are attached to me, we are done here. */
+	if (u->server == me.me || u->server == NULL)
+		return cu;
+
 	/* auto stuff */
 	if (((mc = mychan_find(chan->name))) && (u->myuser))
 	{
@@ -897,20 +897,85 @@ chanuser_t *chanuser_add(channel_t *chan, char *nick)
 			ban(chansvs.nick, chan->name, u);
 			kick(chansvs.nick, chan->name, u->nick, "You are not authorized to be on this channel");
 		}
-		else if (should_kick(mc, u->myuser))
+
+		if (should_kick(mc, u->myuser))
 		{
 			ban(chansvs.nick, chan->name, u);
 			kick(chansvs.nick, chan->name, u->nick, "User is banned from this channel");
 		}
-		else if (should_op(mc, u->myuser))
+
+		if (should_owner(mc, u->myuser))
 		{
-			cmode(chansvs.nick, chan->name, "+o", u->nick);
+			if (ircd->uses_owner)
+			{
+				cmode(chansvs.nick, chan->name, ircd->owner_mchar, CLIENT_NAME(u));
+				cu->modes |= ircd->owner_mode;
+			}
+		}
+		else if ((mc->flags & MC_SECURE) && (cu->modes & ircd->owner_mode) && ircd->uses_owner)
+		{
+			char *mbuf = sstrdup(ircd->owner_mchar);
+			*mbuf = '-';
+
+			cmode(chansvs.nick, chan->name, mbuf, CLIENT_NAME(u));
+			cu->modes &= ~ircd->owner_mode;
+
+			free(mbuf);
+		}
+
+		if (should_protect(mc, u->myuser))
+		{
+			if (ircd->uses_protect)
+			{
+				cmode(chansvs.nick, chan->name, ircd->protect_mchar, CLIENT_NAME(u));
+				cu->modes |= ircd->protect_mode;
+			}
+		}
+		else if ((mc->flags & MC_SECURE) && (cu->modes & ircd->protect_mode) && ircd->uses_protect)
+		{
+			char *mbuf = sstrdup(ircd->protect_mchar);
+			*mbuf = '-';
+
+			cmode(chansvs.nick, chan->name, mbuf, CLIENT_NAME(u));
+			cu->modes &= ~ircd->protect_mode;
+
+			free(mbuf);
+		}
+
+		if (should_op(mc, u->myuser))
+		{
+			cmode(chansvs.nick, chan->name, "+o", CLIENT_NAME(u));
 			cu->modes |= CMODE_OP;
 		}
-		else if (should_voice(mc, u->myuser))
+		else if ((mc->flags & MC_SECURE) && (cu->modes & CMODE_OP))
 		{
-			cmode(chansvs.nick, chan->name, "+v", u->nick);
+			cmode(chansvs.nick, chan->name, "-o", CLIENT_NAME(u));
+			cu->modes &= ~CMODE_OP;
+		}
+
+		if (should_halfop(mc, u->myuser))
+		{
+			if (ircd->uses_halfops)
+			{
+				cmode(chansvs.nick, chan->name, "+h", CLIENT_NAME(u));
+				cu->modes |= ircd->halfops_mode;
+			}
+		}
+		else if ((mc->flags & MC_SECURE) && (cu->modes & ircd->halfops_mode) && ircd->uses_halfops)
+		{
+			cmode(chansvs.nick, chan->name, "-h", CLIENT_NAME(u));
+			cu->modes &= ~ircd->halfops_mode;
+		}
+
+		if (should_voice(mc, u->myuser))
+		{
+			cmode(chansvs.nick, chan->name, "+v", CLIENT_NAME(u));
 			cu->modes |= CMODE_VOICE;
+		}
+		else if (cu->modes & CMODE_VOICE)
+		{
+			cmode(chansvs.nick, chan->name, "-v", CLIENT_NAME(u));
+			cu->modes &= ~CMODE_VOICE;
 		}
 	}
 
@@ -929,24 +994,69 @@ chanuser_t *chanuser_add(channel_t *chan, char *nick)
 			ban(chansvs.nick, chan->name, u);
 			kick(chansvs.nick, chan->name, u->nick, "You are not authorized to be on this channel");
 		}
-		else if (should_kick_host(mc, hostbuf))
+
+
+		if (should_kick_host(mc, hostbuf))
 		{
 			ban(chansvs.nick, chan->name, u);
 			kick(chansvs.nick, chan->name, u->nick, "User is banned from this channel");
 		}
-		else if (should_op_host(mc, hostbuf))
+
+		if (!should_owner(mc, u->myuser) && (cu->modes & ircd->owner_mode))
+		{
+			char *mbuf = sstrdup(ircd->owner_mchar);
+			*mbuf = '-';
+
+			cmode(chansvs.nick, chan->name, mbuf, CLIENT_NAME(u));
+			cu->modes &= ~ircd->owner_mode;
+
+			free(mbuf);
+		}
+
+		if (!should_protect(mc, u->myuser) && (cu->modes & ircd->protect_mode))
+		{
+			char *mbuf = sstrdup(ircd->protect_mchar);
+			*mbuf = '-';
+
+			cmode(chansvs.nick, chan->name, mbuf, CLIENT_NAME(u));
+			cu->modes &= ~ircd->protect_mode;
+
+			free(mbuf);
+		}
+
+		if (should_op_host(mc, hostbuf))
 		{
 			if (!(cu->modes & CMODE_OP))
 			{
-				cmode(chansvs.nick, chan->name, "+o", u->nick);
+				cmode(chansvs.nick, chan->name, "+o", CLIENT_NAME(u));
 				cu->modes |= CMODE_OP;
 			}
 		}
-		else if (should_voice_host(mc, hostbuf))
+		else if ((mc->flags & MC_SECURE) && !should_op(mc, u->myuser) && (cu->modes & CMODE_OP))
+		{
+			cmode(chansvs.nick, chan->name, "-o", CLIENT_NAME(u));
+			cu->modes &= ~CMODE_OP;
+		}
+
+		if (should_halfop_host(mc, hostbuf))
+		{
+			if (ircd->uses_halfops && !(cu->modes & ircd->halfops_mode))
+			{
+				cmode(chansvs.nick, chan->name, "+h", CLIENT_NAME(u));
+				cu->modes |= ircd->halfops_mode;
+			}
+		}
+		else if ((mc->flags & MC_SECURE) && ircd->uses_halfops && !should_halfop(mc, u->myuser) && (cu->modes & ircd->halfops_mode))
+		{
+			cmode(chansvs.nick, chan->name, "-h", CLIENT_NAME(u));
+			cu->modes &= ~ircd->halfops_mode;
+		}
+
+		if (should_voice_host(mc, hostbuf))
 		{
 			if (!(cu->modes & CMODE_VOICE))
 			{
-				cmode(chansvs.nick, chan->name, "+v", u->nick);
+				cmode(chansvs.nick, chan->name, "+v", CLIENT_NAME(u));
 				cu->modes |= CMODE_VOICE;
 			}
 		}
@@ -957,6 +1067,8 @@ chanuser_t *chanuser_add(channel_t *chan, char *nick)
 		if (mc->entrymsg)
 			notice(chansvs.nick, u->nick, "[%s] %s", mc->name, mc->entrymsg);
 	}
+
+	hook_call_event("channel_join", cu);
 
 	return cu;
 }
@@ -1016,370 +1128,6 @@ chanuser_t *chanuser_find(channel_t *chan, user_t *user)
 
 		if (cu->user == user)
 			return cu;
-	}
-
-	return NULL;
-}
-
-/*****************
- * M Y U S E R S *
- *****************/
-myuser_t *myuser_add(char *name, char *pass, char *email)
-{
-	myuser_t *mu;
-	node_t *n;
-
-	mu = myuser_find(name);
-
-	if (mu)
-	{
-		slog(LG_DEBUG, "myuser_add(): myuser already exists: %s", name);
-		return mu;
-	}
-
-	slog(LG_DEBUG, "myuser_add(): %s -> %s", name, email);
-
-	n = node_create();
-	mu = BlockHeapAlloc(myuser_heap);
-
-	mu->name = sstrdup(name);
-	mu->pass = sstrdup(pass);
-	mu->email = sstrdup(email);
-	mu->registered = CURRTIME;
-	mu->hash = MUHASH((unsigned char *)name);
-
-	node_add(mu, n, &mulist[mu->hash]);
-
-	cnt.myuser++;
-
-	return mu;
-}
-
-void myuser_delete(char *name)
-{
-	sra_t *sra;
-	myuser_t *mu = myuser_find(name);
-	mychan_t *mc;
-	chanacs_t *ca;
-	node_t *n, *tn;
-	uint32_t i;
-
-	if (!mu)
-	{
-		slog(LG_DEBUG, "myuser_delete(): called for nonexistant myuser: %s", name);
-		return;
-	}
-
-	slog(LG_DEBUG, "myuser_delete(): %s", mu->name);
-
-	/* remove their chanacs shiz */
-	LIST_FOREACH_SAFE(n, tn, mu->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		chanacs_delete(ca->mychan, ca->myuser, ca->level);
-	}
-
-	/* remove them as successors */
-	for (i = 0; i < HASHSIZE; i++);
-	{
-		LIST_FOREACH(n, mclist[i].head)
-		{
-			mc = (mychan_t *)n->data;
-
-			if ((mc->successor) && (mc->successor == mu))
-				mc->successor = NULL;
-		}
-	}
-
-	/* remove them from the sra list */
-	if ((sra = sra_find(mu)))
-		sra_delete(mu);
-
-	n = node_find(mu, &mulist[mu->hash]);
-	node_del(n, &mulist[mu->hash]);
-	node_free(n);
-
-	free(mu->name);
-	free(mu->pass);
-	free(mu->email);
-	BlockHeapFree(myuser_heap, mu);
-
-	cnt.myuser--;
-}
-
-myuser_t *myuser_find(char *name)
-{
-	myuser_t *mu;
-	node_t *n;
-	uint32_t i;
-
-	for (i = 0; i < HASHSIZE; i++)
-	{
-		LIST_FOREACH(n, mulist[i].head)
-		{
-			mu = (myuser_t *)n->data;
-
-			if (!irccasecmp(name, mu->name))
-				return mu;
-		}
-	}
-
-	return NULL;
-}
-
-/*****************
- * M Y C H A N S *
- *****************/
-
-mychan_t *mychan_add(char *name, char *pass)
-{
-	mychan_t *mc;
-	node_t *n;
-
-	mc = mychan_find(name);
-
-	if (mc)
-	{
-		slog(LG_DEBUG, "mychan_add(): mychan already exists: %s", name);
-		return mc;
-	}
-
-	slog(LG_DEBUG, "mychan_add(): %s", name);
-
-	n = node_create();
-	mc = BlockHeapAlloc(mychan_heap);
-
-	mc->name = sstrdup(name);
-	mc->pass = sstrdup(pass);
-	mc->founder = NULL;
-	mc->successor = NULL;
-	mc->registered = CURRTIME;
-	mc->chan = channel_find(name);
-	mc->hash = MCHASH((unsigned char *)name);
-
-	node_add(mc, n, &mclist[mc->hash]);
-
-	cnt.mychan++;
-
-	return mc;
-}
-
-void mychan_delete(char *name)
-{
-	mychan_t *mc = mychan_find(name);
-	chanacs_t *ca;
-	node_t *n, *tn;
-
-	if (!mc)
-	{
-		slog(LG_DEBUG, "mychan_delete(): called for nonexistant mychan: %s", name);
-		return;
-	}
-
-	slog(LG_DEBUG, "mychan_delete(): %s", mc->name);
-
-	/* remove the chanacs shiz */
-	LIST_FOREACH_SAFE(n, tn, mc->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		if (ca->host)
-			chanacs_delete_host(ca->mychan, ca->host, ca->level);
-		else
-			chanacs_delete(ca->mychan, ca->myuser, ca->level);
-	}
-
-	n = node_find(mc, &mclist[mc->hash]);
-	node_del(n, &mclist[mc->hash]);
-	node_free(n);
-
-	free(mc->name);
-	free(mc->pass);
-	BlockHeapFree(mychan_heap, mc);
-
-	cnt.mychan--;
-}
-
-mychan_t *mychan_find(char *name)
-{
-	mychan_t *mc;
-	node_t *n;
-	uint32_t i;
-
-	for (i = 0; i < HASHSIZE; i++)
-	{
-		LIST_FOREACH(n, mclist[i].head)
-		{
-			mc = (mychan_t *)n->data;
-
-			if (!irccasecmp(name, mc->name))
-				return mc;
-		}
-	}
-
-	return NULL;
-}
-
-/*****************
- * C H A N A C S *
- *****************/
-
-chanacs_t *chanacs_add(mychan_t *mychan, myuser_t *myuser, uint32_t level)
-{
-	chanacs_t *ca;
-	node_t *n1;
-	node_t *n2;
-
-	if (*mychan->name != '#')
-	{
-		slog(LG_DEBUG, "chanacs_add(): got non #channel: %s", mychan->name);
-		return NULL;
-	}
-
-	slog(LG_DEBUG, "chanacs_add(): %s -> %s", mychan->name, myuser->name);
-
-	n1 = node_create();
-	n2 = node_create();
-
-	ca = BlockHeapAlloc(chanacs_heap);
-
-	ca->mychan = mychan;
-	ca->myuser = myuser;
-	ca->level |= level;
-
-	node_add(ca, n1, &mychan->chanacs);
-	node_add(ca, n2, &myuser->chanacs);
-
-	cnt.chanacs++;
-
-	return ca;
-}
-
-chanacs_t *chanacs_add_host(mychan_t *mychan, char *host, uint32_t level)
-{
-	chanacs_t *ca;
-	node_t *n;
-
-	if (*mychan->name != '#')
-	{
-		slog(LG_DEBUG, "chanacs_add_host(): got non #channel: %s", mychan->name);
-		return NULL;
-	}
-
-	slog(LG_DEBUG, "chanacs_add_host(): %s -> %s", mychan->name, host);
-
-	n = node_create();
-
-	ca = BlockHeapAlloc(chanacs_heap);
-
-	ca->mychan = mychan;
-	ca->myuser = NULL;
-	ca->host = sstrdup(host);
-	ca->level |= level;
-
-	node_add(ca, n, &mychan->chanacs);
-
-	cnt.chanacs++;
-
-	return ca;
-}
-
-void chanacs_delete(mychan_t *mychan, myuser_t *myuser, uint32_t level)
-{
-	chanacs_t *ca;
-	node_t *n, *tn, *n2;
-
-	LIST_FOREACH_SAFE(n, tn, mychan->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		if ((ca->myuser == myuser) && (ca->level == level))
-		{
-			slog(LG_DEBUG, "chanacs_delete(): %s -> %s", ca->mychan->name, ca->myuser->name);
-			node_del(n, &mychan->chanacs);
-			node_free(n);
-
-			n2 = node_find(ca, &myuser->chanacs);
-			node_del(n2, &myuser->chanacs);
-			node_free(n2);
-
-			cnt.chanacs--;
-
-			return;
-		}
-	}
-}
-
-void chanacs_delete_host(mychan_t *mychan, char *host, uint32_t level)
-{
-	chanacs_t *ca;
-	node_t *n, *tn;
-
-	LIST_FOREACH_SAFE(n, tn, mychan->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		if ((ca->host) && (!irccasecmp(host, ca->host)) && (ca->level == level))
-		{
-			slog(LG_DEBUG, "chanacs_delete_host(): %s -> %s", ca->mychan->name, ca->host);
-
-			free(ca->host);
-			node_del(n, &mychan->chanacs);
-			node_free(n);
-
-			BlockHeapFree(chanacs_heap, ca);
-
-			cnt.chanacs--;
-
-			return;
-		}
-	}
-}
-
-chanacs_t *chanacs_find(mychan_t *mychan, myuser_t *myuser, uint32_t level)
-{
-	node_t *n;
-	chanacs_t *ca;
-
-	if ((!mychan) || (!myuser))
-		return NULL;
-
-	LIST_FOREACH(n, mychan->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		if (level != 0x0)
-		{
-			if ((ca->myuser == myuser) && (ca->level & level))
-				return ca;
-		}
-		else if (ca->myuser == myuser)
-			return ca;
-	}
-
-	return NULL;
-}
-
-chanacs_t *chanacs_find_host(mychan_t *mychan, char *host, uint32_t level)
-{
-	node_t *n;
-	chanacs_t *ca;
-
-	if ((!mychan) || (!host))
-		return NULL;
-
-	LIST_FOREACH(n, mychan->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		if (level != 0x0)
-		{
-			if ((ca->host) && (!match(ca->host, host)) && (ca->level & level))
-				return ca;
-		}
-		else if ((ca->host) && (!match(ca->host, host)))
-			return ca;
 	}
 
 	return NULL;

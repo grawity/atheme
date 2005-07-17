@@ -1,26 +1,22 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the main() routine.
  *
- * $Id: gservice.c 74 2005-05-23 02:33:37Z nenolod $
+ * $Id: gservice.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
 
-struct command_ gs_commands[] = {
-	{"HELP", AC_IRCOP, gs_help},
-	{"GLOBAL", AC_IRCOP, gs_global},
-	{NULL}
-};
+list_t gs_cmdtree;
 
 /* main services client routine */
 void gservice(char *origin, uint8_t parc, char *parv[])
 {
 	char *cmd, *s;
 	char orig[BUFSIZE];
-	struct command_ *c;
 
 	/* this should never happen */
 	if (parv[0][0] == '&')
@@ -30,10 +26,10 @@ void gservice(char *origin, uint8_t parc, char *parv[])
 	}
 
 	/* make a copy of the original for debugging */
-	strlcpy(orig, parv[1], BUFSIZE);
+	strlcpy(orig, parv[parc - 1], BUFSIZE);
 
 	/* lets go through this to get the command */
-	cmd = strtok(parv[1], " ");
+	cmd = strtok(parv[parc - 1], " ");
 
 	if (!cmd)
 		return;
@@ -74,8 +70,5 @@ void gservice(char *origin, uint8_t parc, char *parv[])
 	else if (*cmd == '\001')
 		return;
 
-	/* take the command through the hash table */
-	if ((c = cmd_find(globsvs.nick, origin, cmd, gs_commands)))
-		if (c->func)
-			c->func(origin);
+	command_exec(globsvs.disp, origin, cmd, &gs_cmdtree);
 }

@@ -4,7 +4,7 @@
  *
  * This code contains the channel mode definitions for ratbox ircd.
  *
- * $Id: monkey.h 349 2002-03-13 16:23:12Z nenolod $
+ * $Id: monkey.h 560 2005-06-23 01:01:11Z nenolod $
  */
 
 #ifndef RATBOX_H
@@ -19,5 +19,7 @@
 #define CMODE_MODREG	0x00002000	/* bahamut +M */
 #define CMODE_REGONLY	0x00004000	/* bahamut +R */
 #define CMODE_OPERONLY  0x00008000      /* bahamut +O */
+
+#define CMODE_HALFOP    0x40000000      /* unreal +h */
 
 #endif

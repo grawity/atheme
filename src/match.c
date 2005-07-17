@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains customized casemapping functions.
  * This code was mostly lifted from ircd 2.10.
  *
- * $Id: match.c 19 2005-05-11 23:00:39Z nenolod $
+ * $Id: match.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"

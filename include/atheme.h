@@ -4,7 +4,7 @@
  *
  * This is the main header file, usually the only one #include'd
  *
- * $Id: atheme.h 162 2005-05-29 07:15:46Z nenolod $
+ * $Id: atheme.h 792 2005-07-15 20:36:13Z alambert $
  */
 
 #ifndef SHRIKE_H
@@ -21,6 +21,10 @@
 #include "account.h"
 #include "users.h"
 #include "common.h"
+#include "module.h"
+#include "commandtree.h"
+#include "pmodule.h"
+#include "hook.h"
 
 #ifndef timersub
 #define timersub(tvp, uvp, vvp)                                         \
@@ -41,6 +45,9 @@
 #define MUHASH(myuser) shash(myuser) % HASHSIZE
 #define MCHASH(mychan) shash(mychan) % HASHSIZE
 
+/* other stuff. */
+#define CLIENT_NAME(user)	ircd->uses_uid ? (user)->uid : (user)->nick
+
 /* T Y P E D E F S */
 
 typedef struct tld_ tld_t;
@@ -55,22 +62,23 @@ struct me
   char *uplink;                 /* the server we connect to           */
   char *actual;                 /* the reported name of the uplink    */
   uint16_t port;                /* port we connect to our uplink on   */
-  char *pass;                   /* password we use for linking        */
   char *vhost;                  /* IP we bind outgoing stuff to       */
   uint16_t recontime;           /* time between reconnection attempts */
   uint16_t restarttime;         /* time before restarting             */
-  uint32_t expire;              /* time before registrations expire   */
   char *netname;                /* IRC network name                   */
   char *adminname;              /* SRA's name (for ADMIN)             */
   char *adminemail;             /* SRA's email (for ADMIN             */
   char *mta;                    /* path to mta program           */
+  char *numeric;		/* server numeric		      */
 
   uint8_t loglevel;             /* logging level                      */
   uint32_t maxfd;               /* how many fds do we have?           */
+  uint32_t mdlimit;		/* metadata entry limit		      */
   time_t start;                 /* starting time                      */
   server_t *me;                 /* pointer to our server struct       */
   boolean_t connected;          /* are we connected?                  */
   boolean_t bursting;           /* are we bursting?                   */
+  boolean_t recvsvr;		/* used by P10: recieved server peer  */
 
   uint16_t maxusers;            /* maximum usernames from one email   */
   uint16_t maxchans;            /* maximum chans from one username    */
@@ -89,10 +97,13 @@ struct ConfOption
   uint16_t flood_msgs;          /* messages determining flood */
   uint16_t flood_time;          /* time determining flood     */
   uint32_t kline_time;          /* default expire for klines  */
+  uint16_t commit_interval;     /* interval between commits   */
+  int32_t expire;               /* time before registrations expire */
 
   boolean_t silent;             /* stop sending WALLOPS?      */
   boolean_t join_chans;         /* join registered channels?  */
   boolean_t leave_chans;        /* leave channels when empty? */
+  boolean_t secure;             /* require /msg <service>@host? */
 
   uint16_t defuflags;           /* default username flags     */
   uint16_t defcflags;           /* default channel flags      */
@@ -101,6 +112,15 @@ struct ConfOption
 
   char *global;                 /* nick for global noticer    */
 } config_options;
+
+struct Database
+{
+  char *user;
+  char *pass;
+  char *database;
+  char *host;
+  uint32_t port;
+} database_options;
 
 /* keep track of how many of what we have */
 struct cnt
@@ -119,6 +139,7 @@ struct cnt
   uint32_t node;
   uint32_t bin;
   uint32_t bout;
+  uint32_t uplink;
 } cnt;
 
 #define MTYPE_NUL 0
@@ -237,6 +258,9 @@ struct timeval burstime;
 #include "confparse.h"
 #include "flags.h"
 #include "extern.h"
+#include "metadata.h"
+#include "phandler.h"
+#include "servtree.h"
 #include "services.h"
 
 /* *INDENT-ON* */

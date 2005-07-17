@@ -4,7 +4,7 @@
  *
  * Data structures for account information.
  *
- * $Id: common.h 162 2005-05-29 07:15:46Z nenolod $
+ * $Id: common.h 556 2005-06-23 00:16:43Z nenolod $
  */
 
 #ifndef COMMON_H
@@ -12,13 +12,17 @@
 
 /* D E F I N E S */
 #define BUFSIZE  1024            /* maximum size of a buffer */
-#define HASHSIZE 1021            /* hash table size          */
 #define MODESTACK_WAIT 500
 #define MAXMODES 4
 #define MAXPARAMSLEN (510-32-64-34-(7+MAXMODES))
 #define MAX_EVENTS 25
 #define TOKEN_UNMATCHED -1
 #define TOKEN_ERROR -2
+
+/* H A S H */
+#define HASHINIT 0x811c9dc5
+#define HASHBITS 16
+#define HASHSIZE (1 << HASHBITS)  /* 2^16 = 65536 */
 
 #undef DEBUG_BALLOC
 

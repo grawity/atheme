@@ -1,17 +1,18 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains misc routines.
  *
- * $Id: function.c 163 2005-05-29 07:23:53Z nenolod $
+ * $Id: function.c 945 2005-07-17 19:34:07Z nenolod $
  */
 
 #include "atheme.h"
 
 FILE *log_file;
 
-#if !HAVE_STRLCAT
+#ifndef HAVE_STRLCAT
 /* These functions are taken from Linux. */
 size_t strlcat(char *dest, const char *src, size_t count)
 {
@@ -29,7 +30,7 @@ size_t strlcat(char *dest, const char *src, size_t count)
 }
 #endif
 
-#if !HAVE_STRLCPY
+#ifndef HAVE_STRLCPY
 size_t strlcpy(char *dest, const char *src, size_t size)
 {
 	size_t ret = strlen(src);
@@ -44,7 +45,7 @@ size_t strlcpy(char *dest, const char *src, size_t size)
 }
 #endif
 
-#if HAVE_GETTIMEOFDAY
+#ifdef HAVE_GETTIMEOFDAY
 /* starts a timer */
 void s_time(struct timeval *sttime)
 {
@@ -52,7 +53,7 @@ void s_time(struct timeval *sttime)
 }
 #endif
 
-#if HAVE_GETTIMEOFDAY
+#ifdef HAVE_GETTIMEOFDAY
 /* ends a timer */
 void e_time(struct timeval sttime, struct timeval *ttime)
 {
@@ -63,7 +64,7 @@ void e_time(struct timeval sttime, struct timeval *ttime)
 }
 #endif
 
-#if HAVE_GETTIMEOFDAY
+#ifdef HAVE_GETTIMEOFDAY
 /* translates microseconds into miliseconds */
 int32_t tv2ms(struct timeval *tv)
 {
@@ -93,7 +94,7 @@ char *strscpy(char *d, const char *s, size_t len)
 }
 
 /* does malloc()'s job and dies if malloc() fails */
-void *smalloc(long size)
+void *smalloc(size_t size)
 {
 	void *buf;
 
@@ -104,7 +105,7 @@ void *smalloc(long size)
 }
 
 /* does calloc()'s job and dies if calloc() fails */
-void *scalloc(long elsize, long els)
+void *scalloc(size_t elsize, size_t els)
 {
 	void *buf = calloc(elsize, els);
 
@@ -114,7 +115,7 @@ void *scalloc(long elsize, long els)
 }
 
 /* does realloc()'s job and dies if realloc() fails */
-void *srealloc(void *oldptr, long newsize)
+void *srealloc(void *oldptr, size_t newsize)
 {
 	void *buf = realloc(oldptr, newsize);
 
@@ -126,7 +127,12 @@ void *srealloc(void *oldptr, long newsize)
 /* does strdup()'s job, only with the above memory functions */
 char *sstrdup(const char *s)
 {
-	char *t = smalloc(strlen(s) + 1);
+	char *t;
+
+	if (strlen(s) == 0)
+		return NULL;
+
+	t = smalloc(strlen(s) + 1);
 
 	strcpy(t, s);
 	return t;
@@ -154,7 +160,7 @@ void log_open(void)
 	if (log_file)
 		return;
 
-	if (!(log_file = fopen("var/shrike.log", "a")))
+	if (!(log_file = fopen("var/atheme.log", "a")))
 		exit(EXIT_FAILURE);
 }
 
@@ -164,7 +170,8 @@ void slog(uint32_t level, const char *fmt, ...)
 	va_list args;
 	time_t t;
 	struct tm tm;
-	char buf[32];
+	char buf[64];
+	char lbuf[BUFSIZE];
 
 	if (level > me.loglevel)
 		return;
@@ -173,28 +180,24 @@ void slog(uint32_t level, const char *fmt, ...)
 
 	time(&t);
 	tm = *localtime(&t);
-	strftime(buf, sizeof(buf) - 1, "[%d/%m %H:%M:%S] ", &tm);
+	strftime(buf, sizeof(buf) - 1, "[%d/%m/%Y %H:%M:%S]", &tm);
+
+	vsnprintf(lbuf, BUFSIZE, fmt, args);
 
 	if (!log_file)
 		log_open();
 
 	if (log_file)
 	{
-		fputs(buf, log_file);
-
-		vfprintf(log_file, fmt, args);
-
-		fputc('\n', log_file);
+		fprintf(log_file, "%s %s\n", buf, lbuf);
 
 		fflush(log_file);
 	}
 
 	if ((runflags & (RF_LIVE | RF_STARTING)))
-	{
-		vfprintf(stderr, fmt, args);
+		fprintf(stderr, "%s %s\n", buf, lbuf);
 
-		fputc('\n', stderr);
-	}
+	va_end(args);
 }
 
 /* return the current time in milliseconds */
@@ -237,22 +240,28 @@ uint8_t regex_match(regex_t * preg, char *pattern, char *string, size_t nmatch, 
 		return 0;
 }
 
-/* generates a hash value */
-uint32_t shash(const unsigned char *text)
+/*
+ * This generates a hash value, based on chongo's hash algo,
+ * located at http://www.isthe.com/chongo/tech/comp/fnv/
+ *
+ * The difference between FNV and Atheme's hash algorithm is
+ * that FNV uses a random key for toasting, we just use
+ * 16 instead.
+ */
+uint32_t shash(const unsigned char *p)
 {
-	unsigned long h = 0, g;
+	unsigned int hval = HASHINIT;
 
-	while (*text)
+	if (*p == '\0')
+		return(0);
+	for (; *p != '\0'; ++p)
 	{
-		h = (h << 4) + tolower(*text++);
-
-		if ((g = (h & 0xF0000000)))
-			h ^= g >> 24;
-
-		h &= ~g;
+		hval += (hval << 1) + (hval <<  4) + (hval << 7) +
+			(hval << 8) + (hval << 24);
+		hval ^= (ToLower(*p) ^ 16);
 	}
 
-	return (h % HASHSIZE);
+	return((hval >> HASHBITS) ^ (hval & ((1 << HASHBITS) -1)));
 }
 
 /* replace all occurances of 'old' with 'new' */
@@ -538,18 +547,24 @@ void sendemail(char *what, const char *param, int type)
 
 	if (type == 1)
 	{
-		fprintf(out, "In order to complete your registration, you must send " "the following command on IRC:\n");
-		fprintf(out, "/MSG %s REGISTER %s KEY %s\n\n", chansvs.nick, what, pass);
-		fprintf(out, "Thank you for registering your username on the %s IRC " "network!\n", me.netname);
+		fprintf(out, "In order to complete your registration, you must send "
+			     "the following command on IRC:\n");
+		fprintf(out, "/MSG %s REGISTER %s KEY %s\n\n", nicksvs.enable ? nicksvs.nick : chansvs.nick, what, pass);
+		fprintf(out, "Thank you for registering your %sname on the %s IRC "
+			     "network!\n", nicksvs.enable ? "nick" : "user", me.netname);
 	}
 	else if (type == 2 || type == 4)
 	{
-		fprintf(out, "Someone has requested the password for %s be sent to the " "corresponding email address. If you did not request this action " "please let us know.\n\n", what);
-		fprintf(out, "The password for %s is %s. Please write this down for " "future reference.\n", what, pass);
+		fprintf(out, "Someone has requested the password for %s be sent to the "
+			     "corresponding email address. If you did not request this action "
+			     "please let us know.\n\n", what);
+		fprintf(out, "The password for %s is %s. Please write this down for "
+			     "future reference.\n", what, pass);
 	}
 	else if (type == 3)
 	{
-		fprintf(out, "In order to complete your email change, you must send " "the following command on IRC:\n");
+		fprintf(out, "In order to complete your email change, you must send "
+			     "the following command on IRC:\n");
 		fprintf(out, "/MSG %s SET %s EMAIL %s\n\n", chansvs.nick, what, pass);
 	}
 
@@ -609,21 +624,67 @@ boolean_t is_on_mychan(mychan_t *mychan, myuser_t *myuser)
 	return FALSE;
 }
 
-boolean_t should_op(mychan_t *mychan, myuser_t *myuser)
+boolean_t should_owner(mychan_t *mychan, myuser_t *myuser)
 {
 	chanuser_t *cu;
 
-	if (MC_NEVEROP & mychan->flags)
+	if (!myuser)
 		return FALSE;
 
-	if (MU_NEVEROP & myuser->flags)
+	if (MC_NOOP & mychan->flags)
+		return FALSE;
+
+	if (MU_NOOP & myuser->flags)
 		return FALSE;
 
 	cu = chanuser_find(mychan->chan, myuser->user);
 	if (!cu)
 		return FALSE;
 
-	if (CMODE_OP & cu->modes)
+	if (is_founder(mychan, myuser))
+		return TRUE;
+
+	return FALSE;
+}	
+
+boolean_t should_protect(mychan_t *mychan, myuser_t *myuser)
+{
+	chanuser_t *cu;
+
+	if (!myuser)
+		return FALSE;
+
+	if (MC_NOOP & mychan->flags)
+		return FALSE;
+
+	if (MU_NOOP & myuser->flags)
+		return FALSE;
+
+	cu = chanuser_find(mychan->chan, myuser->user);
+	if (!cu)
+		return FALSE;
+
+	if (is_xop(mychan, myuser, CA_FLAGS))
+		return TRUE;
+
+	return FALSE;
+}	
+
+boolean_t should_op(mychan_t *mychan, myuser_t *myuser)
+{
+	chanuser_t *cu;
+
+	if (!myuser)
+		return FALSE;
+
+	if (MC_NOOP & mychan->flags)
+		return FALSE;
+
+	if (MU_NOOP & myuser->flags)
+		return FALSE;
+
+	cu = chanuser_find(mychan->chan, myuser->user);
+	if (!cu)
 		return FALSE;
 
 	if (is_xop(mychan, myuser, (CA_AUTOOP)))
@@ -690,21 +751,66 @@ boolean_t should_kick_host(mychan_t *mychan, char *host)
 	return FALSE;
 }
 
-boolean_t should_voice(mychan_t *mychan, myuser_t *myuser)
+boolean_t should_halfop(mychan_t *mychan, myuser_t *myuser)
 {
 	chanuser_t *cu;
 
-	if (MC_NEVEROP & mychan->flags)
+	if (!myuser)
 		return FALSE;
 
-	if (MU_NEVEROP & myuser->flags)
+	if (MC_NOOP & mychan->flags)
+		return FALSE;
+
+	if (MU_NOOP & myuser->flags)
 		return FALSE;
 
 	cu = chanuser_find(mychan->chan, myuser->user);
 	if (!cu)
 		return FALSE;
 
-	if (CMODE_VOICE & cu->modes)
+	if (is_xop(mychan, myuser, CA_AUTOHALFOP))
+		return TRUE;
+
+	return FALSE;
+}
+
+boolean_t should_halfop_host(mychan_t *mychan, char *host)
+{
+	chanacs_t *ca;
+	char hostbuf[BUFSIZE];
+
+	hostbuf[0] = '\0';
+
+	strlcat(hostbuf, chansvs.nick, BUFSIZE);
+	strlcat(hostbuf, "!", BUFSIZE);
+	strlcat(hostbuf, chansvs.user, BUFSIZE);
+	strlcat(hostbuf, "@", BUFSIZE);
+	strlcat(hostbuf, chansvs.host, BUFSIZE);
+
+	if (!match(host, hostbuf))
+		return FALSE;
+
+	if ((ca = chanacs_find_host(mychan, host, CA_AUTOHALFOP)))
+		return TRUE;
+
+	return FALSE;
+}
+
+boolean_t should_voice(mychan_t *mychan, myuser_t *myuser)
+{
+	chanuser_t *cu;
+
+	if (!myuser)
+		return FALSE;
+
+	if (MC_NOOP & mychan->flags)
+		return FALSE;
+
+	if (MU_NOOP & myuser->flags)
+		return FALSE;
+
+	cu = chanuser_find(mychan->chan, myuser->user);
+	if (!cu)
 		return FALSE;
 
 	if (is_xop(mychan, myuser, CA_AUTOVOICE))

@@ -1,10 +1,11 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains a generic help system implementation.
  *
- * $Id: help.c 74 2005-05-23 02:33:37Z nenolod $
+ * $Id: help.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
@@ -33,7 +34,7 @@ struct help_command_ *help_cmd_find(char *svs, char *origin, char *command, stru
 			/* otherwise... */
 			else
 			{
-				notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
+				notice(svs, origin, "You are not authorized to perform this operation.");
 				return NULL;
 			}
 		}

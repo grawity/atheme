@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains routines that interface the event system.
  * This code is based on ircd-ratbox's event.c with modifications.
  *
- * $Id: event.c 19 2005-05-11 23:00:39Z nenolod $
+ * $Id: event.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
@@ -85,7 +86,7 @@ uint32_t event_add_once(const char *name, EVH *func, void *arg, time_t when)
 /* delete an event from the table */
 void event_delete(EVH *func, void *arg)
 {
-	uint32_t i = event_find(func, arg);
+	int32_t i = event_find(func, arg);
 
 	if (i == -1)
 		return;

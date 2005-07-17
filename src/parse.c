@@ -1,10 +1,11 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains IRC interaction routines.
  *
- * $Id: irc.c 80 2005-05-23 03:01:01Z nenolod $
+ * $Id: parse.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
@@ -20,7 +21,7 @@ void irc_parse(char *line)
 	static char coreLine[BUFSIZE];
 	uint8_t parc = 0;
 	uint8_t i;
-	struct message_ *m;
+	pcommand_t *pcmd;
 
 	/* clear the parv */
 	for (i = 0; i < 20; i++)
@@ -51,10 +52,13 @@ void irc_parse(char *line)
 			 * pull the origin off into `origin', and have pos for the
 			 * command, message will be the part afterwards
 			 */
-			if (*line == ':')
+			if (*line == ':' || (ircd->uses_p10 == TRUE && me.recvsvr == TRUE))
 			{
 				origin = line;
-				origin++;
+
+				if (ircd->uses_p10 == FALSE)
+					origin++;
+
 				if ((message = strchr(pos, ' ')))
 				{
 					*message = '\0';
@@ -101,8 +105,12 @@ void irc_parse(char *line)
 		}
 
 		/* take the command through the hash table */
-		if ((m = msg_find(command)))
-			if (m->func)
-				m->func(origin, parc, parv);
+		if ((pcmd = pcommand_find(command)))
+			if (pcmd->handler)
+			{
+				pcmd->handler(origin, parc, parv);
+				return;
+			}
 	}
 }
+

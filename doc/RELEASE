@@ -1,4 +1,21 @@
-$Id: RELEASE 353 2002-03-13 17:23:11Z nenolod $
+$Id: RELEASE 925 2005-07-17 07:02:37Z nenolod $
+
+Atheme 0.2rc1 Release Notes
+========================
+- Protocol support has been modularized.
+- The configuration format has drastically changed. Please redo your config.
+- The core has been modularized. Please provide feedback if something is not
+  working as it should.
+- Module support has been added. To compile third party modules, add them to
+  the modules directory and rerun setup/configure. Any modules in your
+  installation's modules/ directory will be automatically loaded at startup.
+- Metadata support has been added. To experiment with it, see our wiki
+  information on the topic:
+
+  http://wiki.oscnet.org/index.php/Atheme:Experimenting_with_Metadata
+- Several NickServ-related bugs have been fixed.
+- IRCNet support is marked as experimental. If you run this ircd,
+  please give us feedback on how well it functions.
 
 Atheme 0.1 Release Notes
 ========================
@@ -20,7 +37,7 @@ Atheme 0.1 Release Notes
   1.8.4 should work fine.
 - TSora IRCd support (ratbox) does not support TS6, and probably never will.
 
-If you need help, drop by OSCN and ask:
-   irc.oscnet.org #oscn-dev
+If you need help, drop by AthemeNet and ask:
+  irc.atheme.org #atheme
 
 Thanks!

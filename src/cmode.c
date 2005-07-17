@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains channel mode tracking routines.
  *
- * $Id: cmode.c 273 2005-06-01 01:27:03Z nenolod $
+ * $Id: cmode.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
@@ -13,6 +13,7 @@
 void channel_mode(channel_t *chan, uint8_t parc, char *parv[])
 {
 	boolean_t matched = FALSE;
+	boolean_t chanserv_reopped = FALSE;
 	int i, parpos = 0, whatt = MTYPE_NUL;
 	char *pos = parv[0];
 	mychan_t *mc;
@@ -139,17 +140,12 @@ void channel_mode(channel_t *chan, uint8_t parc, char *parv[])
 		{
 			if (*pos == status_mode_list[i].mode)
 			{
-				/* for some reason we apparently lose count.. */
-				if (*parv[parpos] == '+' || *parv[parpos] == '-')
-					parpos++;
-
-				cu = chanuser_find(chan, user_find(parv[parpos]));
+				cu = chanuser_find(chan, user_find(parv[++parpos]));
 
 				if (cu == NULL)
 				{
 					slog(LG_ERROR, "channel_mode(): MODE %s %c%c %s", chan->name, (whatt == MTYPE_ADD) ? '+' : '-', status_mode_list[i].value, parv[parpos]);
 
-					parpos++;
 					matched = TRUE;
 				}
 
@@ -177,7 +173,8 @@ void channel_mode(channel_t *chan, uint8_t parc, char *parv[])
 							strlcat(hostbuf, "@", BUFSIZE);
 							strlcat(hostbuf, cu->user->host, BUFSIZE);
 
-							if ((!is_founder(mc, mu)) && (cu->user != chansvs.me) && (!is_xop(mc, mu, (CA_AOP | CA_SOP))) && (!chanacs_find_host(mc, hostbuf, CA_AOP)))
+							if ((!is_founder(mc, mu)) && (cu->user != chansvs.me->me) && 
+								(!is_xop(mc, mu, (CA_OP | CA_AUTOOP))) && (!chanacs_find_host(mc, hostbuf, (CA_OP | CA_AUTOOP))))
 							{
 								/* they were opped and aren't on the list, deop them */
 								cmode(chansvs.nick, mc->name, "-o", cu->user->nick);
@@ -188,13 +185,15 @@ void channel_mode(channel_t *chan, uint8_t parc, char *parv[])
 				}
 				else
 				{
-					if (cu->user == chansvs.me)
+					if (cu->user == chansvs.me->me && chanserv_reopped == FALSE &&
+							status_mode_list[i].value == CMODE_OP)
 					{
 						slog(LG_DEBUG, "channel_mode(): deopped on %s, rejoining", cu->chan->name);
 
-						/* we were deopped, part and join */
 						part(cu->chan->name, chansvs.nick);
 						join(cu->chan->name, chansvs.nick);
+
+						chanserv_reopped = TRUE;
 
 						continue;
 					}
@@ -202,7 +201,6 @@ void channel_mode(channel_t *chan, uint8_t parc, char *parv[])
 					cu->modes &= ~status_mode_list[i].value;
 				}
 
-				parpos++;
 				break;
 			}
 		}
@@ -244,6 +242,7 @@ void user_mode(user_t *user, char *modes)
 					  user->flags |= UF_IRCOP;
 					  slog(LG_DEBUG, "user_mode(): %s is now an IRCop", user->nick);
 					  snoop("OPER: %s (%s)", user->nick, user->server->name);
+					  hook_call_event("user_oper", user);
 				  }
 			  }
 			  else
@@ -253,6 +252,7 @@ void user_mode(user_t *user, char *modes)
 					  user->flags &= ~UF_IRCOP;
 					  slog(LG_DEBUG, "user_mode(): %s is no longer an IRCop", user->nick);
 					  snoop("DEOPER: %s (%s)", user->nick, user->server->name);
+					  hook_call_event("user_deoper", user);
 				  }
 			  }
 		  default:
@@ -423,8 +423,12 @@ void cmode(char *sender, ...)
 		  case 'l':
 		  case 'k':
 		  case 'o':
+		  case 'h':
 		  case 'v':
 		  case 'b':
+		  case 'q':
+		  case 'a':
+		  case 'u':
 			  if (md->nparams >= MAXMODES || md->paramslen >= MAXPARAMSLEN)
 			  {
 				  flush_cmode(&modedata[which]);

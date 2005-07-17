@@ -21,6 +21,7 @@ Permissions:
     +f - Enables use of the flags command.
     +t - Enables use of the topic and topicappend commands.
     +b - Enables automatic kickban.
+    +A - Enables viewing of channel access lists.
     +* - All of the above.
 
 Examples:

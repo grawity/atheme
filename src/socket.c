@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
+ *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains socket routines.
  * Based off of W. Campbell's code.
  *
- * $Id: socket.c 306 2005-06-01 19:02:25Z nenolod $
+ * $Id: socket.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
@@ -164,12 +165,13 @@ static int8_t irc_estab(void)
 	uint8_t ret;
 
 	/* add our server */
-	me.me = server_add(me.name, 0, me.desc);
+	slog(LG_DEBUG, "irc_estab(): adding ourselves to the state database");
+	me.me = server_add(me.name, 0, me.numeric ? me.numeric : NULL, me.desc);
 
 	ret = server_login();
 	if (ret == 1)
 	{
-		slog(LG_ERROR, "irc_estab(): unable to connect to `%s' on port %d", me.uplink, me.port);
+		slog(LG_ERROR, "irc_estab(): unable to connect to `%s' on port %d", curr_uplink->name, curr_uplink->port);
 		servsock = -1;
 		me.connected = FALSE;
 		return 0;
@@ -196,7 +198,7 @@ static int8_t irc_estab(void)
 }
 
 /* connect to our uplink */
-int conn(char *host, uint32_t port)
+int socket_connect(char *host, uint32_t port)
 {
 	struct hostent *hp;
 	struct sockaddr_in sa;
@@ -204,9 +206,9 @@ int conn(char *host, uint32_t port)
 	uint32_t s, optval, flags;
 
 	/* get the socket */
-	if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	if (!(s = socket(AF_INET, SOCK_STREAM, 0)))
 	{
-		slog(LG_ERROR, "conn(): unable to create socket");
+		slog(LG_ERROR, "socket_connect(): unable to create socket");
 		return -1;
 	}
 
@@ -222,7 +224,7 @@ int conn(char *host, uint32_t port)
 		if ((hp = gethostbyname(me.vhost)) == NULL)
 		{
 			close(s);
-			slog(LG_ERROR, "conn(): unable to resolve `%s' for vhost", me.vhost);
+			slog(LG_ERROR, "socket_connect(): unable to resolve `%s' for vhost", me.vhost);
 			return -1;
 		}
 
@@ -237,7 +239,7 @@ int conn(char *host, uint32_t port)
 		if (bind(s, (struct sockaddr *)&sa, sizeof(sa)) < 0)
 		{
 			close(s);
-			slog(LG_ERROR, "conn(): unable to bind to vhost `%s'", me.vhost);
+			slog(LG_ERROR, "socket_connect(): unable to bind to vhost `%s'", me.vhost);
 			return -1;
 		}
 	}
@@ -246,7 +248,7 @@ int conn(char *host, uint32_t port)
 	if ((hp = gethostbyname(host)) == NULL)
 	{
 		close(s);
-		slog(LG_ERROR, "conn(): unable to resolve `%s'", host);
+		slog(LG_ERROR, "socket_connect(): unable to resolve `%s'", host);
 		return -1;
 	}
 
@@ -298,9 +300,9 @@ void reconn(void *arg)
 
 		slog(LG_DEBUG, "reconn(): ------------------------- done -------------------------");
 
-		slog(LG_INFO, "reconn(): connecting to `%s' on %d as `%s'", me.uplink, me.port, me.name);
+		slog(LG_INFO, "reconn(): connecting to an alternate server");
 
-		servsock = conn(me.uplink, me.port);
+		uplink_connect();
 	}
 }
 

@@ -1,10 +1,10 @@
-Atheme -- a set of services for TSora networks
-==============================================
+Atheme -- a set of services for IRC networks
+============================================
 
 This program is free but copyrighted software; see the LICENSE file for
 details.
 
-Information about Atheme may be found at http://atheme.oscnet.org/.
+Information about Atheme may be found at http://www.atheme.org/.
 
 TABLE OF CONTENTS
 -----------------
@@ -39,16 +39,8 @@ manage various things about their networks. Unlike it's predecessor, Shrike,
 Atheme has a completely reworked form of channel management that feels somewhat
 like eggdrop and is somewhat more useful.
 
-Atheme currently works with:
-  ircd-ratbox 1.3 and 2.x in TS5              | via the ratbox ircd type
-  ircd-hybrid 7.0 or later                    | via the ratbox ircd type
-  ircd-hybrid 6.0 or later                    | via the ratbox ircd type
-  csircd 1.3 or later                         | via the ratbox ircd type
-  Bahamut 1.8 or later                        | via the bahamut ircd type
-  UnrealIRCd 3.1 or later                     | via the unreal ircd type *
-
-* UnrealIRCd support is quite lacking right now, and is most likely unacceptable
-  for a production network.
+Atheme currently works with many ircd's. More details are available in the
+config file.
 
 3. INSTALLATION
 ---------------
@@ -85,5 +77,5 @@ terminate immediately. Otherwise, it will run until killed or otherwise stopped.
 
 If you are stuck, or services are doing something really wierd, or you have
 some sort of brilliant idea, we have a channel on IRC! (Surprising, no?)
-To access this channel, connect to irc.oscnet.org, and join #oscn-dev.
+To access this channel, connect to irc.atheme.org, and join #atheme.
 

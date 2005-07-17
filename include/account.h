@@ -4,7 +4,7 @@
  *
  * Data structures for account information.
  *
- * $Id: account.h 175 2005-05-29 08:00:14Z nenolod $
+ * $Id: account.h 946 2005-07-17 19:35:02Z nenolod $
  */
 
 #ifndef ACCOUNT_H
@@ -39,7 +39,9 @@ struct myuser_
   list_t chanacs;
   sra_t *sra;
 
-  unsigned long key;
+  list_t metadata;
+
+  int32_t key;
   char *temp;
 
   uint32_t flags;
@@ -69,7 +71,7 @@ struct mychan_
 
   int mlock_on;
   int mlock_off;
-  int mlock_limit;
+  uint32_t mlock_limit;
   char *mlock_key;
 
   uint32_t flags;
@@ -77,10 +79,12 @@ struct mychan_
 
   char *url;
   char *entrymsg;
+
+  list_t metadata;
 };
 
 #define MC_HOLD        0x00000001
-#define MC_NEVEROP     0x00000002
+#define MC_NOOP        0x00000002
 #define MC_RESTRICTED  0x00000004
 #define MC_SECURE      0x00000008
 #define MC_VERBOSE     0x00000010
@@ -89,10 +93,10 @@ struct mychan_
 /* struct for channel access list */
 struct chanacs_
 {
-  myuser_t *myuser;
-  mychan_t *mychan;
-  char *host;
-  int level;
+	myuser_t *myuser;
+	mychan_t *mychan;
+	char     *host;
+	uint32_t  level;
 };
 
 /* the new atheme-style channel flags */
@@ -106,15 +110,23 @@ struct chanacs_
 #define CA_INVITE        0x00000080 /* Ability to use /msg X invite */
 #define CA_RECOVER       0x00000100 /* Ability to use /msg X recover */
 #define CA_FLAGS         0x00000200 /* Ability to write to channel flags table */
-#define CA_AKICK         0x00000400 /* Automatic kick */
+#define CA_HALFOP	 0x00000400 /* Ability to use /msg X halfop */
+#define CA_AUTOHALFOP	 0x00000800 /* Gain halfops automatically upon entry. */
+#define CA_ACLVIEW	 0x00001000 /* Can view access lists */
+
+#define CA_AKICK         0x80000000 /* Automatic kick */
 
 /* compatibility shims for current shrike code. */
 #define CA_NONE          0x0
-#define CA_VOP           (CA_VOICE | CA_AUTOVOICE)
-#define CA_AOP           (CA_VOICE | CA_OP | CA_AUTOOP | CA_TOPIC)
+#define CA_VOP           (CA_VOICE | CA_AUTOVOICE | CA_ACLVIEW)
+#define CA_HOP		 (CA_VOICE | CA_HALFOP | CA_AUTOHALFOP | CA_TOPIC | CA_ACLVIEW)
+#define CA_AOP           (CA_VOICE | CA_HALFOP | CA_OP | CA_AUTOOP | CA_TOPIC | CA_ACLVIEW)
 #define CA_SOP           (CA_AOP | CA_SET | CA_REMOVE | CA_INVITE)
 #define CA_SUCCESSOR     (CA_SOP | CA_RECOVER)
 #define CA_FOUNDER       (CA_SUCCESSOR | CA_FLAGS)
+
+/* old CA_ flags */
+#define OLD_CA_AOP           (CA_VOICE | CA_OP | CA_AUTOOP | CA_TOPIC)
 
 /* shrike CA_ flags */
 #define SHRIKE_CA_VOP           0x00000002

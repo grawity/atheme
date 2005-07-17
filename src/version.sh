@@ -1,13 +1,12 @@
 #!/bin/sh
 #
-# Copyright (c) 2003-2004 E. Will et al.
-# Copyright (c) 2005 William Pitcock
+# Copyright (c) 2005 Atheme Development Group
 # Rights to this code are documented in doc/LICENSE.
 #
 # This file generates version.c.
 # Stolen from ircd-ratbox.
 #
-# $Id: version.sh 356 2002-03-13 17:27:38Z nenolod $
+# $Id: version.sh 972 2005-07-18 08:26:19Z pfish $
 #
 
 spitshell=cat
@@ -35,12 +34,12 @@ awk '{if (NF == 6) \
 else \
          { print $1 " "  $2 " " $3 " " $7 " at " $4 " " $5 " " $6 }}'`
 
-buildid=`echo "\$Revision: 356 $" | \
+buildid=`echo "\$Revision: 972 $" | \
 	awk '{ print $2 }'`;
 
 $spitshell >version.c <<!SUB!THIS!
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains version information.
@@ -58,8 +57,7 @@ const char *osinfo = "$osinfo";
 const char *infotext[] =
 {
   "Atheme IRC Services --",
-  "Copyright (c) 2005 William Pitcock et al.",
-  "Copyright (c) 2003-2004 E. Will et al.",
+  "Copyright (c) 2005 Atheme Development Group",
   " ",
   "All rights reserved.",
   " ",
@@ -90,10 +88,15 @@ const char *infotext[] =
   " ",
   "Currently Atheme consists of the following developers:",
   "  nenolod, William Pitcock <nenolod@nenolod.net>",
-  "  nick125, Nick <nick125@gmail.com>",
+  "  jilles, Jilles Tjoelker <jilles@stack.nl>",
+  "  Trystan, Trystan Scott Lee <trystan@nomadirc.net>",
+  "  alambert, Alex Lambert <alambert@quickfire.org>",
+  "  w00t, Robin Burchell <w00t@staff.chatspike.net>",
+  "  pfish, Patrick Fish <pofish@gmail.com>",
   " ",
-  "Thanks to testers, contributors, etc:",
-  "  nick125, ShadowGod, Lucifer7, Ashen, and many others.",
+  "Thanks to testers and contributors of previous releases:",
+  "  nick125, ShadowGod, Lucifer7, Ashen, katsklaw, Trystan, jilles,",
+  "  and many others.",
   " ",
   "Special thanks to:",
   "  rakaur, for starting Shrike.",
@@ -103,15 +106,3 @@ const char *infotext[] =
   0,
 };
 !SUB!THIS!
-
-# .
-# .
-# .
-# .
-# .
-# .
-# .
-# .
-# .
-# .
-# .

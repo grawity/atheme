@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 William Pitcock <nenolod -at- nenolod.net>
+ * Copyright (c) 2005 Atheme Development Group
  * flags.c: Functions to convert a flags table into a bitmask.
  *
  * See doc/LICENSE for licensing information.
@@ -20,11 +20,14 @@ struct flags_table chanacs_flags[] = {
 	{'i', CA_INVITE},
 	{'R', CA_RECOVER},
 	{'f', CA_FLAGS},
+	{'h', CA_HALFOP},
+	{'H', CA_AUTOHALFOP},
+	{'A', CA_ACLVIEW},
 	{'b', CA_AKICK},
 	{0, 0}
 };
 
-int flags_to_bitmask(const char *string, struct flags_table table[], int flags)
+uint32_t flags_to_bitmask(const char *string, struct flags_table table[], uint32_t flags)
 {
 	int bitmask = (flags ? flags : 0x0);
 	int status = FLAGS_ADD;
@@ -72,7 +75,7 @@ int flags_to_bitmask(const char *string, struct flags_table table[], int flags)
 	return bitmask;
 }
 
-char *bitmask_to_flags(int flags, struct flags_table table[])
+char *bitmask_to_flags(uint32_t flags, struct flags_table table[])
 {
 	char *bptr;
 	short i = 0;

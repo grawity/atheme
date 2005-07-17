@@ -5,7 +5,7 @@
 #
 # This file is a simple setup script.
 #
-# $Id: setup 351 2002-03-13 16:39:51Z nenolod $
+# $Id: setup 522 2005-06-13 01:09:48Z nenolod $
 
 PREFIX="$HOME/atheme"
 LARGENET="no"
@@ -42,51 +42,6 @@ if [ -f doc/RELEASE ] ; then
   done
   echo ""
 fi
-
-ok=0
-echo "What type of IRCd would you like to compile Atheme for?"
-echo ""
-echo "1) ircd-ratbox                       [1.0 or later]"
-echo "2) hybrid                            [7.0 or later]"
-echo "3) csircd                            [1.15 or later]"
-echo "4) bahamut                           [1.8 or later]"
-echo "5) unrealircd                        [3.1 or later]"
-echo "6) inspircd                          [1.0b5 or later]"
-echo "7) dancer-ircd  ** EXPERIMENTAL **   [1.0.35 or later]"
-echo "8) hyperion     ** EXPERIMENTAL **   [svn 91 or later]"
-echo "9) monkeyircd   ** EXPERIMENTAL **   [1.0.5 or later]"
-echo ""
-while [ $ok -eq 0 ] ; do
-  echo -n "[no default option] "
-  if read INPUT ; then : ; else echo "" ; exit 1 ; fi
-    case $INPUT in
-      [123])
-	  TYPE=ratbox
-          ok=1
-          ;;
-      4)
-	  TYPE=bahamut
-          ok=1
-          ;;
-      5)
-	  TYPE=unreal
-	  ok=1
-	  ;;
-      6)
-	  TYPE=inspircd
-	  ok=1
-	  ;;
-      [78])
-	  TYPE=hyperion
-	  ok=1
-	  ;;
-      9)
-	  TYPE=monkey
-	  ok=1
-	  ;;
-    esac
-done
-echo ""
 
 ok=0
 echo "Where do you want Atheme to be installed?"
@@ -138,7 +93,7 @@ case "$LARGENET" in
     ;;
 esac
 
-sh configure $ARGS --with-protocol=$TYPE
+sh configure $ARGS
 
 echo ""
 echo "Press enter to begin compilation."

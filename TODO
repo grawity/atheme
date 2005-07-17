@@ -1,28 +1,21 @@
-CService: complete (for now)
-GService: complete
-OService: complete
-DroneMon: 0%
+--- nenolod's TODO
 
-* GService (Global) todo:
+* Get fantasy commands working (cs_fantasy.so)
 
-    - nothing
+* vHost support
 
-* CService (X) todo:
+* HostServ which uses account metadata to store it's information
 
-    - nothing
+* Ability to alter level in config file:
 
-* OService (O) todo:
+levels {
+	aop = { remove; op; autoop; invite; topic; halfop; };
+	hop = { remove; halfop; topic; auto-halfop; };
+	...
+};
 
-    - nothing
-    - Oper/Server specific NOOP lists. Kills users who either oper on a server or if their hostmask matches.
+* PostgreSQL safety
 
-* Core todo:
+--- alambert's TODO is at http://dev.liveharmony.org/wiki/index.php/Atheme
 
-    - SQLite export/import
-
-* DroneMon todo:
-
-    - Version clients on connect, and kill/akill clients matching certain versions.
-    - Version statistics dumping to database
-
-*** More stuff is available on the wiki! ***
+<other developers can use this space to put their TODO/wishlist in.>

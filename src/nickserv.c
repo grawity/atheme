@@ -1,33 +1,21 @@
 /*
- * Copyright (c) 2005 William Pitcock, et al.
+ * Copyright (c) 2005 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the main() routine.
  *
- * $Id: nickserv.c 343 2002-03-13 14:59:00Z nenolod $
+ * $Id: nickserv.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
 
-struct command_ ns_commands[] = {
-	{"REGISTER", AC_NONE, ns_register},
-	{"IDENTIFY", AC_NONE, ns_identify},
-	{"DROP",     AC_NONE, ns_drop    },
-	{"HELP",     AC_NONE, ns_help    },
-	{"SET",      AC_NONE, ns_set     },
-	{"INFO",     AC_NONE, ns_info    },
-	{"STATUS",   AC_NONE, ns_status  },
-	{"SENDPASS", AC_NONE, ns_sendpass},
-	{"GHOST",    AC_NONE, ns_ghost   },
-	{NULL}
-};
+list_t ns_cmdtree;
 
 /* main services client routine */
 void nickserv(char *origin, uint8_t parc, char *parv[])
 {
 	char *cmd, *s;
 	char orig[BUFSIZE];
-	struct command_ *c;
 
 	/* this should never happen */
 	if (parv[0][0] == '&')
@@ -37,10 +25,10 @@ void nickserv(char *origin, uint8_t parc, char *parv[])
 	}
 
 	/* make a copy of the original for debugging */
-	strlcpy(orig, parv[1], BUFSIZE);
+	strlcpy(orig, parv[parc - 1], BUFSIZE);
 
 	/* lets go through this to get the command */
-	cmd = strtok(parv[1], " ");
+	cmd = strtok(parv[parc - 1], " ");
 
 	if (!cmd)
 		return;
@@ -82,7 +70,5 @@ void nickserv(char *origin, uint8_t parc, char *parv[])
 		return;
 
 	/* take the command through the hash table */
-	if ((c = cmd_find(nicksvs.nick, origin, cmd, ns_commands)))
-		if (c->func)
-			c->func(origin);
+	command_exec(nicksvs.disp, origin, cmd, &ns_cmdtree);
 }

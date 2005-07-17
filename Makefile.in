@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 151 2005-05-29 06:34:36Z nenolod $
+# $Id: Makefile.in 685 2005-07-08 04:19:05Z nenolod $
 #
 
 CC		= @CC@
@@ -12,10 +12,10 @@ MV		= @MV@
 CP		= @CP@
 INSTALL		= @INSTALL@
 PREFIX		= @PREFIX@
-BIN		= shrike@EXEEXT@
+BIN		= atheme@EXEEXT@
 
 SHELL=/bin/sh
-SUBDIRS=src
+SUBDIRS=dbtool backend modules protocol src contrib
 CLEANDIRS = ${SUBDIRS}
 
 MAKE = make ${MFLAGS}
@@ -35,7 +35,7 @@ build:
 	done
 
 clean:
-	${RM} -f *~ core shrike.core
+	${RM} -f *~ core atheme.core
 	@for i in $(CLEANDIRS); do \
 		echo "clean ==> $$i"; \
 		cd $$i; \
@@ -46,7 +46,7 @@ clean:
 	fi
 
 distclean:
-	${RM} -f Makefile *~ *.orig core shrike.core
+	${RM} -f Makefile *~ *.orig core atheme.core
 	${RM} -f config.status config.cache config.log
 	cd include; ${RM} -f sysconf.h *~ *.orig; cd ..
 	@for i in $(CLEANDIRS); do \

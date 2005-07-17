@@ -1,47 +1,32 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the block allocator.
  * This file was lifted from ircd-ratbox.
  *
- * $Id: balloc.c 19 2005-05-11 23:00:39Z nenolod $
+ * $Id: balloc.c 908 2005-07-17 04:00:28Z w00t $
  */
 
 #include "atheme.h"
 
-/* 
- * About the block allocator
+/*
+ * Somewhat rewritten/cleaned up on July 9, 2005
+ * by nenolod.
  *
- * Basically we have three ways of getting memory off of the operating
- * system. Below are this list of methods and the order of preference.
+ * I removed the broken code that used /dev/zero,
+ * as it depended on code that never existed, and the
+ * code was unreached.
  *
- * 1. mmap() anonymous pages with the MMAP_ANON flag.
- * 2. mmap() via the /dev/zero trick.
- * 3. malloc() 
+ * Here's how the block allocator works this time
+ * around:
  *
- * The advantages of 1 and 2 are this.  We can munmap() the pages which will
- * return the pages back to the operating system, thus reducing the size 
- * of the process as the memory is unused.  malloc() on many systems just keeps
- * a heap of memory to itself, which never gets given back to the OS, except on
- * exit.  This of course is bad, if say we have an event that causes us to allocate
- * say, 200MB of memory, while our normal memory consumption would be 15MB.  In the
- * malloc() case, the amount of memory allocated to our process never goes down, as
- * malloc() has it locked up in its heap.  With the mmap() method, we can munmap()
- * the block and return it back to the OS, thus causing our memory consumption to go
- * down after we no longer need it.
- * 
- * Of course it is up to the caller to make sure BlockHeapGarbageCollect() gets
- * called periodically to do this cleanup, otherwise you'll keep the memory in the
- * process.
- *
- *
+ * On systems, which support it, we use the native mmap
+ * interface. On systems that do not have mmap, we provide
+ * a shim around our safe malloc routine smalloc().
  */
 
-#define WE_ARE_MEMORY_C
-
 #ifdef HAVE_MMAP		/* We've got mmap() that is good */
-/* HP-UX sucks */
 #include <sys/mman.h>
 #ifdef MAP_ANONYMOUS
 #ifndef MAP_ANON
@@ -55,10 +40,6 @@ static int BlockHeapGarbageCollect(BlockHeap *);
 static void block_heap_gc(void *unused);
 static list_t heap_lists;
 
-#if defined(HAVE_MMAP) && !defined(MAP_ANON)
-static int zero_fd = -1;
-#endif
-
 #define blockheap_fail(x) _blockheap_fail(x, __FILE__, __LINE__)
 
 static void _blockheap_fail(const char *reason, const char *file, int line)
@@ -66,6 +47,42 @@ static void _blockheap_fail(const char *reason, const char *file, int line)
 	slog(LG_INFO, "Blockheap failure: %s (%s:%d)", reason, file, line);
 	runflags |= RF_SHUTDOWN;
 }
+
+#ifndef HAVE_MMAP
+/*
+ * static void mmap(void *hint, size_t len, uint32_t prot,
+ *                  uint32_t flags, uint16_t fd, uint16_t off)
+ *
+ * Inputs       - mmap style arguments.
+ * Output       - None
+ * Side Effects - Memory is allocated to the block allocator.
+ */
+static void *mmap(void *hint, size_t len, uint32_t prot,
+		  uint32_t flags, uint16_t fd, uint16_t off)
+{
+	void *ptr = smalloc(len);
+
+	if (!ptr)
+		blockheap_fail("smalloc() failed.");
+
+	return ptr;
+}
+
+/*
+ * static void munmap(void *addr, size_t len)
+ *
+ * Inputs       - munmap style arguments.
+ * Output       - None
+ * Side Effects - Memory is returned back to the OS.
+ */
+static void munmap(void *addr, size_t len)
+{
+	if (!addr)
+		blockheap_fail("no address to unmap.");
+
+	free(addr);
+}
+#endif
 
 /*
  * static void free_block(void *ptr, size_t size)
@@ -76,11 +93,7 @@ static void _blockheap_fail(const char *reason, const char *file, int line)
  */
 static void free_block(void *ptr, size_t size)
 {
-#ifdef HAVE_MMAP
 	munmap(ptr, size);
-#else
-	free(ptr);
-#endif
 }
 
 
@@ -94,13 +107,6 @@ static void free_block(void *ptr, size_t size)
 
 void initBlockHeap(void)
 {
-#if defined(HAVE_MMAP) && !defined(MAP_ANON)
-	zero_fd = open("/dev/zero", O_RDWR);
-
-	if (zero_fd < 0)
-		blockheap_fail("Failed opening /dev/zero");
-	fd_open(zero_fd, FD_FILE, "Anonymous mmap()");
-#endif
 	event_add("block_heap_gc", block_heap_gc, NULL, 60);
 }
 
@@ -114,19 +120,11 @@ void initBlockHeap(void)
 static void *get_block(size_t size)
 {
 	void *ptr;
-#ifdef HAVE_MMAP
-#ifdef MAP_ANON
 	ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
-#else
-	ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, zero_fd, 0);
-#endif
+
 	if (ptr == MAP_FAILED)
-	{
 		ptr = NULL;
-	}
-#else
-	ptr = smalloc(size);
-#endif
+
 	return (ptr);
 }
 
@@ -134,10 +132,9 @@ static void *get_block(size_t size)
 static void block_heap_gc(void *unused)
 {
 	node_t *ptr, *tptr;
+
 	LIST_FOREACH_SAFE(ptr, tptr, heap_lists.head)
-	{
 		BlockHeapGarbageCollect(ptr->data);
-	}
 }
 
 /* ************************************************************************ */
@@ -160,10 +157,10 @@ static int newblock(BlockHeap *bh)
 
 	/* Setup the initial data structure. */
 	b = (Block *)scalloc(1, sizeof(Block));
+
 	if (b == NULL)
-	{
 		return (1);
-	}
+
 	b->free_list.head = b->free_list.tail = NULL;
 	b->used_list.head = b->used_list.tail = NULL;
 	b->next = bh->base;
@@ -171,11 +168,12 @@ static int newblock(BlockHeap *bh)
 	b->alloc_size = (bh->elemsPerBlock + 1) * (bh->elemSize + sizeof(MemBlock));
 
 	b->elems = get_block(b->alloc_size);
+
 	if (b->elems == NULL)
-	{
 		return (1);
-	}
+
 	offset = b->elems;
+
 	/* Setup our blocks now */
 	for (i = 0; i < bh->elemsPerBlock; i++)
 	{
@@ -344,7 +342,7 @@ int BlockHeapFree(BlockHeap *bh, void *ptr)
 
 	if (ptr == NULL)
 	{
-		slog(LG_DEBUG, "balloc.BlockHeapFree() ptr == NULL");
+		slog(LG_DEBUG, "balloc.c:BlockHeapFree() ptr == NULL");
 		return (1);
 	}
 

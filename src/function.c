@@ -5,7 +5,7 @@
  *
  * This file contains misc routines.
  *
- * $Id: function.c 945 2005-07-17 19:34:07Z nenolod $
+ * $Id: function.c 2085 2005-09-03 20:55:49Z nenolod $
  */
 
 #include "atheme.h"
@@ -252,7 +252,7 @@ uint32_t shash(const unsigned char *p)
 {
 	unsigned int hval = HASHINIT;
 
-	if (*p == '\0')
+	if (!p)
 		return(0);
 	for (; *p != '\0'; ++p)
 	{

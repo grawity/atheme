@@ -4,7 +4,7 @@
  *
  * This code contains the channel mode definitions for ratbox ircd.
  *
- * $Id: unreal.h 560 2005-06-23 01:01:11Z nenolod $
+ * $Id: unreal.h 1676 2005-08-12 09:42:39Z pfish $
  */
 
 #ifndef RATBOX_H
@@ -28,6 +28,7 @@
 #define CMODE_HIDING	0x00400000	/* unreal +u */
 #define CMODE_SSLONLY	0x00800000	/* unreal +z */
 #define CMODE_STICKY	0x01000000	/* unreal +N */
+#define CMODE_JTHROT	0x02000000	/* unreal +j */
 
 #define CMODE_OWNER     0x10000000      /* unreal +q */
 #define CMODE_PROTECT   0x20000000      /* unreal +a */

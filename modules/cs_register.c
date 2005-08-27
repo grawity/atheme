@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService REGISTER function.
  *
- * $Id: cs_register.c 835 2005-07-16 07:45:29Z nenolod $
+ * $Id: cs_register.c 1358 2005-08-01 06:30:38Z alambert $
  */
 
 #include "atheme.h"
@@ -175,7 +175,7 @@ static void cs_cmd_register(char *origin)
 
 			snoop("REGISTER:VF: \2%s\2 by \2%s\2", mu->email, origin);
 
-			notice(chansvs.nick, origin, "Verification failed. Invalid key for \2%s\2.", mu->email);
+			notice(chansvs.nick, origin, "Verification failed. Invalid key for \2%s\2.", mu->name);
 
 			return;
 		}

@@ -5,7 +5,7 @@
  * This file contains linked list functions.
  * Idea from ircd-hybrid.
  *
- * $Id: node.c 912 2005-07-17 06:10:36Z nenolod $
+ * $Id: node.c 1434 2005-08-03 20:10:37Z alambert $
  */
 
 #include "atheme.h"
@@ -1077,6 +1077,18 @@ void chanuser_delete(channel_t *chan, user_t *user)
 {
 	chanuser_t *cu;
 	node_t *n, *tn, *n2;
+
+	if (!chan)
+	{
+		slog(LG_DEBUG, "chanuser_delete(): called with NULL chan");
+		return;
+	}
+
+	if (!user)
+	{
+		slog(LG_DEBUG, "chanuser_delete(): called with NULL user");
+		return;
+	}
 
 	LIST_FOREACH_SAFE(n, tn, chan->members.head)
 	{

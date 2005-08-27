@@ -4,7 +4,7 @@
  *
  * This file contains protocol support for bahamut-based ircd.
  *
- * $Id: unreal.c 907 2005-07-17 03:22:10Z w00t $
+ * $Id: unreal.c 1676 2005-08-12 09:42:39Z pfish $
  */
 
 #include "atheme.h"
@@ -58,6 +58,7 @@ struct cmode_ unreal_mode_list[] = {
 struct cmode_ unreal_ignore_mode_list[] = {
   { 'e', CMODE_EXEMPT },
   { 'I', CMODE_INVEX  },
+  { 'j', CMODE_JTHROT },
   { '\0', 0 }
 };
 
@@ -309,7 +310,14 @@ static void unreal_on_login(char *origin, char *user, char *wantedhost)
                 return;
 
 	/* imo, we should be using SVS2MODE to show the modechange here and on logout --w00t*/
-	sts(":%s SVS2MODE %s +rd %ld", chansvs.nick, origin, time(NULL));
+	if (!nicksvs.enable)
+	{
+		sts(":%s SVS2MODE %s +rd %ld", chansvs.nick, origin, time(NULL));
+	}
+	else
+	{
+		sts(":%s SVS2MODE %s +rd %ld", nicksvs.nick, origin, time(NULL));
+	}
 }
 
 /* protocol-specific stuff to do on logout */
@@ -321,7 +329,14 @@ static void unreal_on_logout(char *origin, char *user, char *wantedhost)
         if (irccasecmp(origin, user))
                 return;
 
-	sts(":%s SVS2MODE %s -r+d %ld", chansvs.nick, origin, time(NULL));
+	if (!nicksvs.enable)
+	{
+		sts(":%s SVS2MODE %s -r+d %ld", chansvs.nick, origin, time(NULL));
+	}
+	else
+	{
+		sts(":%s SVS2MODE %s -r+d %ld", nicksvs.nick, origin, time(NULL));
+	}
 }
 
 static void unreal_jupe(char *server, char *reason)
@@ -539,7 +554,9 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
 		for (i = 0; i < userc; i++)
-			chanuser_add(c, userv[i]);
+			if ((*userv[i] != '\'')
+				&& (*userv[i] != '"'))		/* ignore cmodes +I, +e */
+				chanuser_add(c, userv[i]);
 	}
 	else if (parc == 3)
 	{
@@ -584,7 +601,9 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
 		for (i = 0; i < userc; i++)
-			chanuser_add(c, userv[i]);
+			if ((*userv[i] != '\'')
+				&& (*userv[i] != '"'))		/* ignore cmodes +I, +e */
+				chanuser_add(c, userv[i]);
 	}
 	else if (parc == 2)
 	{

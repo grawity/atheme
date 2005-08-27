@@ -6,7 +6,7 @@
 # This file generates version.c.
 # Stolen from ircd-ratbox.
 #
-# $Id: version.sh 972 2005-07-18 08:26:19Z pfish $
+# $Id: version.sh 1819 2005-08-20 01:05:59Z w00t $
 #
 
 spitshell=cat
@@ -34,7 +34,7 @@ awk '{if (NF == 6) \
 else \
          { print $1 " "  $2 " " $3 " " $7 " at " $4 " " $5 " " $6 }}'`
 
-buildid=`echo "\$Revision: 972 $" | \
+buildid=`echo "\$Revision: 1819 $" | \
 	awk '{ print $2 }'`;
 
 $spitshell >version.c <<!SUB!THIS!
@@ -47,11 +47,13 @@ $spitshell >version.c <<!SUB!THIS!
  *
  */
 
+#include "serno.h"
+
 const char *generation = "$generation";
 const char *creation = "$creation";
 const char *platform = "$uname";
 const char *version = "$1";
-const char *revision = "$buildid";
+const char *revision = SERNO;
 const char *osinfo = "$osinfo";
 
 const char *infotext[] =
@@ -75,7 +77,7 @@ const char *infotext[] =
   "      used to endorse or promote products derived from this software without",
   "      specific prior written permission.",
   " ",
-  "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND",
+  "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS AS IS AND",
   "ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED",
   "WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE",
   "DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR",

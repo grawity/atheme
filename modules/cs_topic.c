@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService TOPIC functions.
  *
- * $Id: cs_topic.c 964 2005-07-18 07:37:30Z nenolod $
+ * $Id: cs_topic.c 1624 2005-08-11 21:15:28Z pfish $
  */
 
 #include "atheme.h"
@@ -48,7 +48,6 @@ static void cs_cmd_topic(char *origin)
 	mychan_t *mc;
 	channel_t *c;
 	user_t *u;
-	char hostbuf[BUFSIZE];
 
 	if (!chan || !topic)
 	{
@@ -72,13 +71,8 @@ static void cs_cmd_topic(char *origin)
 	}
 
 	u = user_find(origin);
-	strlcat(hostbuf, u->nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, u->user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, u->host, BUFSIZE);
 
-	if (!chanacs_find(mc, u->myuser, CA_TOPIC) && !chanacs_find_host(mc, hostbuf, CA_TOPIC))
+	if (!chanacs_user_has_flag(mc, u, CA_TOPIC))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
@@ -103,7 +97,6 @@ static void cs_cmd_topicappend(char *origin)
         char *topic = strtok(NULL, "");
         mychan_t *mc;
         user_t *u;
-        char hostbuf[BUFSIZE];
 	char topicbuf[BUFSIZE];
 	channel_t *c;
 
@@ -129,13 +122,8 @@ static void cs_cmd_topicappend(char *origin)
         }
 
         u = user_find(origin);
-        strlcpy(hostbuf, u->nick, BUFSIZE);
-        strlcat(hostbuf, "!", BUFSIZE);
-        strlcat(hostbuf, u->user, BUFSIZE);
-        strlcat(hostbuf, "@", BUFSIZE);
-        strlcat(hostbuf, u->host, BUFSIZE);
 
-        if (!chanacs_find(mc, u->myuser, CA_TOPIC) && !chanacs_find_host(mc, hostbuf, CA_TOPIC))
+        if (!chanacs_user_has_flag(mc, u, CA_TOPIC))
         {
                 notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
                 return;
@@ -148,6 +136,8 @@ static void cs_cmd_topicappend(char *origin)
 		strlcpy(topicbuf, c->topic, BUFSIZE);
 		strlcat(topicbuf, " | ", BUFSIZE);
 		strlcat(topicbuf, topic, BUFSIZE);
+		free(c->topic);
+		free(c->topic_setter);
 		c->topic = sstrdup(topicbuf);
 		c->topic_setter = sstrdup(origin);
 	}
@@ -169,7 +159,6 @@ static void cs_fcmd_topic(char *origin, char *chan)
         mychan_t *mc;
         channel_t *c;
         user_t *u;
-        char hostbuf[BUFSIZE];
 
         if (!topic)
         {
@@ -194,13 +183,8 @@ static void cs_fcmd_topic(char *origin, char *chan)
         }
 
         u = user_find(origin);
-        strlcat(hostbuf, u->nick, BUFSIZE);
-        strlcat(hostbuf, "!", BUFSIZE);
-        strlcat(hostbuf, u->user, BUFSIZE);
-        strlcat(hostbuf, "@", BUFSIZE);
-        strlcat(hostbuf, u->host, BUFSIZE);
 
-        if (!chanacs_find(mc, u->myuser, CA_TOPIC) && !chanacs_find_host(mc, hostbuf, CA_TOPIC))
+        if (!chanacs_user_has_flag(mc, u, CA_TOPIC))
         {
                 notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
                 return;
@@ -223,7 +207,6 @@ static void cs_fcmd_topicappend(char *origin, char *chan)
         char *topic = strtok(NULL, "");
         mychan_t *mc;
         user_t *u = user_find(origin);
-        char hostbuf[BUFSIZE];
         char topicbuf[BUFSIZE];
         channel_t *c;
 
@@ -248,13 +231,7 @@ static void cs_fcmd_topicappend(char *origin, char *chan)
                 return;
         }
 
-        strlcpy(hostbuf, u->nick, BUFSIZE);
-        strlcat(hostbuf, "!", BUFSIZE);
-        strlcat(hostbuf, u->user, BUFSIZE);
-        strlcat(hostbuf, "@", BUFSIZE);
-        strlcat(hostbuf, u->host, BUFSIZE);
-
-        if (!chanacs_find(mc, u->myuser, CA_TOPIC) && !chanacs_find_host(mc, hostbuf, CA_TOPIC))
+        if (!chanacs_user_has_flag(mc, u, CA_TOPIC))
         {
                 notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
                 return;
@@ -267,6 +244,8 @@ static void cs_fcmd_topicappend(char *origin, char *chan)
                 strlcpy(topicbuf, c->topic, BUFSIZE);
                 strlcat(topicbuf, " | ", BUFSIZE);
                 strlcat(topicbuf, topic, BUFSIZE);
+		free(c->topic);
+		free(c->topic_setter);
                 c->topic = sstrdup(topicbuf);
                 c->topic_setter = sstrdup(origin);
         }

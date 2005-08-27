@@ -6,7 +6,7 @@
  * This file contains socket routines.
  * Based off of W. Campbell's code.
  *
- * $Id: socket.c 908 2005-07-17 04:00:28Z w00t $
+ * $Id: socket.c 1121 2005-07-25 01:55:26Z alambert $
  */
 
 #include "atheme.h"
@@ -390,7 +390,7 @@ void io_loop(void)
 			{
 				/* select() timed out */
 			}
-			else if ((sr == -1) && (errno = EINTR))
+			else if ((sr == -1) && (errno == EINTR))
 			{
 				/* some signal interrupted us, restart select() */
 			}

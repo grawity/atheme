@@ -2,41 +2,45 @@
  * Copyright (c) 2003-2004 E. Will et al.
  * Rights to this code are documented in doc/LICENSE.
  *
- * This file contains functionality which implements the OService KLINE command.
+ * This file contains functionality which implements the OService AKILL/KLINE command.
  *
- * $Id: os_kline.c 826 2005-07-16 06:22:04Z w00t $
+ * $Id: os_kline.c 1508 2005-08-04 10:49:08Z pfish $
  */
 
 #include "atheme.h"
 
-static void os_cmd_kline(char *origin);
+static void os_cmd_akill(char *origin);
 
-command_t os_kline = { "KLINE", "Manages network bans.",
-                        AC_IRCOP, os_cmd_kline };
+command_t os_kline = { "KLINE", "Manages network bans. [deprecated, use OS AKILL in future.]", AC_IRCOP, os_cmd_akill };
+command_t os_akill = { "AKILL", "Manages network bans.", AC_IRCOP, os_cmd_akill };
+
 
 extern list_t os_cmdtree;
 
 void _modinit(module_t *m)
 {
-        command_add(&os_kline, &os_cmdtree);
+	command_add(&os_kline, &os_cmdtree);
+        command_add(&os_akill, &os_cmdtree);
 }
 
 void _moddeinit()
 {
 	command_delete(&os_kline, &os_cmdtree);
+	command_delete(&os_akill, &os_cmdtree);
 }
 
-static void os_cmd_kline(char *origin)
+static void os_cmd_akill(char *origin)
 {
 	user_t *u;
 	kline_t *k;
+	myuser_t *mu;
 	char *cmd = strtok(NULL, " ");
 	char *s;
 
 	if (!cmd)
 	{
-		notice(opersvs.nick, origin, "Insufficient parameters for \2KLINE\2.");
-		notice(opersvs.nick, origin, "Syntax: KLINE ADD|DEL|LIST");
+		notice(opersvs.nick, origin, "Insufficient parameters for \2AKILL\2.");
+		notice(opersvs.nick, origin, "Syntax: AKILL ADD|DEL|LIST");
 		return;
 	}
 
@@ -49,8 +53,8 @@ static void os_cmd_kline(char *origin)
 
 		if (!target || !token)
 		{
-			notice(opersvs.nick, origin, "Insufficient parameters for \2KLINE ADD\2.");
-			notice(opersvs.nick, origin, "Syntax: KLINE ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
+			notice(opersvs.nick, origin, "Insufficient parameters for \2AKILL ADD\2.");
+			notice(opersvs.nick, origin, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
 			return;
 		}
 
@@ -58,14 +62,28 @@ static void os_cmd_kline(char *origin)
 		{
 			duration = 0;
 			treason = strtok(NULL, "");
-			strlcpy(reason, treason, BUFSIZE);
+
+			if (treason)
+				strlcpy(reason, treason, BUFSIZE);
+			else
+				strlcpy(reason, "No reason given", BUFSIZE);
 		}
 		else if (!strcasecmp(token, "!T"))
 		{
 			s = strtok(NULL, " ");
-			duration = (atol(s) * 60);
 			treason = strtok(NULL, "");
-			strlcpy(reason, treason, BUFSIZE);
+			if (treason)
+				strlcpy(reason, treason, BUFSIZE);
+			else
+				strlcpy(reason, "No reason given", BUFSIZE);
+			if (s)
+				duration = (atol(s) * 60);
+			else {
+				notice(opersvs.nick, origin, "Insufficient parameters for \2AKILL ADD\2.");
+				notice(opersvs.nick, origin, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
+				return;
+			}
+
 		}
 		else
 		{
@@ -77,20 +95,26 @@ static void os_cmd_kline(char *origin)
 			{
 				strlcat(reason, " ", BUFSIZE);
 				strlcat(reason, treason, BUFSIZE);
-			}
+			}			
 		}
 
 		if (!(strchr(target, '@')))
 		{
-			if (!(u = user_find(target)))
+			if (!(mu = myuser_find(target)))
 			{
 				notice(opersvs.nick, origin, "\2%s\2 is not registered.", target);
 				return;
 			}
 
+			if (!(u = user_find(target)))
+			{
+				notice(opersvs.nick, origin, "\2%s\2 is not logged on.", target);
+				return;
+			}
+
 			if ((k = kline_find(u->user, u->host)))
 			{
-				notice(opersvs.nick, origin, "KLINE \2%s@%s\2 is already matched in the database.", u->user, u->host);
+				notice(opersvs.nick, origin, "AKILL \2%s@%s\2 is already matched in the database.", u->user, u->host);
 				return;
 			}
 
@@ -107,19 +131,19 @@ static void os_cmd_kline(char *origin)
 			/* make sure there's at least 5 non-wildcards */
 			for (tmphost = hostbuf; *tmphost; tmphost++)
 			{
-				if (*tmphost != '*' || *tmphost != '?')
+				if (*tmphost != '*' && *tmphost != '?')
 					i++;
 			}
 
 			if (i < 5)
 			{
-				notice(opersvs.nick, origin, "Invalid host: \2%s\2.", hostbuf);
+				notice(opersvs.nick, origin, "Invalid host: \2%s\2. At least five non-wildcard characters are required.", hostbuf);
 				return;
 			}
 
 			if ((k = kline_find(userbuf, hostbuf)))
 			{
-				notice(opersvs.nick, origin, "KLINE \2%s@%s\2 is already matched in the database.", userbuf, hostbuf);
+				notice(opersvs.nick, origin, "AKILL \2%s@%s\2 is already matched in the database.", userbuf, hostbuf);
 				return;
 			}
 
@@ -128,11 +152,11 @@ static void os_cmd_kline(char *origin)
 		}
 
 		if (duration)
-			notice(opersvs.nick, origin, "TKLINE on \2%s@%s\2 was successfully added and will " "expire in %s.", k->user, k->host, timediff(duration));
+			notice(opersvs.nick, origin, "Timed AKILL on \2%s@%s\2 was successfully added and will " "expire in %s.", k->user, k->host, timediff(duration));
 		else
-			notice(opersvs.nick, origin, "KLINE on \2%s@%s\2 was successfully added.", k->user, k->host);
+			notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 was successfully added.", k->user, k->host);
 
-		snoop("KLINE:ADD: \2%s@%s\2 by \2%s\2 for \2%s\2", k->user, k->host, origin, k->reason);
+		snoop("AKILL:ADD: \2%s@%s\2 by \2%s\2 for \2%s\2", k->user, k->host, origin, k->reason);
 
 		return;
 	}
@@ -145,8 +169,8 @@ static void os_cmd_kline(char *origin)
 
 		if (!target)
 		{
-			notice(opersvs.nick, origin, "Insuccicient parameters for \2KLINE DEL\2.");
-			notice(opersvs.nick, origin, "Syntax: KLINE DEL <hostmask>");
+			notice(opersvs.nick, origin, "Insuccicient parameters for \2AKILL DEL\2.");
+			notice(opersvs.nick, origin, "Syntax: AKILL DEL <hostmask>");
 			return;
 		}
 
@@ -179,15 +203,13 @@ static void os_cmd_kline(char *origin)
 					{
 						if (!(k = kline_find_num(i)))
 						{
-							notice(opersvs.nick, origin, "No such KLINE with number \2%d\2.", i);
+							notice(opersvs.nick, origin, "No such AKILL with number \2%d\2.", i);
 							continue;
 						}
 
 
-						notice(opersvs.nick, origin, "KLINE on \2%s@%s\2 has been successfully removed.", k->user, k->host);
-
-						snoop("KLINE:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
-
+						notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+						snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
 						kline_delete(k->user, k->host);
 					}
 
@@ -198,13 +220,13 @@ static void os_cmd_kline(char *origin)
 
 				if (!(k = kline_find_num(number)))
 				{
-					notice(opersvs.nick, origin, "No such KLINE with number \2%d\2.", number);
+					notice(opersvs.nick, origin, "No such AKILL with number \2%d\2.", number);
 					return;
 				}
 
-				notice(opersvs.nick, origin, "KLINE on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+				notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
 
-				snoop("KLINE:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
+				snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
 
 				kline_delete(k->user, k->host);
 
@@ -238,13 +260,13 @@ static void os_cmd_kline(char *origin)
 				{
 					if (!(k = kline_find_num(i)))
 					{
-						notice(opersvs.nick, origin, "No such KLINE with number \2%d\2.", i);
+						notice(opersvs.nick, origin, "No such AKILL with number \2%d\2.", i);
 						continue;
 					}
 
-					notice(opersvs.nick, origin, "KLINE on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+					notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
 
-					snoop("KLINE:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
+					snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
 
 					kline_delete(k->user, k->host);
 				}
@@ -256,13 +278,13 @@ static void os_cmd_kline(char *origin)
 
 			if (!(k = kline_find_num(number)))
 			{
-				notice(opersvs.nick, origin, "No such KLINE with number \2%d\2.", number);
+				notice(opersvs.nick, origin, "No such AKILL with number \2%d\2.", number);
 				return;
 			}
 
-			notice(opersvs.nick, origin, "KLINE on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+			notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
 
-			snoop("KLINE:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
+			snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
 
 			kline_delete(k->user, k->host);
 
@@ -274,15 +296,15 @@ static void os_cmd_kline(char *origin)
 
 		if (!(k = kline_find(userbuf, hostbuf)))
 		{
-			notice(opersvs.nick, origin, "No such KLINE: \2%s@%s\2.", userbuf, hostbuf);
+			notice(opersvs.nick, origin, "No such AKILL: \2%s@%s\2.", userbuf, hostbuf);
 			return;
 		}
 
+		notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", userbuf, hostbuf);
+
+		snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
+
 		kline_delete(userbuf, hostbuf);
-
-		notice(opersvs.nick, origin, "KLINE on \2%s@%s\2 has been successfully removed.", userbuf, hostbuf);
-
-		snoop("KLINE:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
 
 		return;
 	}
@@ -299,9 +321,9 @@ static void os_cmd_kline(char *origin)
 			full = TRUE;
 
 		if (full)
-			notice(opersvs.nick, origin, "KLINE list (with reasons):");
+			notice(opersvs.nick, origin, "AKILL list (with reasons):");
 		else
-			notice(opersvs.nick, origin, "KLINE list:");
+			notice(opersvs.nick, origin, "AKILL list:");
 
 		LIST_FOREACH(n, klnlist.head)
 		{
@@ -319,6 +341,11 @@ static void os_cmd_kline(char *origin)
 				notice(opersvs.nick, origin, "%d: %s@%s - by \2%s\2 - \2permanent\2", k->number, k->user, k->host, k->setby);
 		}
 
-		notice(opersvs.nick, origin, "Total of \2%d\2 %s in KLINE list.", i, (i == 1) ? "entry" : "entries");
+		notice(opersvs.nick, origin, "Total of \2%d\2 %s in AKILL list.", i, (i == 1) ? "entry" : "entries");
+	}
+	else
+	{
+		notice(opersvs.nick, origin, "Insufficient parameters for \2AKILL\2.");
+		notice(opersvs.nick, origin, "Syntax: AKILL ADD|DEL|LIST");
 	}
 }

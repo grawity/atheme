@@ -5,7 +5,7 @@
  * This file contains the implementation of the Atheme 0.1
  * flatfile database format, with metadata extensions.
  *
- * $Id: flatfile.c 948 2005-07-17 20:39:21Z nenolod $
+ * $Id: flatfile.c 1430 2005-08-03 19:28:38Z alambert $
  */
 
 #include "atheme.h"
@@ -973,6 +973,38 @@ static chanacs_t *flatfile_chanacs_find_host_literal(mychan_t *mychan, char *hos
         return NULL;
 }
 
+static chanacs_t *flatfile_chanacs_find_host_by_user(mychan_t *mychan, user_t *u, uint32_t level)
+{
+	char host[BUFSIZE];
+
+	if ((!mychan) || (!u))
+		return NULL;
+
+	/* construct buffer for user's host */
+	host[0] = '\0';
+	strlcat(host, u->nick, BUFSIZE);
+	strlcat(host, "!", BUFSIZE);
+	strlcat(host, u->user, BUFSIZE);
+	strlcat(host, "@", BUFSIZE);
+	strlcat(host, u->host, BUFSIZE);
+
+	return chanacs_find_host(mychan, host, level);
+}
+
+static boolean_t flatfile_chanacs_user_has_flag(mychan_t *mychan, user_t *u, uint32_t level)
+{
+	if (!mychan || !u)
+		return FALSE;
+
+	if (u->myuser && chanacs_find(mychan, u->myuser, level))
+		return TRUE;
+
+	if (chanacs_find_host_by_user(mychan, u, level))
+		return TRUE;
+
+	return FALSE;
+}
+
 static metadata_t *flatfile_metadata_add(void *target, int32_t type, char *name, char *value)
 {
         myuser_t *mu = NULL;
@@ -1192,7 +1224,9 @@ void _modinit(module_t *m)
 	chanacs_delete_host = &flatfile_chanacs_delete_host;
 	chanacs_find = &flatfile_chanacs_find;
 	chanacs_find_host = &flatfile_chanacs_find_host;
+	chanacs_find_host_by_user = &flatfile_chanacs_find_host_by_user;
 	chanacs_find_host_literal = &flatfile_chanacs_find_host_literal;
+	chanacs_user_has_flag = &flatfile_chanacs_user_has_flag;
 
 	/* METADATA */
 	metadata_add = &flatfile_metadata_add;

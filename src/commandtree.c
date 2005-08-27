@@ -4,7 +4,7 @@
  *
  * Commandtree manipulation routines.
  *
- * $Id: commandtree.c 908 2005-07-17 04:00:28Z w00t $
+ * $Id: commandtree.c 1682 2005-08-12 10:45:42Z pfish $
  */
 
 #include "atheme.h"
@@ -69,6 +69,7 @@ void command_exec(char *mynick, char *origin, char *cmd, list_t *commandtree)
 			}
 
 			notice(mynick, origin, "You are not authorized to perform this operation.");
+			snoop("DENIED CMD: \2%s\2 used %s", origin, cmd);
 			return;
 		}
 	}
@@ -91,6 +92,7 @@ void command_exec(char *mynick, char *origin, char *cmd, list_t *commandtree)
  */
 void command_help(char *mynick, char *origin, list_t *commandtree)
 {
+	user_t *u = user_find(origin);
 	node_t *n;
 
 	notice(mynick, origin, "The following commands are available:");
@@ -99,7 +101,13 @@ void command_help(char *mynick, char *origin, list_t *commandtree)
 	{
 		command_t *c = n->data;
 
-		notice(mynick, origin, "\2%-16s\2 %s", c->name, c->desc);
+		/* show only the commands we have access to
+		 * (taken from command_exec())
+		 */
+		if ((c->access == AC_NONE)
+			|| ((c->access == AC_SRA) && is_sra(u->myuser))
+			|| ((c->access == AC_IRCOP) && (is_sra(u->myuser) || is_ircop(u))))
+			notice(mynick, origin, "\2%-16s\2 %s", c->name, c->desc);
 	}
 }
 

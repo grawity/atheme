@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ REGISTER function.
  *
- * $Id: ns_register.c 838 2005-07-16 07:48:10Z w00t $
+ * $Id: ns_register.c 1197 2005-07-30 23:55:16Z alambert $
  */
 
 #include "atheme.h"
@@ -71,7 +71,7 @@ static void ns_cmd_register(char *origin)
 
 		snoop("REGISTER:VF: \2%s\2 by \2%s\2", mu->email, origin);
 
-		notice(nicksvs.nick, origin, "Verification failed. Invalid key for \2%s\2.", mu->email);
+		notice(nicksvs.nick, origin, "Verification failed. Invalid key for \2%s\2.", mu->name);
 
 		return;
 	}

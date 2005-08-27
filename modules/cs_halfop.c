@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService OP functions.
  *
- * $Id: cs_halfop.c 1056 2005-07-19 21:48:51Z alambert $
+ * $Id: cs_halfop.c 1432 2005-08-03 19:36:14Z alambert $
  */
 
 #include "atheme.h"
@@ -52,9 +52,14 @@ static void cs_cmd_halfop(char *origin)
 	char *chan = strtok(NULL, " ");
 	char *nick = strtok(NULL, " ");
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
-	char hostbuf[BUFSIZE];
+
+	if (!ircd->uses_halfops)
+	{
+		notice(chansvs.nick, origin, "Your IRC server does not support halfops.");
+		return;
+	}
 
 	if (!chan)
 	{
@@ -70,64 +75,52 @@ static void cs_cmd_halfop(char *origin)
 		return;
 	}
 
-	hostbuf[0] = '\0';
-
 	u = user_find(origin);
-	strlcat(hostbuf, u->nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, u->user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, u->host, BUFSIZE);
-
-	if (!chanacs_find(mc, u->myuser, CA_HALFOP) && !chanacs_find_host(mc, hostbuf, CA_HALFOP))
+	if (!chanacs_user_has_flag(mc, u, CA_HALFOP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
 	}
 
-	/* figure out who we're going to op */
-	if (nick)
+	/* figure out who we're going to halfop */
+	if (!nick)
+		tu = u;
+	else
 	{
-		if (!(u = user_find(nick)))
+		if (!(tu = user_find(nick)))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not registered.", nick);
+			notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
 			return;
 		}
 	}
 
-	if (u->server == me.me)
+	if (tu->server == me.me)
 		return;
 
-	if (!chanacs_find_host(mc, hostbuf, CA_HALFOP))
+	/* SECURE check; we can skip this if sender == target, because we already verified */
+	if ((u != tu) && (mc->flags & MC_SECURE) && !chanacs_user_has_flag(mc, tu, CA_HALFOP))
 	{
-		if ((MC_SECURE & mc->flags) && (!u->myuser))
-		{
-			notice(chansvs.nick, origin, "The \2SECURE\2 flag is set for \2%s\2.", mc->name);
-			return;
-		}
-		else if ((MC_SECURE & mc->flags) && (!is_founder(mc, u->myuser)) && (!is_successor(mc, u->myuser)) && (!is_xop(mc, u->myuser, CA_HALFOP)))
-		{
-			notice(chansvs.nick, origin, "\2%s\2 could not be halfopped on \2%s\2.", u->nick, mc->name);
-			return;
-		}
+		notice(chansvs.nick, origin, "You are not authorized to perform this operation.", mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 has the SECURE option enabled, and \2%s\2 does not have appropriate access.", mc->name, tu->nick);
+		return;
 	}
 
-	cu = chanuser_find(mc->chan, u);
+	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
 	if (ircd->halfops_mode & cu->modes)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is already halfopped on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is already halfopped on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
-	cmode(chansvs.nick, chan, "+h", CLIENT_NAME(u));
+	cmode(chansvs.nick, chan, "+h", CLIENT_NAME(tu));
 	cu->modes |= ircd->halfops_mode;
-	notice(chansvs.nick, origin, "\2%s\2 has been halfopped on \2%s\2.", u->nick, mc->name);
+	notice(chansvs.nick, origin, "\2%s\2 has been halfopped on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_cmd_dehalfop(char *origin)
@@ -135,8 +128,14 @@ static void cs_cmd_dehalfop(char *origin)
 	char *chan = strtok(NULL, " ");
 	char *nick = strtok(NULL, " ");
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
+
+	if (!ircd->uses_halfops)
+	{
+		notice(chansvs.nick, origin, "Your IRC server does not support halfops.");
+		return;
+	}
 
 	if (!chan)
 	{
@@ -153,61 +152,55 @@ static void cs_cmd_dehalfop(char *origin)
 	}
 
 	u = user_find(origin);
-	if (!u->myuser)
-	{
-		notice(chansvs.nick, origin, "You are not logged in.");
-		return;
-	}
-
-	if ((!is_founder(mc, u->myuser)) && (!is_successor(mc, u->myuser)) && (!is_xop(mc, u->myuser, CA_HALFOP)))
+	if (!chanacs_user_has_flag(mc, u, CA_HALFOP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
 	}
 
-	/* figure out who we're going to deop */
-	if (nick)
+	/* figure out who we're going to dehalfop */
+	if (!nick)
+		tu = u;
+	else
 	{
-		if (!(u = user_find(nick)))
+		if (!(tu = user_find(nick)))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not registered.", nick);
+			notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
 			return;
 		}
 	}
 
-	if (u->server == me.me)
+	if (tu->server == me.me)
 		return;
 
-	cu = chanuser_find(mc->chan, u);
+	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
 	if (!(ircd->halfops_mode & cu->modes))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not halfopped on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not halfopped on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
-	cmode(chansvs.nick, chan, "-h", CLIENT_NAME(u));
-	cu->modes &= ircd->halfops_mode;
-	notice(chansvs.nick, origin, "\2%s\2 has been dehalfopped on \2%s\2.", u->nick, mc->name);
+	cmode(chansvs.nick, chan, "-h", CLIENT_NAME(tu));
+	cu->modes &= ~ircd->halfops_mode;
+	notice(chansvs.nick, origin, "\2%s\2 has been dehalfopped on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_fcmd_halfop(char *origin, char *chan)
 {
 	char *nick;
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
-	char hostbuf[BUFSIZE];
 
-	if (!chan)
+	if (!ircd->uses_halfops)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2!HALFOP\2.");
-		notice(chansvs.nick, origin, "Syntax: !HALFOP [nickname]");
+		notice(chansvs.nick, origin, "Your IRC server does not support halfops.");
 		return;
 	}
 
@@ -218,64 +211,52 @@ static void cs_fcmd_halfop(char *origin, char *chan)
 		return;
 	}
 
-	hostbuf[0] = '\0';
-
 	u = user_find(origin);
-	strlcat(hostbuf, u->nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, u->user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, u->host, BUFSIZE);
-
-	if (!chanacs_find(mc, u->myuser, CA_HALFOP) && !chanacs_find_host(mc, hostbuf, CA_HALFOP))
+	if (!chanacs_user_has_flag(mc, u, CA_HALFOP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
 	}
 
-	/* figure out who we're going to op */
+	/* figure out who we're going to halfop, do so, repeat. */
 	while ((nick = strtok(NULL, " ")))
 	{
-		if (nick)
+		if (!nick)
+			tu = u;
+		else
 		{
-			if (!(u = user_find(nick)))
+			if (!(tu = user_find(nick)))
 			{
-				notice(chansvs.nick, origin, "\2%s\2 is not registered.", nick);
-				return;
+				notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
+				continue;
 			}
 		}
 
-		if (!chanacs_find_host(mc, hostbuf, CA_HALFOP))
-		{
-			if ((MC_SECURE & mc->flags) && (!u->myuser))
-			{
-				notice(chansvs.nick, origin, "The \2SECURE\2 flag is set for \2%s\2.", mc->name);
-				return;
-			}
-			else if ((MC_SECURE & mc->flags) && (!is_founder(mc, u->myuser)) && (!is_successor(mc, u->myuser)) && (!is_xop(mc, u->myuser, CA_HALFOP)))
-			{
-				notice(chansvs.nick, origin, "\2%s\2 could not be halfopped on \2%s\2.", u->nick, mc->name);
-				return;
-			}
-		}
-
-		if (u->server == me.me)
+		if (tu->server == me.me)
 			continue;
 
-		cu = chanuser_find(mc->chan, u);
+		/* SECURE check; we can skip this if sender == target, because we already verified */
+		if ((u != tu) && (mc->flags & MC_SECURE) && !chanacs_user_has_flag(mc, tu, CA_HALFOP))
+		{
+			notice(chansvs.nick, origin, "You are not authorized to perform this operation.", mc->name);
+			notice(chansvs.nick, origin, "\2%s\2 has the SECURE option enabled, and \2%s\2 does not have appropriate access.", mc->name, tu->nick);
+			continue;
+		}
+
+		cu = chanuser_find(mc->chan, tu);
 		if (!cu)
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
-			return;
+			notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
+			continue;
 		}
 
 		if (ircd->halfops_mode & cu->modes)
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is already halfopped on \2%s\2.", u->nick, mc->name);
-			return;
+			notice(chansvs.nick, origin, "\2%s\2 is already halfopped on \2%s\2.", tu->nick, mc->name);
+			continue;
 		}
 
-		cmode(chansvs.nick, chan, "+h", CLIENT_NAME(u));
+		cmode(chansvs.nick, chan, "+h", CLIENT_NAME(tu));
 		cu->modes |= ircd->halfops_mode;
 	}
 }
@@ -284,13 +265,12 @@ static void cs_fcmd_dehalfop(char *origin, char *chan)
 {
 	char *nick;
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
 
-	if (!chan)
+	if (!ircd->uses_halfops)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2!DEHALFOP\2.");
-		notice(chansvs.nick, origin, "Syntax: !DEHALFOP [nickname]");
+		notice(chansvs.nick, origin, "Your IRC server does not support halfops.");
 		return;
 	}
 
@@ -302,48 +282,43 @@ static void cs_fcmd_dehalfop(char *origin, char *chan)
 	}
 
 	u = user_find(origin);
-	if (!u->myuser)
-	{
-		notice(chansvs.nick, origin, "You are not logged in.");
-		return;
-	}
-
-	if ((!is_founder(mc, u->myuser)) && (!is_successor(mc, u->myuser)) && (!is_xop(mc, u->myuser, CA_HALFOP)))
+	if (!chanacs_user_has_flag(mc, u, CA_HALFOP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
 	}
 
-	/* figure out who we're going to deop */
+	/* figure out who we're going to dehalfop */
 	while ((nick = strtok(NULL, " ")))
 	{
-		if (nick)
+		if (!nick)
+			tu = u;
+		else
 		{
-			if (!(u = user_find(nick)))
+			if (!(tu = user_find(nick)))
 			{
-				notice(chansvs.nick, origin, "\2%s\2 is not registered.", nick);
-				return;
+				notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
+				continue;
 			}
 		}
 
-		if (u->server == me.me)
+		if (tu->server == me.me)
 			continue;
 
-		cu = chanuser_find(mc->chan, u);
+		cu = chanuser_find(mc->chan, tu);
 		if (!cu)
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
-			return;
+			notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
+			continue;
 		}
 
 		if (!(ircd->halfops_mode & cu->modes))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not halfopped on \2%s\2.", u->nick, mc->name);
-			return;
+			notice(chansvs.nick, origin, "\2%s\2 is not halfopped on \2%s\2.", tu->nick, mc->name);
+			continue;
 		}
 
-		cmode(chansvs.nick, chan, "-h", CLIENT_NAME(u));
-		cu->modes &= ircd->halfops_mode;
-		notice(chansvs.nick, origin, "\2%s\2 has been dehalfopped on \2%s\2.", u->nick, mc->name);
+		cmode(chansvs.nick, chan, "-h", CLIENT_NAME(tu));
+		cu->modes &= ~ircd->halfops_mode;
 	}
 }

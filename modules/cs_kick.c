@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService KICK functions.
  *
- * $Id: cs_kick.c 961 2005-07-18 07:27:45Z nenolod $
+ * $Id: cs_kick.c 1440 2005-08-03 20:19:39Z alambert $
  */
 
 #include "atheme.h"
@@ -105,7 +105,6 @@ static void cs_cmd_kick(char *origin)
 
 	snprintf(reasonbuf, BUFSIZE, "%s (%s)", reason ? reason : "No reason given", origin);
 	kick(chansvs.nick, chan, u->nick, reasonbuf);
-	chanuser_delete(mc->chan, u);
 	notice(chansvs.nick, origin, "\2%s\2 has been kicked from \2%s\2.", u->nick, mc->name);
 }
 
@@ -171,7 +170,6 @@ static void cs_cmd_kickban(char *origin)
 	snprintf(reasonbuf, BUFSIZE, "%s (%s)", reason ? reason : "No reason given", origin);
 	ban(chansvs.nick, chan, u);
 	kick(chansvs.nick, chan, u->nick, reasonbuf);
-	chanuser_delete(mc->chan, u);
 	notice(chansvs.nick, origin, "\2%s\2 has been kickbanned from \2%s\2.", u->nick, mc->name);
 }
 
@@ -235,7 +233,6 @@ static void cs_fcmd_kick(char *origin, char *chan)
 
 	snprintf(reasonbuf, BUFSIZE, "%s (%s)", reason ? reason : "No reason given", origin);
 	kick(chansvs.nick, chan, u->nick, reasonbuf);
-	chanuser_delete(mc->chan, u);
 	notice(chansvs.nick, origin, "\2%s\2 has been kicked from \2%s\2.", u->nick, mc->name);
 }
 
@@ -300,7 +297,6 @@ static void cs_fcmd_kickban(char *origin, char *chan)
 	snprintf(reasonbuf, BUFSIZE, "%s (%s)", reason ? reason : "No reason given", origin);
 	ban(chansvs.nick, chan, u);
 	kick(chansvs.nick, chan, u->nick, reasonbuf);
-	chanuser_delete(mc->chan, u);
 	notice(chansvs.nick, origin, "\2%s\2 has been kickbanned from \2%s\2.", u->nick, mc->name);
 }
 

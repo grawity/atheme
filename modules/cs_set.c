@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService SET command.
  *
- * $Id: cs_set.c 1062 2005-07-20 04:36:58Z w00t $
+ * $Id: cs_set.c 1360 2005-08-01 06:31:33Z alambert $
  */
 
 #include "atheme.h"
@@ -145,6 +145,12 @@ static void cs_set_email(char *origin, char *name, char *params)
 
 		notice(chansvs.nick, origin, "Verification failed. Invalid key for \2%s\2.", mu->temp);
 
+		return;
+	}
+
+	if (mu->flags & MU_WAITAUTH)
+	{
+		notice(chansvs.nick, origin, "Please verify your original registration before changing your e-mail address.");
 		return;
 	}
 

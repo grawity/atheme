@@ -5,7 +5,7 @@
  *
  * This file contains client interaction routines.
  *
- * $Id: services.c 930 2005-07-17 07:49:02Z alambert $
+ * $Id: services.c 1682 2005-08-12 10:45:42Z pfish $
  */
 
 #include "atheme.h"
@@ -172,6 +172,7 @@ struct command_ *cmd_find(char *svs, char *origin, char *command, struct command
 			else
 			{
 				notice(svs, origin, "You are not authorized to perform this operation.");
+				snoop("DENIED CMD: \2%s\2 used %s", origin, command);
 				return NULL;
 			}
 		}

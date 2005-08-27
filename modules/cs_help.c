@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService HELP command.
  *
- * $Id: cs_help.c 943 2005-07-17 10:38:45Z w00t $
+ * $Id: cs_help.c 1466 2005-08-04 00:52:38Z alambert $
  */
 
 #include "atheme.h"
@@ -18,6 +18,7 @@ static struct help_command_ cs_help_commands[] = {
   { "HELP",     AC_NONE,  "help/help"              },
   { "SOP",      AC_NONE,  "help/cservice/xop"      },
   { "AOP",      AC_NONE,  "help/cservice/xop"      },
+  { "HOP",      AC_NONE,  "help/cservice/xop"      },
   { "VOP",      AC_NONE,  "help/cservice/xop"      },
   { "OP",       AC_NONE,  "help/cservice/op_voice" },
   { "DEOP",     AC_NONE,  "help/cservice/op_voice" },
@@ -41,6 +42,7 @@ static struct help_command_ cs_help_commands[] = {
   { "SENDPASS", AC_IRCOP, "help/cservice/sendpass" },
   { "FTRANSFER", AC_IRCOP, "help/cservice/ftransfer" },
   { "MARK",     AC_IRCOP, "help/cservice/mark"     },
+  { "LIST",     AC_IRCOP, "help/cservice/list"     },
   { "CLOSE",    AC_IRCOP, "help/cservice/close"    },
   { "SET EMAIL",     AC_NONE, "help/cservice/set_email"     },
   { "SET FOUNDER",   AC_NONE, "help/cservice/set_founder"   },
@@ -123,7 +125,7 @@ static void cs_cmd_help(char *origin)
 		notice(chansvs.nick, origin, "\2FOUNDER\2       Sets you founder of a channel.");
 		notice(chansvs.nick, origin, "\2HIDEMAIL\2      Hides a username's email address");
 		notice(chansvs.nick, origin, "\2MLOCK\2         Sets channel mode lock.");
-		notice(chansvs.nick, origin, "\2NOOPP\2       Prevents services from automatically " "setting modes associated with access lists.");
+		notice(chansvs.nick, origin, "\2NOOP\2       Prevents services from automatically " "setting modes associated with access lists.");
 		notice(chansvs.nick, origin, "\2NEVEROOP\2          Prevents you from being added to " "access lists.");
 		notice(chansvs.nick, origin, "\2PASSWORD\2      Change the password of a username or " "channel.");
 		notice(chansvs.nick, origin, "\2SECURE\2        Prevents unauthorized people from " "gaining operator status.");

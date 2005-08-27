@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService XOP functions.
  *
- * $Id: cs_xop.c 987 2005-07-18 09:37:25Z w00t $
+ * $Id: cs_xop.c 1859 2005-08-25 13:03:53Z w00t $
  */
 
 /*
@@ -804,6 +804,13 @@ static void cs_cmd_vop(char *origin)
 
 static void cs_cmd_hop(char *origin)
 {
+	/* Don't reject the command. This helps the rare case where
+	 * a network switches to a non-halfop ircd: users can still
+	 * remove pre-transition HOP entries.
+	 */
+	if (!ircd->uses_halfops)
+		notice(chansvs.nick, origin, "Warning: Your IRC server does not support halfops.");
+
 	cs_xop(origin, CA_HOP);
 }
 

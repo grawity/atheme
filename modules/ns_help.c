@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService HELP command.
  *
- * $Id: ns_help.c 943 2005-07-17 10:38:45Z w00t $
+ * $Id: ns_help.c 1616 2005-08-10 20:50:49Z pfish $
  */
 
 #include "atheme.h"
@@ -18,13 +18,17 @@ static struct help_command_ ns_help_commands[] = {
   { "REGISTER", AC_NONE,  "help/nickserv/register" },
   { "IDENTIFY", AC_NONE,  "help/nickserv/identify" },
   { "HELP",     AC_NONE,  "help/help"              },
+  { "INFO",     AC_NONE,  "help/nickserv/info"     },
   { "DROP",     AC_NONE,  "help/nickserv/drop"     },
   { "GHOST",    AC_NONE,  "help/nickserv/ghost"    },
+  { "STATUS",   AC_NONE,  "help/nickserv/status"   },
   { "TAXONOMY", AC_NONE,  "help/nickserv/taxonomy" },
   { "SENDPASS", AC_IRCOP, "help/nickserv/sendpass" },
   { "LISTMAIL", AC_IRCOP, "help/nickserv/listmail" },
   { "MARK",     AC_IRCOP, "help/nickserv/mark"     },
+  { "LIST",     AC_IRCOP, "help/nickserv/list"     },
   { "MYACCESS", AC_NONE,  "help/nickserv/myaccess" },
+  { "LOGOUT",	AC_NONE,  "help/nickserv/logout"   },
   { "SET EMAIL",     AC_NONE, "help/cservice/set_email"     },
   { "SET HIDEMAIL",  AC_NONE, "help/cservice/set_hidemail"  },
   { "SET HOLD",      AC_SRA,  "help/cservice/set_hold"      },

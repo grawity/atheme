@@ -5,7 +5,7 @@
  *
  * This file contains IRC interaction routines.
  *
- * $Id: parse.c 908 2005-07-17 04:00:28Z w00t $
+ * $Id: parse.c 1851 2005-08-24 10:17:45Z w00t $
  */
 
 #include "atheme.h"
@@ -43,7 +43,7 @@ void irc_parse(char *line)
 
 		slog(LG_DEBUG, "-> %s", line);
 
-		/* find the first spcae */
+		/* find the first space */
 		if ((pos = strchr(line, ' ')))
 		{
 			*pos = '\0';

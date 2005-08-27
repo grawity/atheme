@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService VOICE functions.
  *
- * $Id: cs_voice.c 964 2005-07-18 07:37:30Z nenolod $
+ * $Id: cs_voice.c 1432 2005-08-03 19:36:14Z alambert $
  */
 
 #include "atheme.h"
@@ -46,9 +46,8 @@ static void cs_cmd_voice(char *origin)
 	char *chan = strtok(NULL, " ");
 	char *nick = strtok(NULL, " ");
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
-	char hostbuf[BUFSIZE];
 
 	if (!chan)
 	{
@@ -65,46 +64,43 @@ static void cs_cmd_voice(char *origin)
 	}
 
 	u = user_find(origin);
-	strlcat(hostbuf, u->nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, u->user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, u->host, BUFSIZE);
-
-	if (!chanacs_find(mc, u->myuser, CA_VOICE) && !chanacs_find_host(mc, hostbuf, CA_VOICE))
+	if (!chanacs_user_has_flag(mc, u, CA_VOICE))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
 	}
 
 	/* figure out who we're going to voice */
-	if (nick)
+	if (!nick)
+		tu = u;
+	else
 	{
-		if (!(u = user_find(nick)))
+		if (!(tu = user_find(nick)))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not registered.", nick);
+			notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
 			return;
 		}
 	}
 	
-	if (u->server == me.me)
+	if (tu->server == me.me)
 		return;
-	cu = chanuser_find(mc->chan, u);
+
+	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
 	if (CMODE_VOICE & cu->modes)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is already voiced on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is already voiced on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
-	cmode(chansvs.nick, chan, "+v", CLIENT_NAME(u));
+	cmode(chansvs.nick, chan, "+v", CLIENT_NAME(tu));
 	cu->modes |= CMODE_VOICE;
-	notice(chansvs.nick, origin, "\2%s\2 has been voiced on \2%s\2.", u->nick, mc->name);
+	notice(chansvs.nick, origin, "\2%s\2 has been voiced on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_cmd_devoice(char *origin)
@@ -112,7 +108,7 @@ static void cs_cmd_devoice(char *origin)
 	char *chan = strtok(NULL, " ");
 	char *nick = strtok(NULL, " ");
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
 
 	if (!chan)
@@ -130,62 +126,51 @@ static void cs_cmd_devoice(char *origin)
 	}
 
 	u = user_find(origin);
-	if (!u->myuser)
-	{
-		notice(chansvs.nick, origin, "You are not logged in.");
-		return;
-	}
-
-	if ((!is_founder(mc, u->myuser)) && (!is_successor(mc, u->myuser)) && (!is_xop(mc, u->myuser, CA_VOICE)))
+	if (!chanacs_user_has_flag(mc, u, CA_VOICE))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
 	}
 
 	/* figure out who we're going to devoice */
-	if (nick)
+	if (!nick)
+		tu = u;
+	else
 	{
-		if (!(u = user_find(nick)))
+		if (!(tu = user_find(nick)))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not registered.", nick);
+			notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
 			return;
 		}
 	}
 
 	if (u->server == me.me)
 		return;
-	cu = chanuser_find(mc->chan, u);
+
+	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
 	if (!(CMODE_VOICE & cu->modes))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not voiced on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not voiced on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
-	cmode(chansvs.nick, chan, "-v", CLIENT_NAME(u));
+	cmode(chansvs.nick, chan, "-v", CLIENT_NAME(tu));
 	cu->modes &= ~CMODE_VOICE;
-	notice(chansvs.nick, origin, "\2%s\2 has been devoiced on \2%s\2.", u->nick, mc->name);
+	notice(chansvs.nick, origin, "\2%s\2 has been devoiced on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_fcmd_voice(char *origin, char *chan)
 {
 	char *nick;
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
-	char hostbuf[BUFSIZE];
-
-	if (!chan)
-	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2!VOICE\2.");
-		notice(chansvs.nick, origin, "Syntax: !VOICE [nickname]");
-		return;
-	}
 
 	mc = mychan_find(chan);
 	if (!mc)
@@ -195,46 +180,43 @@ static void cs_fcmd_voice(char *origin, char *chan)
 	}
 
 	u = user_find(origin);
-	strlcat(hostbuf, u->nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, u->user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, u->host, BUFSIZE);
-
-	if (!chanacs_find(mc, u->myuser, CA_VOICE) && !chanacs_find_host(mc, hostbuf, CA_VOICE))
+	if (!chanacs_user_has_flag(mc, u, CA_VOICE))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
 	}
 	
+	/* figure out who we're going to voice */
 	while ((nick = strtok(NULL, " ")))
 	{
-		/* figure out who we're going to voice */
-		if (nick)
+		if (!nick)
+			tu = u;
+		else
 		{
-			if (!(u = user_find(nick)))
+			if (!(tu = user_find(nick)))
 			{
-				notice(chansvs.nick, origin, "\2%s\2 is not registered.", nick);
-				return;
+				notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
+				continue;
 			}
 		}
 
-		if (u->server == me.me)
+		if (tu->server == me.me)
 			continue;
-		cu = chanuser_find(mc->chan, u);
+
+		cu = chanuser_find(mc->chan, tu);
 		if (!cu)
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
-			return;
+			notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
+			continue;
 		}
 
 		if (CMODE_VOICE & cu->modes)
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is already voiced on \2%s\2.", u->nick, mc->name);
-			return;
+			notice(chansvs.nick, origin, "\2%s\2 is already voiced on \2%s\2.", tu->nick, mc->name);
+			continue;
 		}
 
-		cmode(chansvs.nick, chan, "+v", CLIENT_NAME(u));
+		cmode(chansvs.nick, chan, "+v", CLIENT_NAME(tu));
 		cu->modes |= CMODE_VOICE;
 	}
 }
@@ -243,15 +225,8 @@ static void cs_fcmd_devoice(char *origin, char *chan)
 {
 	char *nick;
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
-
-	if (!chan)
-	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2!DEVOICE\2.");
-		notice(chansvs.nick, origin, "Syntax: !DEVOICE [nickname]");
-		return;
-	}
 
 	mc = mychan_find(chan);
 	if (!mc)
@@ -261,13 +236,7 @@ static void cs_fcmd_devoice(char *origin, char *chan)
 	}
 
 	u = user_find(origin);
-	if (!u->myuser)
-	{
-		notice(chansvs.nick, origin, "You are not logged in.");
-		return;
-	}
-
-	if ((!is_founder(mc, u->myuser)) && (!is_successor(mc, u->myuser)) && (!is_xop(mc, u->myuser, CA_VOICE)))
+	if (!chanacs_user_has_flag(mc, u, CA_VOICE))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
 		return;
@@ -276,31 +245,34 @@ static void cs_fcmd_devoice(char *origin, char *chan)
 	/* figure out who we're going to devoice */
 	while ((nick = strtok(NULL, " ")))
 	{
-		if (nick)
+		if (!nick)
+			tu = u;
+		else
 		{
-			if (!(u = user_find(nick)))
+			if (!(tu = user_find(nick)))
 			{
-				notice(chansvs.nick, origin, "\2%s\2 is not registered.", nick);
-				return;
+				notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
+				continue;
 			}
 		}
-		
-		if (u->server == me.me)
+
+		if (tu->server == me.me)
 			continue;
-		cu = chanuser_find(mc->chan, u);
+
+		cu = chanuser_find(mc->chan, tu);
 		if (!cu)
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
-			return;
+			notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
+			continue;
 		}
 
 		if (!(CMODE_VOICE & cu->modes))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not voiced on \2%s\2.", u->nick, mc->name);
-			return;
+			notice(chansvs.nick, origin, "\2%s\2 is not voiced on \2%s\2.", tu->nick, mc->name);
+			continue;
 		}
 
-		cmode(chansvs.nick, chan, "-v", CLIENT_NAME(u));
+		cmode(chansvs.nick, chan, "-v", CLIENT_NAME(tu));
 		cu->modes &= ~CMODE_VOICE;
 	}
 }

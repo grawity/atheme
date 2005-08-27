@@ -5,7 +5,7 @@
  * This file contains the implementation of the database
  * using PostgreSQL. It is as of yet, not realtime.
  *
- * $Id: postgresql.c 1036 2005-07-18 22:48:18Z alambert $
+ * $Id: postgresql.c 1430 2005-08-03 19:28:38Z alambert $
  */
 
 #include "atheme.h"
@@ -882,6 +882,38 @@ static chanacs_t *postgresql_chanacs_find_host_literal(mychan_t *mychan, char *h
         return NULL;
 }
 
+static chanacs_t *postgresql_chanacs_find_host_by_user(mychan_t *mychan, user_t *u, uint32_t level)
+{
+	char host[BUFSIZE];
+        
+        if ((!mychan) || (!u))
+                return NULL;
+
+	/* construct buffer for user's host */
+	host[0] = '\0';
+	strlcat(host, u->nick, BUFSIZE);
+	strlcat(host, "!", BUFSIZE);
+	strlcat(host, u->user, BUFSIZE);
+	strlcat(host, "@", BUFSIZE);
+	strlcat(host, u->host, BUFSIZE);
+
+	return chanacs_find_host(mychan, host, level);
+}
+
+static boolean_t postgresql_chanacs_user_has_flag(mychan_t *mychan, user_t *u, uint32_t level)
+{
+	if (!mychan || !u)
+		return FALSE;
+
+	if (u->myuser && chanacs_find(mychan, u->myuser, level))
+		return TRUE;
+
+	if (chanacs_find_host_by_user(mychan, u, level))
+		return TRUE;
+
+	return FALSE;
+}
+
 static metadata_t *postgresql_metadata_add(void *target, int32_t type, char *name, char *value)
 {
         myuser_t *mu = NULL;
@@ -1099,7 +1131,9 @@ void _modinit(module_t *m)
 	chanacs_delete_host = &postgresql_chanacs_delete_host;
 	chanacs_find = &postgresql_chanacs_find;
 	chanacs_find_host = &postgresql_chanacs_find_host;
+	chanacs_find_host_by_user = &postgresql_chanacs_find_host_by_user;
 	chanacs_find_host_literal = &postgresql_chanacs_find_host_literal;
+	chanacs_user_has_flag = &postgresql_chanacs_user_has_flag;
 
 	/* METADATA */
 	metadata_add = &postgresql_metadata_add;

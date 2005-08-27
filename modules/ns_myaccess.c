@@ -29,9 +29,8 @@ static void ns_cmd_myaccess(char *origin)
 {
 	user_t *u = user_find(origin);
 	myuser_t *mu = myuser_find(origin);
-	node_t *n1, *n2;
-	mychan_t *tmc;
-	chanacs_t *tca;
+	node_t *n;
+	chanacs_t *ca;
 	uint32_t i, matches = 0;
 
 	if (!(mu = myuser_find(origin)))
@@ -46,54 +45,43 @@ static void ns_cmd_myaccess(char *origin)
 		return;
 	}
 
-	for (i = 0; i < HASHSIZE; i++)
+	LIST_FOREACH(n, mu->chanacs.head)
 	{
-		LIST_FOREACH(n1, mclist[i].head)
+       	        ca = (chanacs_t *)n->data;
+
+		switch (ca->level)
 		{
-			tmc = (mychan_t *)n1->data;
-
-		        LIST_FOREACH(n2, tmc->chanacs.head)
-        		{
-	        	        tca = (chanacs_t *)n2->data;
-
-				if (tca->myuser == mu)
+			case CA_VOP:
+				notice(nicksvs.nick, origin, "VOP in %s", ca->mychan->name);
+				matches++;
+				break;
+			case CA_HOP:
+				notice(nicksvs.nick, origin, "HOP in %s", ca->mychan->name);
+				matches++;
+				break;
+			case CA_AOP:
+				notice(nicksvs.nick, origin, "AOP in %s", ca->mychan->name);
+				matches++;
+				break;
+			case CA_SOP:
+				notice(nicksvs.nick, origin, "SOP in %s", ca->mychan->name);
+				matches++;
+				break;
+			case CA_SUCCESSOR:
+				notice(nicksvs.nick, origin, "Successor of %s", ca->mychan->name);
+				matches++;
+				break;
+			case CA_FOUNDER:	/* equiv to is_founder() */
+				notice(nicksvs.nick, origin, "Founder of %s", ca->mychan->name);
+				matches++;
+				break;
+			default:
+				/* a user may be AKICKed from a room he doesn't know about */
+				if (!(ca->level & CA_AKICK))
 				{
-					switch (tca->level)
-					{
-						case CA_VOP:
-							notice(nicksvs.nick, origin, "VOP in %s", tmc->name);
-							matches++;
-							break;
-						case CA_HOP:
-							notice(nicksvs.nick, origin, "HOP in %s", tmc->name);
-							matches++;
-							break;
-						case CA_AOP:
-							notice(nicksvs.nick, origin, "AOP in %s", tmc->name);
-							matches++;
-							break;
-						case CA_SOP:
-							notice(nicksvs.nick, origin, "SOP in %s", tmc->name);
-							matches++;
-							break;
-						case CA_SUCCESSOR:
-							notice(nicksvs.nick, origin, "Successor of %s", tmc->name);
-							matches++;
-							break;
-						case CA_FOUNDER:	/* equiv to is_founder() */
-							notice(nicksvs.nick, origin, "Founder of %s", tmc->name);
-							matches++;
-							break;
-						default:
-							/* a user may be AKICKed from a room he doesn't know about */
-							if (!(tca->level & CA_AKICK))
-							{
-								notice(nicksvs.nick, origin, "%s in %s", bitmask_to_flags(tca->level, chanacs_flags), tmc->name);
-								matches++;
-							}
-					}
+					notice(nicksvs.nick, origin, "%s in %s", bitmask_to_flags(ca->level, chanacs_flags), ca->mychan->name);
+					matches++;
 				}
-			}
 		}
 	}
 

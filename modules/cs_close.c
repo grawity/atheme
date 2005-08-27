@@ -30,12 +30,7 @@ void _modinit(module_t *m)
 void _moddeinit()
 {
 	command_delete(&cs_close, &cs_cmdtree);
-	/* XXX what if we disappear while we have outstanding events?
-	 * we could find all closed channels and event_delete() for each of them
-	 * but that wouldn't catch recently reopened channels :/
-	 */
 	hook_del_hook("channel_join", (void (*)(void *)) close_check_join);
-	hook_del_event("channel_join");
 }
 
 static void close_check_join(chanuser_t *cu)
@@ -84,6 +79,8 @@ static void close_can_leave(void *name)
 			part(name, chansvs.nick);
 		if (chanuser_find(c, user_find(opersvs.nick)))
 			part(name, opersvs.nick);
+
+		event_delete(close_can_leave, name);
 	}
 }
 
@@ -183,6 +180,9 @@ static void cs_cmd_close(char *origin)
 
 		/* we should be the only ones in the channel, so parting will reset */
 		close_can_leave(target);
+
+		/* for paranoia --nenolod */
+		event_delete(close_can_leave, mc->name);
 
 		wallops("%s reopened the channel \2%s\2.", origin, target);
 		notice(chansvs.nick, origin, "\2%s\2 has been reopened.", target);

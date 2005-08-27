@@ -4,7 +4,7 @@
  *
  * OperServ NOOP command.
  *
- * $Id: os_noop.c 834 2005-07-16 07:44:10Z nenolod $
+ * $Id: os_noop.c 1500 2005-08-04 10:06:26Z pfish $
  */
 
 #include "atheme.h"
@@ -67,6 +67,7 @@ static void check_user(user_t *u)
 		{
 			skill(opersvs.nick, u->nick, "Operator access denied to hostmask: %s [%s] <%s@%s>",
 				np->target, np->reason, np->added_by, opersvs.nick);
+			user_delete(u->nick);
 			return;
 		}
 	}
@@ -79,6 +80,7 @@ static void check_user(user_t *u)
 		{
 			skill(opersvs.nick, u->nick, "Operator access denied to server: %s [%s] <%s@%s>",
 				np->target, np->reason, np->added_by, opersvs.nick);
+			user_delete(u->nick);
 			return;
 		}
 	}
@@ -120,6 +122,12 @@ static void os_cmd_noop(char *origin)
 	{
 		if (!strcasecmp(type, "HOSTMASK"))
 		{
+			if (!mask)
+                        {
+				notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+				notice(opersvs.nick, origin, "Syntax: NOOP <ADD|DEL|LIST> <HOSTMASK|SERVER> <mask> [reason]");
+				return;
+			}
 			if ((np = noop_find(mask, &noop_hostmask_list)))
 			{
 				notice(opersvs.nick, origin, "There is already a NOOP entry covering this target.");
@@ -145,6 +153,12 @@ static void os_cmd_noop(char *origin)
 		}
 		else if (!strcasecmp(type, "SERVER"))
 		{
+			if (!mask)
+			{
+				notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+				notice(opersvs.nick, origin, "Syntax: NOOP <ADD|DEL|LIST> <HOSTMASK|SERVER> <mask> [reason]");
+				return;
+			}
 			if ((np = noop_find(mask, &noop_server_list)))
 			{
 				notice(opersvs.nick, origin, "There is already a NOOP entry covering this target.");
@@ -178,13 +192,19 @@ static void os_cmd_noop(char *origin)
 	{
 		if (!strcasecmp(type, "HOSTMASK"))
 		{
+			if (!mask)
+			{
+				notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+				notice(opersvs.nick, origin, "Syntax: NOOP <ADD|DEL|LIST> <HOSTMASK|SERVER> <mask> [reason]");
+				return;
+			}
 			if (!(np = noop_find(mask, &noop_hostmask_list)))
 			{
 				notice(opersvs.nick, origin, "There is no NOOP hostmask entry for this target.");
 				return;
 			}
 
-			n = node_find(np, &noop_server_list);
+			n = node_find(np, &noop_hostmask_list);
 
 			free(np->target);
 			free(np->added_by);

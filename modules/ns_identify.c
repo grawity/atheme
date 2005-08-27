@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService LOGIN functions.
  *
- * $Id: ns_identify.c 1070 2005-07-20 06:11:27Z w00t $
+ * $Id: ns_identify.c 1486 2005-08-04 08:03:26Z pfish $
  */
 
 #include "atheme.h"
@@ -13,16 +13,20 @@ static void ns_cmd_identify(char *origin);
 
 command_t ns_identify = { "IDENTIFY", "Identifies to services for a nickname.",
 				AC_NONE, ns_cmd_identify };
+command_t ns_id = { "ID", "Alias for IDENTIFY",
+				AC_NONE, ns_cmd_identify };
 
 extern list_t ns_cmdtree;
 
 void _modinit(module_t *m)
 {
 	command_add(&ns_identify, &ns_cmdtree);
+	command_add(&ns_id, &ns_cmdtree);
 }
 
 void _moddeinit()
 {
+	command_delete(&ns_identify, &ns_cmdtree);
 	command_delete(&ns_identify, &ns_cmdtree);
 }
 

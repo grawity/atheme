@@ -5,7 +5,7 @@
  * Protocol handlers, both generic and the actual declarations themselves.
  * Declare NOTYET to use the function pointer voodoo.
  *
- * $Id: phandler.h 752 2005-07-14 01:14:00Z nenolod $
+ * $Id: phandler.h 1430 2005-08-03 19:28:38Z alambert $
  */
 
 #ifndef PHANDLER_H
@@ -96,7 +96,9 @@ extern void (*chanacs_delete)(mychan_t *mychan, myuser_t *myuser, uint32_t level
 extern void (*chanacs_delete_host)(mychan_t *mychan, char *host, uint32_t level);
 extern chanacs_t *(*chanacs_find)(mychan_t *mychan, myuser_t *myuser, uint32_t level);
 extern chanacs_t *(*chanacs_find_host)(mychan_t *mychan, char *host, uint32_t level);
+extern chanacs_t *(*chanacs_find_host_by_user)(mychan_t *mychan, user_t *u, uint32_t level);
 extern chanacs_t *(*chanacs_find_host_literal)(mychan_t *mychan, char *host, uint32_t level);
+extern boolean_t (*chanacs_user_has_flag)(mychan_t *mychan, user_t *u, uint32_t level);
 
 extern kline_t *(*kline_add)(char *user, char *host, char *reason, long duration);
 extern void (*kline_delete)(char *user, char *host);

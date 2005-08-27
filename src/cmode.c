@@ -4,7 +4,7 @@
  *
  * This file contains channel mode tracking routines.
  *
- * $Id: cmode.c 908 2005-07-17 04:00:28Z w00t $
+ * $Id: cmode.c 1580 2005-08-09 02:58:19Z nenolod $
  */
 
 #include "atheme.h"
@@ -485,7 +485,7 @@ void check_modes(mychan_t *mychan)
 	char newmodes[40], *newkey = NULL;
 	char *end = newmodes;
 	int32_t newlimit = 0;
-	int modes, set_limit = 0, set_key = 0;
+	int modes;
 
 	if (!mychan || !mychan->chan)
 		return;
@@ -501,25 +501,30 @@ void check_modes(mychan_t *mychan)
 		*end++ = 'l';
 		newlimit = mychan->mlock_limit;
 		mychan->chan->limit = newlimit;
-		set_limit = 1;
+		cmode(chansvs.nick, mychan->name, "+l", itoa(newlimit));
 	}
 
 	if (mychan->mlock_key)
 	{
-		if (mychan->chan->key && strcmp(mychan->chan->key, mychan->mlock_key))
+		if (mychan->chan->key && strcmp(mychan->chan->key, mychan->mlock_key) && mychan->mlock_on & CMODE_KEY)
 		{
 			cmode(chansvs.nick, mychan->name, "-k", mychan->chan->key);
 			free(mychan->chan->key);
 			mychan->chan->key = NULL;
 		}
 
-		if (!mychan->chan->key)
+		if (!mychan->chan->key && mychan->mlock_on & CMODE_KEY)
 		{
 			newkey = mychan->mlock_key;
 			mychan->chan->key = sstrdup(newkey);
 			cmode(chansvs.nick, mychan->name, "+k", newkey);
-			set_key = 0;
 		}
+	}
+	else if (mychan->chan->key && mychan->mlock_off & CMODE_KEY)
+	{
+		free(mychan->chan->key);
+		mychan->chan->key = NULL;
+		cmode(chansvs.nick, mychan->name, "-k", mychan->chan->key);
 	}
 
 	if (end[-1] == '+')
@@ -534,17 +539,15 @@ void check_modes(mychan_t *mychan)
 
 	if (mychan->chan->limit && (mychan->mlock_off & CMODE_LIMIT))
 	{
-		*end++ = 'l';
+		cmode(chansvs.nick, mychan->name, "-l");
 		mychan->chan->limit = 0;
 	}
 
 	if (mychan->chan->key && (mychan->mlock_off & CMODE_KEY))
 	{
-		*end++ = 'k';
-		newkey = sstrdup(mychan->chan->key);
+		cmode(chansvs.nick, mychan->name, "-k", mychan->chan->key);
 		free(mychan->chan->key);
 		mychan->chan->key = NULL;
-		set_key = 1;
 	}
 
 	if (end[-1] == '-')
@@ -555,8 +558,5 @@ void check_modes(mychan_t *mychan)
 
 	*end = 0;
 
-	cmode(chansvs.nick, mychan->name, newmodes, (set_limit) ? itoa(newlimit) : (set_key) ? newkey : "");
-
-	if (newkey && !mychan->chan->key)
-		free(newkey);
+	cmode(chansvs.nick, mychan->name, newmodes);
 }

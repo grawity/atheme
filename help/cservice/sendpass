@@ -1,11 +1,9 @@
 Help for SENDPASS:
 
 SENDPASS emails the password for the specified
-username or channel to the corresponding email address.
-This command is useful for retreiving passwords.
+channel to the corresponding email address.
 
-Syntax: SENDPASS <username|#channel>
+Syntax: SENDPASS <#channel>
 
 Examples:
-    /msg &nick& SENDPASS foo
     /msg &nick& SENDPASS #foo

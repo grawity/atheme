@@ -4,27 +4,25 @@
  *
  * This is the main header file, usually the only one #include'd
  *
- * $Id: atheme.h 792 2005-07-15 20:36:13Z alambert $
+ * $Id: atheme.h 3571 2005-11-06 19:54:01Z jilles $
  */
 
-#ifndef SHRIKE_H
-#define SHRIKE_H
+#ifndef ATHEME_H
+#define ATHEME_H
 
 /* *INDENT-OFF* */
 
-#include "sysconf.h"
-#include "stdinc.h"
-#include "node.h"
-#include "balloc.h"
+#include <org.atheme.claro.base>
+
+#include "common.h"
 #include "servers.h"
 #include "channels.h"
-#include "account.h"
-#include "users.h"
-#include "common.h"
 #include "module.h"
-#include "commandtree.h"
 #include "pmodule.h"
-#include "hook.h"
+#include "serno.h"
+#include "crypto.h"
+#include "culture.h"
+#include "xmlrpc.h"
 
 #ifndef timersub
 #define timersub(tvp, uvp, vvp)                                         \
@@ -39,20 +37,26 @@
 #endif
 
 /* hashing macros */
-#define SHASH(server) shash(server) % HASHSIZE
-#define UHASH(nick) shash(nick) % HASHSIZE
-#define CHASH(chan) shash(chan) % HASHSIZE
-#define MUHASH(myuser) shash(myuser) % HASHSIZE
-#define MCHASH(mychan) shash(mychan) % HASHSIZE
+#define SHASH(server) shash(server)
+#define UHASH(nick) shash(nick)
+#define CHASH(chan) shash(chan)
+#define MUHASH(myuser) shash(myuser)
+#define MCHASH(mychan) shash(mychan)
 
 /* other stuff. */
-#define CLIENT_NAME(user)	ircd->uses_uid ? (user)->uid : (user)->nick
+#define CLIENT_NAME(user)	((user)->uid[0] ? (user)->uid : (user)->nick)
+#define SERVER_NAME(serv)	((serv)->sid[0] ? (serv)->sid : (serv)->name)
+#define ME			(ircd->uses_uid ? me.numeric : me.name)
 
-/* T Y P E D E F S */
+typedef struct {
+        channel_t *c;
+        char *msg;
+} hook_cmessage_data_t;
 
 typedef struct tld_ tld_t;
 typedef struct kline_ kline_t;
-typedef void EVH(void *);
+
+typedef struct me me_t;
 
 /* S T R U C T U R E S */
 struct me
@@ -80,12 +84,19 @@ struct me
   boolean_t bursting;           /* are we bursting?                   */
   boolean_t recvsvr;		/* used by P10: recieved server peer  */
 
+  uint16_t maxlogins;           /* maximum logins per username        */
   uint16_t maxusers;            /* maximum usernames from one email   */
   uint16_t maxchans;            /* maximum chans from one username    */
   uint8_t auth;                 /* registration auth type             */
+  uint16_t emaillimit;          /* maximum number of emails sent      */
+  uint16_t emailtime;           /* ... in this amount of time         */
 
   time_t uplinkpong;            /* when the uplink last sent a PONG   */
-} me;
+
+  char *execname;		/* executable name                    */
+};
+
+E me_t me;
 
 #define AUTH_NONE  0
 #define AUTH_EMAIL 1
@@ -123,6 +134,8 @@ struct Database
 } database_options;
 
 /* keep track of how many of what we have */
+typedef struct cnt cnt_t;
+
 struct cnt
 {
   uint32_t event;
@@ -140,7 +153,9 @@ struct cnt
   uint32_t bin;
   uint32_t bout;
   uint32_t uplink;
-} cnt;
+};
+
+E cnt_t cnt;
 
 #define MTYPE_NUL 0
 #define MTYPE_ADD 1
@@ -150,17 +165,6 @@ struct cmode_
 {
         char mode;
         uint32_t value;
-};
-
-/* event list struct */
-struct ev_entry
-{
-  EVH *func;
-  void *arg;
-  const char *name;
-  time_t frequency;
-  time_t when;
-  boolean_t active;
 };
 
 /* tld list struct */
@@ -184,13 +188,6 @@ struct kline_ {
 /* global list struct */
 struct global_ {
   char *text;
-};
-
-/* sendq struct */
-struct sendq {
-  char *buf;
-  int len;
-  int pos;
 };
 
 /* database versions */
@@ -220,32 +217,35 @@ struct set_command_
   void (*func) (char *origin, char *name, char *params);
 };
 
+typedef struct help_command_ helpentry_t;
+
 /* struct for help command hash table */
 struct help_command_
 {
-  const char *name;
+  char *name;
   uint8_t access;
   char *file;
+  void (*func) (char *origin);
 };
 
+/* access levels for commands */
 #define AC_NONE  0
 #define AC_IRCOP 1
 #define AC_SRA   2
 
-/* run flags */
-int runflags;
+/* email types (meaning of param argument) */
+#define EMAIL_REGISTER 1 /* register an account/nick (verification code) */
+#define EMAIL_SENDPASS 2 /* send a password to a user (password) */
+#define EMAIL_SETEMAIL 3 /* change email address (verification code) */
+#define EMAIL_MEMO     4 /* emailed memos (memo text) */
 
-#define RF_LIVE         0x00000001      /* don't fork  */
-#define RF_SHUTDOWN     0x00000002      /* shut down   */
-#define RF_STARTING     0x00000004      /* starting up */
-#define RF_RESTART      0x00000008      /* restart     */
-#define RF_REHASHING    0x00000010      /* rehashing   */
-
-/* log levels */
-#define LG_NONE         0x00000001      /* don't log                */
-#define LG_INFO         0x00000002      /* log general info         */
-#define LG_ERROR        0x00000004      /* log real important stuff */
-#define LG_DEBUG        0x00000008      /* log debugging stuff      */
+/* command log levels */
+#define CMDLOG_ADMIN    1 /* oper/sra only commands */
+#define CMDLOG_REGISTER 2 /* register/drop */
+#define CMDLOG_SET      3 /* change properties of static data */
+#define CMDLOG_DO       4 /* change properties of dynamic data */
+#define CMDLOG_LOGIN    5 /* login/logout */
+#define CMDLOG_GET      6 /* query information */
 
 /* bursting timer */
 #if HAVE_GETTIMEOFDAY
@@ -255,6 +255,7 @@ struct timeval burstime;
 /* *INDENT-OFF* */
 
 /* down here so stuff it uses in here works */
+#include "account.h"
 #include "confparse.h"
 #include "flags.h"
 #include "extern.h"
@@ -262,7 +263,20 @@ struct timeval burstime;
 #include "phandler.h"
 #include "servtree.h"
 #include "services.h"
+#include "commandtree.h"
+#include "users.h"
+#include "authcookie.h"
 
 /* *INDENT-ON* */
 
-#endif /* SHRIKE_H */
+#ifdef _WIN32
+
+/* Windows + Module -> needs these to be declared before using them */
+#ifdef I_AM_A_MODULE
+void _modinit(module_t *m);
+void _moddeinit(void);
+#endif
+
+#endif
+
+#endif /* ATHEME_H */

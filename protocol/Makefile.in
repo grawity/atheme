@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 768 2005-07-14 09:09:23Z nenolod $
+# $Id: Makefile.in 2995 2005-10-19 04:01:49Z nenolod $
 #
 
 CC		= @CC@
@@ -15,7 +15,7 @@ PREFIX		= @prefix@
 BIN		= atheme@EXEEXT@
 MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include
 PICFLAGS	= @PICFLAGS@
-CFLAGS		= @CFLAGS@ -I../include @PGINC@
+CFLAGS		= @CFLAGS@ -I../include -I../libatheme @PGINC@
 
 LIBS		= @LIBS@
 LDFLAGS		= @LDFLAGS@
@@ -24,20 +24,23 @@ CPPFLAGS	= @CPPFLAGS@
 default: all
 
 BASE_SRCS = 		\
-	asuka.c		\
-	bahamut.c	\
-	bircd.c		\
-	dreamforge.c	\
-	hyperion.c	\
-	inspircd.c	\
-	ircnet.c	\
-	monkey.c	\
-	plexus.c	\
-	ratbox.c	\
-	scylla.c	\
-	shadowircd.c	\
-	sorcery.c	\
-	undernet.c	\
+	asuka.c         \
+	bahamut.c       \
+	bircd.c         \
+	charybdis.c	\
+	dreamforge.c    \
+	hyperion.c      \
+	inspircd.c      \
+	ircnet.c        \
+	monkey.c        \
+	plexus.c        \
+	ptlink.c	\
+	ratbox.c        \
+	scylla.c        \
+	shadowircd.c    \
+	sorcery.c       \
+	ultimate3.c	\
+	undernet.c      \
 	unreal.c
 
 SRCS = ${BASE_SRCS}

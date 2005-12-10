@@ -6,11 +6,13 @@
  * Derived mainly from the documentation (or lack thereof)
  * in my protocol bridge.
  *
- * $Id: ircnet.c 902 2005-07-17 02:26:34Z alambert $
+ * $Id: ircnet.c 3837 2005-11-11 11:35:48Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/ircnet.h"
+
+DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -24,12 +26,14 @@ ircd_t IRCNet = {
         FALSE,                          /* Whether or not we support halfops. */
 	FALSE,				/* Whether or not we use P10 */
 	FALSE,				/* Whether or not we use vHosts. */
+	0,				/* Oper-only cmodes */
         0,                              /* Integer flag for owner channel flag. */
         0,                              /* Integer flag for protect channel flag. */
         0,                              /* Integer flag for halfops. */
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
-        "+"                             /* Mode we set for halfops. */
+        "+",                            /* Mode we set for halfops. */
+	PROTOCOL_IRCNET			/* Protocol type */
 };
 
 struct cmode_ ircnet_mode_list[] = {
@@ -39,8 +43,6 @@ struct cmode_ ircnet_mode_list[] = {
   { 'p', CMODE_PRIV   },
   { 's', CMODE_SEC    },
   { 't', CMODE_TOPIC  },
-  { 'k', CMODE_KEY    },
-  { 'l', CMODE_LIMIT  },
   { '\0', 0 }
 };
 
@@ -67,34 +69,25 @@ struct cmode_ ircnet_prefix_mode_list[] = {
 /* login to our uplink */
 static uint8_t ircnet_server_login(void)
 {
-        int8_t ret;
+	int8_t ret;
 
-        ret = sts("PASS %s 0211010000 IRC|aDEFiIJMuw P", curr_uplink->pass);
-        if (ret == 1)
-                return 1;
+	ret = sts("PASS %s 0211010000 IRC|aDEFiIJMuw P", curr_uplink->pass);
+	if (ret == 1)
+		return 1;
 
-        me.bursting = TRUE;
+	me.bursting = TRUE;
 
-        sts("SERVER %s 1 %s :%s", me.name, curr_uplink->numeric, me.desc);
+	sts("SERVER %s 1 %s :%s", me.name, me.numeric, me.desc);
 
 	services_init();
 
-        return 0;
+	return 0;
 }
 
 /* introduce a client */
-static user_t *ircnet_introduce_nick(char *nick, char *user, char *host, char *real, char *modes)
+static void ircnet_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
-	user_t *u;
-	char *uid = uid_get();
-
-	sts(":%s UNICK %s %s %s %s 0.0.0.0 +%s :%s", me.numeric, nick, uid, user, host, modes, real);
-
-	u = user_add(nick, user, host, NULL, uid, me.me);
-	if (strchr(modes, 'o'))
-		u->flags |= UF_IRCOP;
-
-	return u;
+	sts(":%s UNICK %s %s %s %s 0.0.0.0 +%s :%s", me.numeric, nick, uid, user, host, "io", real);
 }
 
 static void ircnet_quit_sts(user_t *u, char *reason)
@@ -103,97 +96,84 @@ static void ircnet_quit_sts(user_t *u, char *reason)
 		return;
 
 	sts(":%s QUIT :%s", u->nick, reason);
-
-	user_delete(u->nick);
 }
 
 /* WALLOPS wrapper */
 static void ircnet_wallops(char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
+	va_list ap;
+	char buf[BUFSIZE];
 
-        if (config_options.silent)
-                return;
+	if (config_options.silent)
+		return;
 
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-        sts(":%s WALLOPS :%s", chansvs.nick, buf);
+	sts(":%s WALLOPS :%s", me.name, buf);
 }
 
 /* join a channel */
-static void ircnet_join(char *chan, char *nick)
+static void ircnet_join_sts(channel_t *c, user_t *u, boolean_t isnew, char *modes)
 {
-	channel_t *c = channel_find(chan);
-	user_t *u = user_find(nick);
-	chanuser_t *cu;
-
-	if (!u)
-		return;
-
-	if (!c)
-	{
-		sts(":%s NJOIN %s :@%s", me.numeric, chan, u->uid);
-
-		c = channel_add(chan, CURRTIME);
-	}
-	else
-	{
-		if ((cu = chanuser_find(c, user_find(nick))))
-		{
-			slog(LG_DEBUG, "join(): i'm already in `%s'", c->name);
-			return;
-		}
-
-		sts(":%s NJOIN %s :@%s", me.numeric, chan, u->uid);
-
-		c = channel_add(chan, CURRTIME);
-	}
-
-	cu = chanuser_add(c, nick);
-	cu->modes |= CMODE_OP;
+	sts(":%s NJOIN %s :@%s", me.numeric, c->name, u->uid);
+	if (isnew && modes[0] && modes[1])
+		sts(":%s MODE %s %s", me.numeric, c->name, modes);
 }
 
 /* kicks a user from a channel */
 static void ircnet_kick(char *from, char *channel, char *to, char *reason)
 {
-        channel_t *chan = channel_find(channel);
-        user_t *user = user_find(to);
+	channel_t *chan = channel_find(channel);
+	user_t *user = user_find(to);
+	user_t *from_p = user_find(from);
 
-        if (!chan || !user)
-                return;
+	if (!chan || !user)
+		return;
 
-        sts(":%s KICK %s %s :%s", from, channel, to, reason);
+	/* sigh server kicks will generate snotes
+	 * but let's avoid joining N times for N kicks */
+	sts(":%s KICK %s %s :%s", from_p != NULL && chanuser_find(chan, from_p) ? CLIENT_NAME(from_p) : ME, channel, CLIENT_NAME(user), reason);
 
-        chanuser_delete(chan, user);
+	chanuser_delete(chan, user);
 }
 
 /* PRIVMSG wrapper */
-static void ircnet_msg(char *target, char *fmt, ...)
+static void ircnet_msg(char *from, char *target, char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
+	va_list ap;
+	char buf[BUFSIZE];
 
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-        va_end(ap);
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
 
-        sts(":%s PRIVMSG %s :%s", chansvs.nick, target, buf);
+	sts(":%s PRIVMSG %s :%s", from, target, buf);
 }
 
 /* NOTICE wrapper */
 static void ircnet_notice(char *from, char *target, char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
+	va_list ap;
+	char buf[BUFSIZE];
+	user_t *u = user_find(from);
+	user_t *t = user_find(target);
 
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-        va_end(ap);
+	if (u == NULL && (from == NULL || (irccasecmp(from, me.name) && irccasecmp(from, ME))))
+	{
+		slog(LG_DEBUG, "ircnet_notice(): unknown source %s for notice to %s", from, target);
+		return;
+	}
 
-        sts(":%s NOTICE %s :%s", from, target, buf);
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
+
+	if (u == NULL || target[0] != '#' || chanuser_find(channel_find(target), user_find(from)))
+		sts(":%s NOTICE %s :%s", u ? CLIENT_NAME(u) : ME, t ? CLIENT_NAME(t) : target, buf);
+	else
+		sts(":%s NOTICE %s :%s: %s", ME, target, u->nick, buf);
 }
 
 /* numeric wrapper */
@@ -219,25 +199,25 @@ static void ircnet_skill(char *from, char *nick, char *fmt, ...)
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-        sts(":%s KILL %s :%s!%s!%s (%s)", from, nick, from, from, from, buf);
+	sts(":%s KILL %s :%s!%s!%s (%s)", from, nick, from, from, from, buf);
 }
 
 /* PART wrapper */
 static void ircnet_part(char *chan, char *nick)
 {
-        user_t *u = user_find(nick);
-        channel_t *c = channel_find(chan);
-        chanuser_t *cu;
+	user_t *u = user_find(nick);
+	channel_t *c = channel_find(chan);
+	chanuser_t *cu;
 
-        if (!u || !c)
-                return;
+	if (!u || !c)
+		return;
 
-        if (!(cu = chanuser_find(c, u)))
-                return;
+	if (!(cu = chanuser_find(c, u)))
+		return;
 
-        sts(":%s PART %s", u->nick, c->name);
+	sts(":%s PART %s", u->nick, c->name);
 
-        chanuser_delete(c, u);
+	chanuser_delete(c, u);
 }
 
 /* server-to-server KLINE wrapper */
@@ -246,7 +226,11 @@ static void ircnet_kline_sts(char *server, char *user, char *host, long duration
 	if (!me.connected)
 		return;
 
-	sts(":%s KLINE %s %ld %s %s :%s", me.name, server, duration, user, host, reason);
+	/* this won't propagate!
+	 * you'll need some bot/service on each server to do that */
+	if (irccasecmp(server, me.actual) && cnt.server > 2)
+		wallops("Missed a tkline");
+	sts(":%s TKLINE %lds %s@%s :%s", opersvs.nick, duration, user, host, reason);
 }
 
 /* server-to-server UNKLINE wrapper */
@@ -255,32 +239,45 @@ static void ircnet_unkline_sts(char *server, char *user, char *host)
 	if (!me.connected)
 		return;
 
-	sts(":%s UNKLINE %s %s %s", me.name, server, user, host);
+	if (irccasecmp(server, me.actual) && cnt.server > 2)
+		wallops("Missed an untkline");
+	sts(":%s UNTKLINE %s@%s", opersvs.nick, user, host);
 }
 
 /* topic wrapper */
-static void ircnet_topic_sts(char *channel, char *setter, char *topic)
+static void ircnet_topic_sts(char *channel, char *setter, time_t ts, char *topic)
 {
-	if (!me.connected)
+	channel_t *c;
+	int joined = 0;
+
+	c = channel_find(channel);
+	if (!me.connected || !c)
 		return;
 
-	sts(":%s TOPIC %s :%s (%s)", chansvs.nick, channel, topic, setter);
+	/* Need to join to set topic -- jilles */
+	if (!chanuser_find(c, chansvs.me->me))
+	{
+		sts(":%s NJOIN %s :@%s", ME, channel, CLIENT_NAME(chansvs.me->me));
+		joined = 1;
+	}
+	sts(":%s TOPIC %s :%s", CLIENT_NAME(chansvs.me->me), channel, topic);
+	if (joined)
+		sts(":%s PART %s :Topic set", CLIENT_NAME(chansvs.me->me), channel);
 }
 
 /* mode wrapper */
 static void ircnet_mode_sts(char *sender, char *target, char *modes)
 {
+	user_t *u;
+
 	if (!me.connected)
 		return;
 
-	/* On IRCNet ircd's, we must join the channel to set a mode. */
-	if (strcasecmp(sender, chansvs.nick))
-		join(target, sender);
+	u = user_find(sender);
 
-	sts(":%s MODE %s %s", sender, target, modes);
-
-	if (strcasecmp(sender, chansvs.nick))
-		part(target, sender);
+	/* send it from the server if that service isn't on channel
+	 * -- jilles */
+	sts(":%s MODE %s %s", chanuser_find(channel_find(target), u) ? CLIENT_NAME(u) : ME, target, modes);
 }
 
 /* ping wrapper */
@@ -308,22 +305,50 @@ static void ircnet_on_logout(char *origin, char *user, char *wantedhost)
 
 static void ircnet_jupe(char *server, char *reason)
 {
-        if (!me.connected)
-                return;
+	static char sid[4+1];
+	int i;
+
+	if (!me.connected)
+		return;
 
 	sts(":%s SQUIT %s :%s", opersvs.nick, server, reason);
-        sts(":%s SERVER %s 2 :%s", me.name, server, reason);
+
+	/* dirty dirty make up some sid */
+	if (sid[0] == '\0')
+		strlcpy(sid, me.numeric, sizeof sid);
+	do
+	{
+		i = 3;
+		for (;;)
+		{
+			if (sid[i] == 'Z')
+			{
+				sid[i] = '0';
+				i--;
+				/* eek, no more sids */
+				if (i < 0)
+					return;
+				continue;
+			}
+			else if (sid[i] == '9')
+				sid[i] = 'A';
+			else sid[i]++;
+			break;
+		}
+	} while (server_find(sid));
+
+	sts(":%s SERVER %s 2 %s 0211010000 :%s", me.name, server, sid, reason);
 }
 
 static void m_topic(char *origin, uint8_t parc, char *parv[])
 {
 	channel_t *c = channel_find(parv[0]);
+	user_t *u = user_find(origin);
 
-	if (!origin)
+	if (!c || !u)
 		return;
 
-	c->topic = sstrdup(parv[1]);
-	c->topic_setter = sstrdup(origin);
+	handle_topic(c, u->nick, CURRTIME, parv[1]);
 }
 
 static void m_ping(char *origin, uint8_t parc, char *parv[])
@@ -360,95 +385,18 @@ static void m_pong(char *origin, uint8_t parc, char *parv[])
 
 static void m_privmsg(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u;
-	service_t *sptr;
-
-	/* we should have no more and no less */
 	if (parc != 2)
 		return;
 
-	if (!(u = user_find(origin)))
-	{
-		slog(LG_DEBUG, "m_privmsg(): got message from nonexistant user `%s'", origin);
+	handle_message(origin, parv[0], FALSE, parv[1]);
+}
+
+static void m_notice(char *origin, uint8_t parc, char *parv[])
+{
+	if (parc != 2)
 		return;
-	}
 
-	/* run it through flood checks */
-	if ((config_options.flood_msgs) && (!is_sra(u->myuser)) && (!is_ircop(u)))
-	{
-		/* check if they're being ignored */
-		if (u->offenses > 10)
-		{
-			if ((CURRTIME - u->lastmsg) > 30)
-			{
-				u->offenses -= 10;
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-			}
-			else
-				return;
-		}
-
-		if ((CURRTIME - u->lastmsg) > config_options.flood_time)
-		{
-			u->lastmsg = CURRTIME;
-			u->msgs = 0;
-		}
-
-		u->msgs++;
-
-		if (u->msgs > config_options.flood_msgs)
-		{
-			/* they're flooding. */
-			if (!u->offenses)
-			{
-				/* ignore them the first time */
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-				u->offenses = 11;
-
-				notice(parv[0], origin, "You have triggered services flood protection.");
-				notice(parv[0], origin, "This is your first offense. You will be ignored for " "30 seconds.");
-
-				snoop("FLOOD: \2%s\2", u->nick);
-
-				return;
-			}
-
-			if (u->offenses == 1)
-			{
-				/* ignore them the second time */
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-				u->offenses = 12;
-
-				notice(parv[0], origin, "You have triggered services flood protection.");
-				notice(parv[0], origin, "This is your last warning. You will be ignored for " "30 seconds.");
-
-				snoop("FLOOD: \2%s\2", u->nick);
-
-				return;
-			}
-
-			if (u->offenses == 2)
-			{
-				kline_t *k;
-
-				/* kline them the third time */
-				k = kline_add("*", u->host, "ten minute ban: flooding services", 600);
-				k->setby = sstrdup(chansvs.nick);
-
-				snoop("FLOOD:KLINE: \2%s\2", u->nick);
-
-				return;
-			}
-		}
-	}
-
-	sptr = find_service(parv[0]);
-
-	if (sptr)
-		sptr->handler(origin, parc, parv);
+	handle_message(origin, parv[0], TRUE, parv[1]);
 }
 
 static void m_njoin(char *origin, uint8_t parc, char *parv[])
@@ -515,15 +463,15 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 			return;
 		}
 
-		u = user_add(parv[0], parv[2], parv[3], NULL, parv[1], s);
+		u = user_add(parv[0], parv[2], parv[3], NULL, NULL, parv[1], parv[6], s, 0);
 
 		user_mode(u, parv[5]);
 
 		handle_nickchange(u);
 	}
 
-	/* if it's only 2 then it's a nickname change */
-	else if (parc == 2)
+	/* if it's only 1 then it's a nickname change */
+	else if (parc == 1)
 	{
 		node_t *n;
 
@@ -542,8 +490,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		node_free(n);
 
 		/* change the nick */
-		free(u->nick);
-		u->nick = sstrdup(parv[0]);
+		strlcpy(u->nick, parv[0], NICKLEN);
 
 		/* readd with new nick (so the hash works) */
 		n = node_create();
@@ -585,7 +532,7 @@ static void m_mode(char *origin, uint8_t parc, char *parv[])
 	}
 
 	if (*parv[0] == '#')
-		channel_mode(channel_find(parv[0]), parc - 1, &parv[1]);
+		channel_mode(NULL, channel_find(parv[0]), parc - 1, &parv[1]);
 	else
 		user_mode(user_find(parv[0]), parv[1]);
 }
@@ -619,7 +566,7 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (!irccasecmp(chansvs.nick, parv[1]) || !irccasecmp(chansvs.me->me->uid, parv[1]))
 	{
 		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
 		join(parv[0], parv[1]);
@@ -628,34 +575,9 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 
 static void m_kill(char *origin, uint8_t parc, char *parv[])
 {
-	mychan_t *mc;
-	node_t *n;
-	int i;
-
-	slog(LG_DEBUG, "m_kill(): killed user: %s", parv[0]);
-	user_delete(parv[0]);
-
-	if (!irccasecmp(chansvs.nick, parv[0]))
-	{
-		services_init();
-
-		if (config_options.chan)
-			join(config_options.chan, chansvs.nick);
-
-		for (i = 0; i < HASHSIZE; i++)
-		{
-			LIST_FOREACH(n, mclist[i].head)
-			{
-				mc = (mychan_t *)n->data;
-
-				if ((config_options.join_chans) && (mc->chan) && (mc->chan->nummembers >= 1))
-					join(mc->name, chansvs.nick);
-
-				if ((config_options.join_chans) && (!config_options.leave_chans) && (mc->chan) && (mc->chan->nummembers == 0))
-					join(mc->name, chansvs.nick);
-			}
-		}
-	}
+	if (parc < 1)
+		return;
+	handle_kill(origin, parv[0], parc > 1 ? parv[1] : "<No reason given>");
 }
 
 static void m_squit(char *origin, uint8_t parc, char *parv[])
@@ -667,7 +589,7 @@ static void m_squit(char *origin, uint8_t parc, char *parv[])
 static void m_server(char *origin, uint8_t parc, char *parv[])
 {
 	slog(LG_DEBUG, "m_server(): new server: %s", parv[0]);
-	server_add(parv[0], atoi(parv[1]), parv[2], parv[3]);
+	server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, parv[2], parv[3]);
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
@@ -675,139 +597,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u = user_find(origin);
-	kline_t *k;
-	node_t *n;
-	int i;
-
-	if (!parv[0][0])
-		return;
-
-	if (irccasecmp(me.name, parv[1]))
-		return;
-
-	snoop("STATS:%c: \2%s\2", parv[0][0], origin);
-
-	switch (parv[0][0])
-	{
-	  case 'C':
-	  case 'c':
-		  sts(":%s 213 %s C *@127.0.0.1 A %s %d uplink", me.name, u->nick, (is_ircop(u)) ? curr_uplink->name : "127.0.0.1", me.port);
-		  break;
-
-	  case 'E':
-	  case 'e':
-		  if (!is_ircop(u))
-			  break;
-
-		  sts(":%s 249 %s E :Last event to run: %s", me.name, u->nick, last_event_ran);
-
-		  for (i = 0; i < MAX_EVENTS; i++)
-		  {
-			  if (event_table[i].active)
-				  sts(":%s 249 %s E :%s (%d)", me.name, u->nick, event_table[i].name, event_table[i].frequency);
-		  }
-
-		  break;
-
-	  case 'H':
-	  case 'h':
-		  sts(":%s 244 %s H * * %s", me.name, u->nick, (is_ircop(u)) ? curr_uplink->name : "127.0.0.1");
-		  break;
-
-	  case 'I':
-	  case 'i':
-		  sts(":%s 215 %s I * * *@%s 0 nonopered", me.name, u->nick, me.name);
-		  break;
-
-	  case 'K':
-		  if (!is_ircop(u))
-			  break;
-
-		  LIST_FOREACH(n, klnlist.head)
-		  {
-			  k = (kline_t *)n->data;
-
-			  if (!k->duration)
-				  sts(":%s 216 %s K %s * %s :%s", me.name, u->nick, k->host, k->user, k->reason);
-		  }
-
-		  break;
-
-	  case 'k':
-		  if (!is_ircop(u))
-			  break;
-
-		  LIST_FOREACH(n, klnlist.head)
-		  {
-			  k = (kline_t *)n->data;
-
-			  if (k->duration)
-				  sts(":%s 216 %s k %s * %s :%s", me.name, u->nick, k->host, k->user, k->reason);
-		  }
-
-		  break;
-
-	  case 'T':
-	  case 't':
-		  if (!is_ircop(u))
-			  break;
-
-		  sts(":%s 249 %s :event      %7d", me.name, u->nick, cnt.event);
-		  sts(":%s 249 %s :sra        %7d", me.name, u->nick, cnt.sra);
-		  sts(":%s 249 %s :tld        %7d", me.name, u->nick, cnt.tld);
-		  sts(":%s 249 %s :kline      %7d", me.name, u->nick, cnt.kline);
-		  sts(":%s 249 %s :server     %7d", me.name, u->nick, cnt.server);
-		  sts(":%s 249 %s :user       %7d", me.name, u->nick, cnt.user);
-		  sts(":%s 249 %s :chan       %7d", me.name, u->nick, cnt.chan);
-		  sts(":%s 249 %s :chanuser   %7d", me.name, u->nick, cnt.myuser);
-		  sts(":%s 249 %s :mychan     %7d", me.name, u->nick, cnt.mychan);
-		  sts(":%s 249 %s :chanacs    %7d", me.name, u->nick, cnt.chanacs);
-		  sts(":%s 249 %s :node       %7d", me.name, u->nick, cnt.node);
-
-		  sts(":%s 249 %s :bytes sent %7.2f%s", me.name, u->nick, bytes(cnt.bout), sbytes(cnt.bout));
-		  sts(":%s 249 %s :bytes recv %7.2f%s", me.name, u->nick, bytes(cnt.bin), sbytes(cnt.bin));
-		  break;
-
-	  case 'u':
-		  sts(":%s 242 %s :Services Up %s", me.name, u->nick, timediff(CURRTIME - me.start));
-		  break;
-
-	  default:
-		  break;
-	}
-
-	sts(":%s 219 %s %c :End of STATS report", me.name, u->nick, parv[0][0]);
+	handle_stats(origin, parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	sts(":%s 256 %s :Administrative info about %s", me.name, origin, me.name);
-	sts(":%s 257 %s :%s", me.name, origin, me.adminname);
-	sts(":%s 258 %s :Atheme IRC Services (atheme-%s)", me.name, origin, version);
-	sts(":%s 259 %s :<%s>", me.name, origin, me.adminemail);
+	handle_admin(origin);
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	sts(":%s 351 %s :atheme-%s. %s %s%s%s%s%s%s%s%s%s TS5ow",
-	    me.name, origin, version, me.name,
-	    (match_mapping) ? "A" : "",
-	    (me.loglevel & LG_DEBUG) ? "d" : "",
-	    (me.auth) ? "e" : "",
-	    (config_options.flood_msgs) ? "F" : "",
-	    (config_options.leave_chans) ? "l" : "", (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
-	sts(":%s 351 %s :Compile time: %s, build-id %s, build %s", me.name, origin, creation, revision, generation);
+	handle_version(origin);
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	uint8_t i;
+	handle_info(origin);
+}
 
-	for (i = 0; infotext[i]; i++)
-		sts(":%s 371 %s :%s", me.name, origin, infotext[i]);
+static void m_whois(char *origin, uint8_t parc, char *parv[])
+{
+	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+}
 
-	sts(":%s 374 %s :End of /INFO list", me.name, origin);
+static void m_trace(char *origin, uint8_t parc, char *parv[])
+{
+	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -844,27 +659,27 @@ static void m_error(char *origin, uint8_t parc, char *parv[])
 	slog(LG_INFO, "m_error(): error from server: %s", parv[0]);
 }
 
-void _modinit(module_t *m)
+void _modinit(module_t * m)
 {
-        /* Symbol relocation voodoo. */
-        server_login = &ircnet_server_login;
-        introduce_nick = &ircnet_introduce_nick;
-        quit_sts = &ircnet_quit_sts;
-        wallops = &ircnet_wallops;
-        join = &ircnet_join;
-        kick = &ircnet_kick;
-        msg = &ircnet_msg;
-        notice = &ircnet_notice;
-        numeric_sts = &ircnet_numeric_sts;
-        skill = &ircnet_skill;
-        part = &ircnet_part;
-        kline_sts = &ircnet_kline_sts;
-        unkline_sts = &ircnet_unkline_sts;
-        topic_sts = &ircnet_topic_sts;
-        mode_sts = &ircnet_mode_sts;
-        ping_sts = &ircnet_ping_sts;
-        ircd_on_login = &ircnet_on_login;
-        ircd_on_logout = &ircnet_on_logout;
+	/* Symbol relocation voodoo. */
+	server_login = &ircnet_server_login;
+	introduce_nick = &ircnet_introduce_nick;
+	quit_sts = &ircnet_quit_sts;
+	wallops = &ircnet_wallops;
+	join_sts = &ircnet_join_sts;
+	kick = &ircnet_kick;
+	msg = &ircnet_msg;
+	notice = &ircnet_notice;
+	numeric_sts = &ircnet_numeric_sts;
+	skill = &ircnet_skill;
+	part = &ircnet_part;
+	kline_sts = &ircnet_kline_sts;
+	unkline_sts = &ircnet_unkline_sts;
+	topic_sts = &ircnet_topic_sts;
+	mode_sts = &ircnet_mode_sts;
+	ping_sts = &ircnet_ping_sts;
+	ircd_on_login = &ircnet_on_login;
+	ircd_on_logout = &ircnet_on_logout;
 	jupe = &ircnet_jupe;
 
 	mode_list = ircnet_mode_list;
@@ -874,30 +689,32 @@ void _modinit(module_t *m)
 
 	ircd = &IRCNet;
 
-        pcommand_add("PING", m_ping);
-        pcommand_add("PONG", m_pong);
-        pcommand_add("PRIVMSG", m_privmsg);
-        pcommand_add("NJOIN", m_njoin);
-        pcommand_add("PART", m_part);
-        pcommand_add("NICK", m_nick);
+	pcommand_add("PING", m_ping);
+	pcommand_add("PONG", m_pong);
+	pcommand_add("PRIVMSG", m_privmsg);
+	pcommand_add("NOTICE", m_notice);
+	pcommand_add("NJOIN", m_njoin);
+	pcommand_add("PART", m_part);
+	pcommand_add("NICK", m_nick);
 	pcommand_add("UNICK", m_nick);
-        pcommand_add("QUIT", m_quit);
-        pcommand_add("MODE", m_mode);
-        pcommand_add("KICK", m_kick);
-        pcommand_add("KILL", m_kill);
-        pcommand_add("SQUIT", m_squit);
-        pcommand_add("SERVER", m_server);
-        pcommand_add("STATS", m_stats);
-        pcommand_add("ADMIN", m_admin);
-        pcommand_add("VERSION", m_version);
-        pcommand_add("INFO", m_info);
-        pcommand_add("JOIN", m_join);
-        pcommand_add("PASS", m_pass);
-        pcommand_add("ERROR", m_error);
-        pcommand_add("TOPIC", m_topic);
+	pcommand_add("QUIT", m_quit);
+	pcommand_add("MODE", m_mode);
+	pcommand_add("KICK", m_kick);
+	pcommand_add("KILL", m_kill);
+	pcommand_add("SQUIT", m_squit);
+	pcommand_add("SERVER", m_server);
+	pcommand_add("STATS", m_stats);
+	pcommand_add("ADMIN", m_admin);
+	pcommand_add("VERSION", m_version);
+	pcommand_add("INFO", m_info);
+	pcommand_add("WHOIS", m_whois);
+	pcommand_add("TRACE", m_trace);
+	pcommand_add("JOIN", m_join);
+	pcommand_add("PASS", m_pass);
+	pcommand_add("ERROR", m_error);
+	pcommand_add("TOPIC", m_topic);
 
 	m->mflags = MODTYPE_CORE;
 
 	pmodule_loaded = TRUE;
 }
-

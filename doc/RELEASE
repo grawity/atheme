@@ -1,4 +1,44 @@
-$Id: RELEASE 925 2005-07-17 07:02:37Z nenolod $
+$Id: RELEASE 2617 2005-10-05 18:49:33Z nenolod $
+
+Atheme devel Release Notes
+==========================
+- All services have been entirely modularized. You will need to
+  redo your configuration. An authentication service has been
+  added (choose from either NickServ or UserServ,) for
+  UserServ you should use example.userserv.conf.
+- The way modules work has been changed almost entirely. Please try
+  loading bad modules especially on macintosh and AIX systems, thanks!
+  (Report any negative findings to the tracker.)
+- The way sockets work has also changed entirely. We'd love to know
+  how well the new poll and kqueue code is working, and if there
+  are any issues with it.
+- Support for poll() and kqueue() have been added, please comment on
+  performance differentials.
+- Most static object structures are now described as metadata, please
+  comment on how well this transition is working for you.
+- PostgreSQL support is starting to freeze. Please note schema changes
+  in SQL/atheme_init.sql.
+- The build system has been reworked. You may need to use gmake on
+  BSD systems. Please comment on any trouble you have had with building
+  Atheme (on the tracker, of course.)
+- protocol/hyperion supports login session tracking now, please comment
+  on how well it is working for you.
+- protocol/ratbox support for login sessions has also vastly improved.
+- dbtool is most likely broken right now. This is not likely to change
+  any time soon.
+- The configuration parser has been overhauled. Please report any crashes
+  when parsing configurations.
+- Channel passwords have been removed.
+- Most access checking has been simplified, please make sure it is working
+  properly on your network.
+- w00t has gone and entirely tokenized the Unreal protocol support. Please
+  report any issues with this that you find.
+- STATS is now abstracted instead of living in 15 different protocol modules.
+- Probably much more that we have missed :)
+
+Atheme 0.2 Release Notes
+========================
+- Way too many things to note.
 
 Atheme 0.2rc1 Release Notes
 ========================

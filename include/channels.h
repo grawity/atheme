@@ -4,7 +4,7 @@
  *
  * Data structures for channel information.
  *
- * $Id: channels.h 709 2005-07-10 02:39:08Z nenolod $
+ * $Id: channels.h 3169 2005-10-23 20:16:30Z jilles $
  */
 
 #ifndef CHANNELS_H
@@ -30,6 +30,7 @@ struct channel_
 
   char *topic;
   char *topic_setter;
+  time_t topicts;
 
   list_t members;
   list_t bans;

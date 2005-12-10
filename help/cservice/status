@@ -1,12 +1,11 @@
 Help for STATUS:
 
 STATUS returns information about your current
-state as far as services is concerned.  If
-you're logged in, an IRC operator, an SRA, among
-other information.
+state. It will show information about your
+nickname, IRC operator, and SRA status.
 
-If the last parameter is specified your status
-on the given channel is returned.
+If the a channel parameter is specified, your
+access to the given channel is returned.
 
 Syntax: STATUS [#channel]
 

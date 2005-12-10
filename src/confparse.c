@@ -6,7 +6,7 @@
  * This file contains config file parsing routines.
  * This code was taken from Sentinel: copyright W. Campbell.
  *
- * $Id: confparse.c 908 2005-07-17 04:00:28Z w00t $
+ * $Id: confparse.c 2859 2005-10-12 21:40:43Z nenolod $
  */
 
 #include "atheme.h"
@@ -201,8 +201,7 @@ static CONFIGFILE *config_parse(char *filename, char *confdata)
 					  char *eptr;
 
 					  curce->ce_vardata = (char *)smalloc(ptr - start + 1);
-					  strncpy(curce->ce_vardata, start, ptr - start);
-					  curce->ce_vardata[ptr - start] = '\0';
+					  strlcpy(curce->ce_vardata, start, ptr - start + 1);
 					  curce->ce_vardatanum = strtol(curce->ce_vardata, &eptr, 0) & 0xffffffff;	/* we only want 32bits and long is 64bit on 64bit compiles */
 					  if (eptr != (curce->ce_vardata + (ptr - start)))
 					  {
@@ -215,8 +214,7 @@ static CONFIGFILE *config_parse(char *filename, char *confdata)
 				  curce = (CONFIGENTRY *)smalloc(sizeof(CONFIGENTRY));
 				  memset(curce, 0, sizeof(CONFIGENTRY));
 				  curce->ce_varname = (char *)smalloc(ptr - start + 1);
-				  strncpy(curce->ce_varname, start, ptr - start);
-				  curce->ce_varname[ptr - start] = '\0';
+				  strlcpy(curce->ce_varname, start, ptr - start + 1);
 				  curce->ce_varlinenum = linenumber;
 				  curce->ce_fileptr = curcf;
 				  curce->ce_prevlevel = cursection;
@@ -267,8 +265,7 @@ static CONFIGFILE *config_parse(char *filename, char *confdata)
 					  char *eptr;
 
 					  curce->ce_vardata = (char *)smalloc(ptr - start + 1);
-					  strncpy(curce->ce_vardata, start, ptr - start);
-					  curce->ce_vardata[ptr - start] = '\0';
+					  strlcpy(curce->ce_vardata, start, ptr - start + 1);
 					  curce->ce_vardatanum = strtol(curce->ce_vardata, &eptr, 0) & 0xffffffff;	/* we only want 32bits and long is 64bit on 64bit compiles */
 					  if (eptr != (curce->ce_vardata + (ptr - start)))
 					  {
@@ -281,8 +278,7 @@ static CONFIGFILE *config_parse(char *filename, char *confdata)
 				  curce = (CONFIGENTRY *)smalloc(sizeof(CONFIGENTRY));
 				  memset(curce, 0, sizeof(CONFIGENTRY));
 				  curce->ce_varname = (char *)smalloc(ptr - start + 1);
-				  strncpy(curce->ce_varname, start, ptr - start);
-				  curce->ce_varname[ptr - start] = '\0';
+				  strlcpy(curce->ce_varname, start, ptr - start + 1);
 				  curce->ce_varlinenum = linenumber;
 				  curce->ce_fileptr = curcf;
 				  curce->ce_prevlevel = cursection;
@@ -344,45 +340,45 @@ void config_free(CONFIGFILE *cfptr)
 CONFIGFILE *config_load(char *filename)
 {
 	struct stat sb;
-	int fd;
+	FILE *fd;
 	int ret;
 	char *buf = NULL;
 	CONFIGFILE *cfptr;
 
-	fd = open(filename, O_RDONLY);
-	if (fd == -1)
+	fd = fopen(filename, "rb");
+	if (!fd)
 	{
 		config_error("Couldn't open \"%s\": %s\n", filename, strerror(errno));
 		return NULL;
 	}
-	if (fstat(fd, &sb) == -1)
+	if (stat(filename, &sb) == -1)
 	{
 		config_error("Couldn't fstat \"%s\": %s\n", filename, strerror(errno));
-		close(fd);
+		fclose(fd);
 		return NULL;
 	}
 	if (!sb.st_size)
 	{
-		close(fd);
+		fclose(fd);
 		return NULL;
 	}
 	buf = (char *)smalloc(sb.st_size + 1);
 	if (buf == NULL)
 	{
 		config_error("Out of memory trying to load \"%s\"\n", filename);
-		close(fd);
+		fclose(fd);
 		return NULL;
 	}
-	ret = read(fd, buf, sb.st_size);
+	ret = fread(buf, 1, sb.st_size, fd);
 	if (ret != sb.st_size)
 	{
 		config_error("Error reading \"%s\": %s\n", filename, ret == -1 ? strerror(errno) : strerror(EFAULT));
 		free(buf);
-		close(fd);
+		fclose(fd);
 		return NULL;
 	}
 	buf[ret] = '\0';
-	close(fd);
+	fclose(fd);
 	cfptr = config_parse(filename, buf);
 	free(buf);
 	return cfptr;

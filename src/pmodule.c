@@ -4,13 +4,14 @@
  *
  * Protocol handling stuff.
  *
- * $Id: pmodule.c 1062 2005-07-20 04:36:58Z w00t $
+ * $Id: pmodule.c 4075 2005-12-10 20:08:43Z nenolod $
  */
 
 #include "atheme.h"
 
-list_t pcommands;
-static BlockHeap *pcommand_heap;
+list_t pcommands[HASHSIZE];
+BlockHeap *pcommand_heap;
+BlockHeap *messagetree_heap;
 struct cmode_ *mode_list;
 struct cmode_ *ignore_mode_list;
 struct cmode_ *status_mode_list;
@@ -30,26 +31,24 @@ void pcommand_init(void)
 	}
 }
 
-void pcommand_add(char *token,
-	void (*handler)(char *origin, uint8_t parc, char *parv[]))
+void pcommand_add(char *token, void (*handler) (char *origin, uint8_t parc, char *parv[]))
 {
 	node_t *n;
 	pcommand_t *pcmd;
 
 	if ((pcmd = pcommand_find(token)))
 	{
-		slog(LG_INFO, "pcommand_add(): token %s is already registered",
-				token);
+		slog(LG_INFO, "pcommand_add(): token %s is already registered", token);
 		return;
 	}
-
+	
 	pcmd = BlockHeapAlloc(pcommand_heap);
 	pcmd->token = sstrdup(token);
 	pcmd->handler = handler;
 
 	n = node_create();
 
-	node_add(pcmd, n, &pcommands);
+	node_add(pcmd, n, &pcommands[shash((unsigned char *)token)]);
 }
 
 void pcommand_delete(char *token)
@@ -59,13 +58,12 @@ void pcommand_delete(char *token)
 
 	if (!(pcmd = pcommand_find(token)))
 	{
-		slog(LG_INFO, "pcommand_delete(): token %s is not registered",
-				token);
+		slog(LG_INFO, "pcommand_delete(): token %s is not registered", token);
 		return;
 	}
 
-	n = node_find(pcmd, &pcommands);
-	node_del(n, &pcommands);
+	n = node_find(pcmd, &pcommands[shash((unsigned char *)token)]);
+	node_del(n, &pcommands[shash((unsigned char *)token)]);
 
 	free(pcmd->token);
 	pcmd->handler = NULL;
@@ -84,7 +82,7 @@ pcommand_t *pcommand_find(char *token)
 		return NULL;
 	}
 
-	LIST_FOREACH(n, pcommands.head)
+	LIST_FOREACH(n, pcommands[shash((unsigned char *)token)].head)
 	{
 		pcmd = n->data;
 
@@ -94,4 +92,3 @@ pcommand_t *pcommand_find(char *token)
 
 	return NULL;
 }
-

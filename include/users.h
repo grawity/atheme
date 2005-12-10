@@ -4,7 +4,7 @@
  *
  * Data structures for connected clients.
  *
- * $Id: users.h 751 2005-07-14 00:55:26Z nenolod $
+ * $Id: users.h 3815 2005-11-11 04:33:03Z nenolod $
  */
 
 #ifndef USERS_H
@@ -12,24 +12,28 @@
 
 struct user_
 {
-  char *nick;
-  char *user;
-  char *host;
-  char *vhost;  /* Used by UnrealIRCd, InspIRCd, ShadowIRCd, Asuka, Nefarious. */
-  char *uid;    /* Used for TS6, P10, IRCNet ircd. */
+	char nick[NICKLEN];
+	char user[USERLEN];
+	char host[HOSTLEN];
+	char gecos[GECOSLEN];
+	char vhost[HOSTLEN];  /* Used by UnrealIRCd, InspIRCd, ShadowIRCd, Asuka, Nefarious. */
+	char uid[NICKLEN];    /* Used for TS6, P10, IRCNet ircd. */
+	char ip[HOSTLEN];
 
-  list_t channels;
+	list_t channels;
 
-  server_t *server;
-  myuser_t *myuser;
+	server_t *server;
+	myuser_t *myuser;
 
-  uint8_t offenses;
-  uint8_t msgs;
-  time_t lastmsg;
+	uint8_t offenses;
+	uint8_t msgs;
+	time_t lastmsg;
 
-  uint32_t flags;
-  int32_t hash;
-  int32_t uhash;
+	uint32_t flags;
+	int32_t hash;
+	int32_t uhash;
+
+	uint32_t ts;
 };
 
 #define UF_ISOPER      0x00000001

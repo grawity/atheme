@@ -1,0 +1,55 @@
+#
+# $Id: Makefile.in 3323 2005-10-31 03:18:47Z nenolod $
+#
+
+CC		= @CC@
+INSTALL		= @INSTALL@
+RM		= @RM@
+CFLAGS		= @CFLAGS@
+LDFLAGS		= @LDFLAGS@
+MV		= @MV@
+AR		= @AR@
+RANLIB		= @RANLIB@
+
+INCLUDES = -I. -I../include
+CPPFLAGS = ${INCLUDES} @CPPFLAGS@
+SOCKET_ENGINE = @SOCKET_ENGINE@.c
+
+SOURCES = \
+	balloc.c	\
+	claro.c		\
+	connection.c	\
+	datastream.c	\
+	dlink.c		\
+	event.c		\
+	hook.c		\
+	linker.c	\
+	memory.c	\
+	sockio.c	\
+	string.c	\
+	${SOCKET_ENGINE}
+
+OBJS=${SOURCES:.c=.o}
+
+all: liborg.atheme.claro.base.a
+build: all
+
+# This stuff is not installed for now.
+install: all
+	@:
+
+liborg.atheme.claro.base.a: ${OBJS}
+	rm -f $@
+	${AR} cqv $@ ${OBJS}
+	${RANLIB} $@
+
+.c.o:
+	${CC} ${CPPFLAGS} ${CFLAGS} -c $< -o $@
+
+clean:
+	${RM} -f *.o *.exe *~ libatheme.a
+
+distclean: clean
+	${RM} -f Makefile
+
+.PHONY: install depend

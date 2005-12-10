@@ -4,19 +4,18 @@
  *
  * Commandtree manipulation routines.
  *
- * $Id: commandtree.c 908 2005-07-17 04:00:28Z w00t $
+ * $Id: commandtree.c 3481 2005-11-05 08:03:39Z w00t $
  */
 
 #include "atheme.h"
 
-void command_add(command_t *cmd, list_t *commandtree)
+void command_add(command_t * cmd, list_t *commandtree)
 {
 	node_t *n;
 
 	if ((n = node_find(cmd, commandtree)))
 	{
-		slog(LG_INFO, "command_add(): command %s already in the list",
-			cmd->name);
+		slog(LG_INFO, "command_add(): command %s already in the list", cmd->name);
 		return;
 	}
 
@@ -24,21 +23,41 @@ void command_add(command_t *cmd, list_t *commandtree)
 	node_add(cmd, n, commandtree);
 }
 
-void command_delete(command_t *cmd, list_t *commandtree)
+/*
+ * command_add_many()
+ *
+ * Inputs:
+ *       array of commands to add, list to add them to.
+ *
+ * Output:
+ *       none
+ *
+ * Side Effects:
+ *       adds an array of commands to a command list,
+ *       via command_add().
+ */
+void command_add_many(command_t ** cmd, list_t *commandtree)
+{
+	command_t *cptr;
+
+	for (cptr = cmd[0]; cptr; cptr++)
+		command_add(cptr, commandtree);
+}
+
+void command_delete(command_t * cmd, list_t *commandtree)
 {
 	node_t *n;
 
 	if (!(n = node_find(cmd, commandtree)))
 	{
-		slog(LG_INFO, "command_delete(): command %s was not registered.",
-			cmd->name);
+		slog(LG_INFO, "command_delete(): command %s was not registered.", cmd->name);
 		return;
 	}
 
 	node_del(n, commandtree);
 }
 
-void command_exec(char *mynick, char *origin, char *cmd, list_t *commandtree)
+void command_exec(service_t *svs, char *origin, char *cmd, list_t *commandtree)
 {
 	node_t *n;
 
@@ -68,13 +87,13 @@ void command_exec(char *mynick, char *origin, char *cmd, list_t *commandtree)
 				return;
 			}
 
-			notice(mynick, origin, "You are not authorized to perform this operation.");
+			notice(svs->name, origin, "You are not authorized to perform this operation.");
+			snoop("DENIED CMD: \2%s\2 used %s %s", origin, svs->name, cmd);
 			return;
 		}
 	}
 
-	notice(mynick, origin, "Invalid command. Use \2/%s%s help\2 for a command listing.",
-		(ircd->uses_rcommand == FALSE) ? "msg " : "", mynick);
+	notice(svs->name, origin, "Invalid command. Use \2/%s%s help\2 for a command listing.", (ircd->uses_rcommand == FALSE) ? "msg " : "", svs->disp);
 }
 
 /*
@@ -91,6 +110,7 @@ void command_exec(char *mynick, char *origin, char *cmd, list_t *commandtree)
  */
 void command_help(char *mynick, char *origin, list_t *commandtree)
 {
+	user_t *u = user_find(origin);
 	node_t *n;
 
 	notice(mynick, origin, "The following commands are available:");
@@ -99,18 +119,21 @@ void command_help(char *mynick, char *origin, list_t *commandtree)
 	{
 		command_t *c = n->data;
 
-		notice(mynick, origin, "\2%-16s\2 %s", c->name, c->desc);
+		/* show only the commands we have access to
+		 * (taken from command_exec())
+		 */
+		if ((c->access == AC_NONE) || ((c->access == AC_SRA) && is_sra(u->myuser)) || ((c->access == AC_IRCOP) && (is_sra(u->myuser) || is_ircop(u))))
+			notice(mynick, origin, "\2%-16s\2 %s", c->name, c->desc);
 	}
 }
 
-void fcommand_add(fcommand_t *cmd, list_t *commandtree)
+void fcommand_add(fcommand_t * cmd, list_t *commandtree)
 {
 	node_t *n;
 
 	if ((n = node_find(cmd, commandtree)))
 	{
-		slog(LG_INFO, "fcommand_add(): command %s already in the list",
-			cmd->name);
+		slog(LG_INFO, "fcommand_add(): command %s already in the list", cmd->name);
 		return;
 	}
 
@@ -118,21 +141,20 @@ void fcommand_add(fcommand_t *cmd, list_t *commandtree)
 	node_add(cmd, n, commandtree);
 }
 
-void fcommand_delete(fcommand_t *cmd, list_t *commandtree)
+void fcommand_delete(fcommand_t * cmd, list_t *commandtree)
 {
 	node_t *n;
 
 	if (!(n = node_find(cmd, commandtree)))
 	{
-		slog(LG_INFO, "command_delete(): command %s was not registered.",
-			cmd->name);
+		slog(LG_INFO, "command_delete(): command %s was not registered.", cmd->name);
 		return;
 	}
 
 	node_del(n, commandtree);
 }
 
-void fcommand_exec(char *channel, char *origin, char *cmd, list_t *commandtree)
+void fcommand_exec(service_t *svs, char *channel, char *origin, char *cmd, list_t *commandtree)
 {
 	node_t *n;
 
@@ -162,9 +184,11 @@ void fcommand_exec(char *channel, char *origin, char *cmd, list_t *commandtree)
 				return;
 			}
 
-			notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
+			notice(svs->name, origin, "You are not authorized to perform this operation.");
 			return;
 		}
 	}
-}
 
+	if (!channel || *channel != '#')
+		notice(svs->name, origin, "Invalid command. Use \2/%s%s help\2 for a command listing.", (ircd->uses_rcommand == FALSE) ? "msg " : "", svs->disp);
+}

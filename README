@@ -12,35 +12,30 @@ TABLE OF CONTENTS
   2. Presentation
   3. Installation
   4. Command line options
-  5. IRC information
+  5. Getting support
+  6. Reporting bugs
 
 1. CREDITS
 ----------
 
-While Atheme isn't directly based on any other program it borrows a decent
-amount of code from Cygnus, Sentinel and Shrike.
+Atheme was originally based on Shrike, however, this has almost all been
+rewritten now. Atheme has also borrowed some code from Cygnus and Sentinel.
 
 Information about Shrike can be found at http://shrike.malkier.net/.
 Information about Cygnus can be found at http://www.habber.net/services/.
 Information about Sentinel can be found at http://ircd.botbay.net/sentinel/.
 
-Files that we didn't write most of:
-  src/balloc.c, this was stolen from ircd-ratbox.
-  src/confp.c, this was stolen from Sentinel (from csircd).
-  src/event.c, this was stolen from ircd-ratbox.
-  src/match.c, this was stolen from Sentinel (from IRCnet ircd).
-
 2. PRESENTATION
 ---------------
 
-Atheme is a set of services for TSora-based IRC networks that allows users to
+Atheme is a set of Services for IRC networks that allows users to
 manage their channels in a secure and efficient way and allows operators to
 manage various things about their networks. Unlike it's predecessor, Shrike,
 Atheme has a completely reworked form of channel management that feels somewhat
 like eggdrop and is somewhat more useful.
 
-Atheme currently works with many ircd's. More details are available in the
-config file.
+Atheme currently works with many irc daemons. More details are available
+in the config file.
 
 3. INSTALLATION
 ---------------
@@ -75,7 +70,19 @@ terminate immediately. Otherwise, it will run until killed or otherwise stopped.
 5. GETTING SUPPORT
 ------------------
 
-If you are stuck, or services are doing something really wierd, or you have
+If you are stuck, or services are doing something really weird, or you have
 some sort of brilliant idea, we have a channel on IRC! (Surprising, no?)
 To access this channel, connect to irc.atheme.org, and join #atheme.
 
+There are also community forums and a community-oriented module 
+repository located at http://www.atheme.net/. Please note that 
+atheme.net is not the official source for Atheme releases.
+
+6. REPORTING BUGS
+-----------------
+
+If you find a bug in Atheme, you must report it via the bugtracker; our
+developers have a tendency to forget things. Your bug is not actually a
+bug until it's reported.
+
+To report bugs, click on the 'tracker' link at http://www.atheme.org.

@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 793 2005-07-15 20:51:47Z nenolod $
+# $Id: Makefile.in 3225 2005-10-27 18:55:47Z nenolod $
 #
 
 CC		= @CC@
@@ -13,35 +13,23 @@ CP		= @CP@
 INSTALL		= @INSTALL@
 PREFIX		= @prefix@
 BIN		= atheme@EXEEXT@
-MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include
+MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include -I../libatheme @PGINC@ @MYINC@
 PICFLAGS	= @PICFLAGS@
-CFLAGS		= @CFLAGS@ -I../include @PGINC@
+CFLAGS		= @CFLAGS@ -I../include @PGINC@ @MYINC@ -I../libatheme
 
 VERSION		= 0.1
 
-LIBS		= @LIBS@
+LIBS		= @LIBS@ @PQLIB@ @MYLIB@
 LDFLAGS		= @LDFLAGS@
 CPPFLAGS	= @CPPFLAGS@
 
 default: all
 
-BASE_SRCS = 		\
-	fc_dice.c	\
-	ircd_catserv.c
-
-SRCS = ${BASE_SRCS}
-
 OBJS = ${SRCS:.c=.so}
 
-all: protocols
-
-build: all
-
-install: build
+install:
 	${INSTALL} -d ${PREFIX}/contrib
 	${INSTALL} -m 755 *.so ${PREFIX}/contrib
-
-protocols: $(OBJS)
 
 .SUFFIXES: .so
 

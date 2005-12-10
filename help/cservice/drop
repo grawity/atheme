@@ -1,14 +1,12 @@
 Help for DROP:
 
-DROP allows you to "unregister" a registered username
-or channel provided you have the correct password.
+DROP allows you to "unregister" a registered channel.
 
-Once you DROP a username or channel all of the data
-associated with it (access lists, etc) are gone and
-cannot be restored.
+Once you DROP a channel all of the data associated
+with it (access lists, etc) are removed and cannot
+be restored.
 
-Syntax: DROP <username|#channel> <password>
+Syntax: DROP <#channel>
 
 Examples:
-    /msg &nick& DROP foo bar
-    /msg &nick& DROP #foo bar
+    /msg &nick& DROP #foo

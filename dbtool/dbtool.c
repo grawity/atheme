@@ -4,10 +4,14 @@
  * 
  * IRCServices datafile manipulation routines.
  * 
- * $Id$
+ * $Id: dbtool.c 3607 2005-11-06 23:57:17Z jilles $
  */
 
 #include "atheme.h"
+
+#ifdef _WIN32
+#define SIGUSR1 0
+#endif
 
 /* these two macros stolen from anope */
 #define READ_BUFFER(buf,f)      { READ_DB((f),(buf),sizeof(buf)); }

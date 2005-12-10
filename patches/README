@@ -1,6 +1,5 @@
 This directory contains patches that are works in progress, and cannot
 yet be integrated into the tree.
 
-* atheme-ratbox-services.patch is a patch implementing rudimentary
-  support for ratbox-services extensions, being written by jilles.
-
+- balloc.patch: A patch implementing a more modernized block allocator
+  (currently too slow to implement in trunk -- by nenolod)

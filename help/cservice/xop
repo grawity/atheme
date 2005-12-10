@@ -11,7 +11,7 @@ to add users to the VOP and AOP lists.
 You may also specify a hostmask (nick!user@host)
 for the VOP and AOP lists.
 
-Syntax: VOP|AOP|SOP <#channel> ADD|DEL|LIST <username|hostmask>
+Syntax: VOP|HOP|AOP|SOP <#channel> ADD|DEL|LIST <nickname|hostmask>
 
 Examples:
     /msg &nick& VOP #foo ADD bar

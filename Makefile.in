@@ -1,9 +1,9 @@
-# Copyright (c) 2003-2004 E. Will et al.
+# Copyright (c) 2005 Atheme Development Group.
 # Rights to this code are documented in doc/LICENSE.
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 685 2005-07-08 04:19:05Z nenolod $
+# $Id: Makefile.in 3401 2005-11-02 18:52:35Z nenolod $
 #
 
 CC		= @CC@
@@ -15,10 +15,8 @@ PREFIX		= @PREFIX@
 BIN		= atheme@EXEEXT@
 
 SHELL=/bin/sh
-SUBDIRS=dbtool backend modules protocol src contrib
+SUBDIRS=libatheme crypto dbtool backend modules protocol src
 CLEANDIRS = ${SUBDIRS}
-
-MAKE = make ${MFLAGS}
 
 all: build
 

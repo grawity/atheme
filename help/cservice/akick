@@ -7,7 +7,7 @@ automatically kickbanned when they join the channel.
 You may also specify a hostmask (nick!user@host)
 for the AKICK list.
 
-Syntax: AKICK <#channel> ADD|DEL|LIST <username|hostmask>
+Syntax: AKICK <#channel> ADD|DEL|LIST <nickname|hostmask>
 
 Examples:
     /msg &nick& AKICK #foo ADD bar

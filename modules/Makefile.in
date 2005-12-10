@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 704 2005-07-10 01:59:19Z nenolod $
+# $Id: Makefile.in 3141 2005-10-23 00:06:18Z jilles $
 #
 
 CC		= @CC@
@@ -13,33 +13,44 @@ CP		= @CP@
 INSTALL		= @INSTALL@
 PREFIX		= @prefix@
 BIN		= atheme@EXEEXT@
-MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include @PGINC@
+MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include @PGINC@ @MYINC@
 PICFLAGS	= @PICFLAGS@
-CFLAGS		= @CFLAGS@ -I../include @PGINC@
+CFLAGS		= @CFLAGS@ -I../include -I../libatheme @PGINC@ @MYINC@
 
 VERSION		= 0.1
 
-LIBS		= @LIBS@ @PQLIB@
+LIBS		= @LIBS@ @PQLIB@ @MYLIB@
 LDFLAGS		= @LDFLAGS@
 CPPFLAGS	= @CPPFLAGS@
 
 default: all
 
-BASE_SRCS = @MODULES_LIST@
+BASE_SRCS = 
 
 SRCS = ${BASE_SRCS}
 
 OBJS = ${SRCS:.c=.so}
+
+SUBDIRS = chanserv nickserv global operserv userserv xmlrpc memoserv
+# helpserv
 
 all: modules
 
 build: all
 
 install: build
-	${INSTALL} -d ${PREFIX}/modules
-	${INSTALL} -m 755 *.so ${PREFIX}/modules
+	@for i in $(SUBDIRS); do \
+		echo "install ==> $$i"; \
+		cd $$i; \
+		${MAKE} install || exit; cd ..; \
+	done
 
-modules: $(OBJS)
+modules:
+	@for i in $(SUBDIRS); do \
+		echo "build ==> $$i"; \
+		cd $$i; \
+		${MAKE} build || exit; cd ..; \
+	done
 
 .SUFFIXES: .so
 
@@ -49,7 +60,11 @@ modules: $(OBJS)
 .PHONY: clean distclean
 
 clean:
-	${RM} -f *.so
+	@for i in $(SUBDIRS); do \
+		echo "clean ==> $$i"; \
+		cd $$i; \
+		${MAKE} clean || exit; cd ..; \
+	done
 
 distclean: clean
 	${RM} -f Makefile version.c.last

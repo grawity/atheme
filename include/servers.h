@@ -4,7 +4,7 @@
  *
  * Data structures related to network servers.
  *
- * $Id: servers.h 427 2005-06-09 18:48:45Z nenolod $
+ * $Id: servers.h 3129 2005-10-22 21:49:56Z jilles $
  */
 
 #ifndef SERVERS_H
@@ -32,10 +32,14 @@ struct server_
 	int32_t hash;
 	int32_t shash;
 
-	server_t *uplink;
+	server_t *uplink; /* uplink server */
+	list_t children;  /* children linked to me */
+	list_t userlist;  /* users attached to me */
 };
 
 #define SF_HIDE        0x00000001
+#define SF_EOB         0x00000002 /* End of burst acknowledged, not all
+                                   * protocols use this -- jilles */
 
 struct uplink_
 {
@@ -43,18 +47,20 @@ struct uplink_
 	char *host;
 	char *pass;
 	char *vhost;
-	char *numeric;
 
 	node_t	*node;
 
 	uint32_t port;
+
+	connection_t *conn;
 };
 
-extern uplink_t *uplink_add(char *name, char *host, char *password, char *vhost, char *numeric, int port);
-extern void uplink_delete(uplink_t *u);
-extern uplink_t *uplink_find(char *name);
-extern list_t uplinks;
-extern uplink_t *curr_uplink;
-extern void uplink_connect(void);
+E uplink_t *uplink_add(char *name, char *host, char *password, char *vhost, int port);
+E void uplink_delete(uplink_t *u);
+E uplink_t *uplink_find(char *name);
+E list_t uplinks;
+E uplink_t *curr_uplink;
+E void uplink_connect(void);
+E void connection_dead(void *vptr);
 
 #endif

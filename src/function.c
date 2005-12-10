@@ -1,49 +1,42 @@
 /*
  * Copyright (c) 2005 Atheme Development Group
- *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains misc routines.
  *
- * $Id: function.c 945 2005-07-17 19:34:07Z nenolod $
+ * $Id: function.c 4067 2005-12-10 01:28:18Z jilles $
  */
 
 #include "atheme.h"
 
 FILE *log_file;
 
-#ifndef HAVE_STRLCAT
-/* These functions are taken from Linux. */
-size_t strlcat(char *dest, const char *src, size_t count)
-{
-	size_t dsize = strlen(dest);
-	size_t len = strlen(src);
-	size_t res = dsize + len;
-
-	dest += dsize;
-	count -= dsize;
-	if (len >= count)
-		len = count - 1;
-	memcpy(dest, src, len);
-	dest[len] = 0;
-	return res;
-}
+/* there is no way windows has this command. */
+#ifdef _WIN32
+# undef HAVE_GETTIMEOFDAY
 #endif
 
-#ifndef HAVE_STRLCPY
-size_t strlcpy(char *dest, const char *src, size_t size)
-{
-	size_t ret = strlen(src);
+char ch[26] = "abcdefghijklmnopqrstuvwxyz";
 
-	if (size)
+/* This function uses smalloc() to allocate memory.
+ * You MUST free the result when you are done with it!
+ */
+char *gen_pw(int8_t sz)
+{
+	int8_t i;
+	char *buf = smalloc(sz + 1); /* padding */
+
+	srand(CURRTIME);
+
+	for (i = 0; i < sz; i++)
 	{
-		size_t len = (ret >= size) ? size - 1 : ret;
-		memcpy(dest, src, len);
-		dest[len] = '\0';
+		buf[i] = ch[rand() % 26];
 	}
-	return ret;
+
+	buf[sz] = 0;
+
+	return buf;
 }
-#endif
 
 #ifdef HAVE_GETTIMEOFDAY
 /* starts a timer */
@@ -81,80 +74,7 @@ void tb2sp(char *line)
 		*c = ' ';
 }
 
-/* copy at most len-1 characters from a string to a buffer, NULL terminate */
-char *strscpy(char *d, const char *s, size_t len)
-{
-	char *d_orig = d;
-
-	if (!len)
-		return d;
-	while (--len && (*d++ = *s++));
-	*d = 0;
-	return d_orig;
-}
-
-/* does malloc()'s job and dies if malloc() fails */
-void *smalloc(size_t size)
-{
-	void *buf;
-
-	buf = malloc(size);
-	if (!buf)
-		raise(SIGUSR1);
-	return buf;
-}
-
-/* does calloc()'s job and dies if calloc() fails */
-void *scalloc(size_t elsize, size_t els)
-{
-	void *buf = calloc(elsize, els);
-
-	if (!buf)
-		raise(SIGUSR1);
-	return buf;
-}
-
-/* does realloc()'s job and dies if realloc() fails */
-void *srealloc(void *oldptr, size_t newsize)
-{
-	void *buf = realloc(oldptr, newsize);
-
-	if (!buf)
-		raise(SIGUSR1);
-	return buf;
-}
-
-/* does strdup()'s job, only with the above memory functions */
-char *sstrdup(const char *s)
-{
-	char *t;
-
-	if (strlen(s) == 0)
-		return NULL;
-
-	t = smalloc(strlen(s) + 1);
-
-	strcpy(t, s);
-	return t;
-}
-
-/* removes unwanted chars from a line */
-void strip(char *line)
-{
-	char *c;
-
-	if (line)
-	{
-		if ((c = strchr(line, '\n')))
-			*c = '\0';
-		if ((c = strchr(line, '\r')))
-			*c = '\0';
-		if ((c = strchr(line, '\1')))
-			*c = '\0';
-	}
-}
-
-/* opens shrike.log */
+/* opens atheme.log */
 void log_open(void)
 {
 	if (log_file)
@@ -196,6 +116,90 @@ void slog(uint32_t level, const char *fmt, ...)
 
 	if ((runflags & (RF_LIVE | RF_STARTING)))
 		fprintf(stderr, "%s %s\n", buf, lbuf);
+
+	va_end(args);
+}
+
+/* svs is really service_t * but that's not available in extern.h */
+void logcommand(void *svs, user_t *source, int level, const char *fmt, ...)
+{
+	va_list args;
+	time_t t;
+	struct tm tm;
+	char datetime[64];
+	char lbuf[BUFSIZE];
+
+	/* XXX use level */
+
+	va_start(args, fmt);
+
+	time(&t);
+	tm = *localtime(&t);
+	strftime(datetime, sizeof(datetime) - 1, "[%d/%m/%Y %H:%M:%S]", &tm);
+
+	vsnprintf(lbuf, BUFSIZE, fmt, args);
+
+	if (!log_file)
+		log_open();
+
+	if (log_file)
+	{
+		fprintf(log_file, "%s %s %s:%s!%s@%s[%s] %s\n",
+				datetime,
+				svs != NULL ? ((service_t *)svs)->name : me.name,
+				source->myuser != NULL ? source->myuser->name : "",
+				source->nick, source->user, source->vhost,
+				source->ip[0] != '\0' ? source->ip : source->host,
+				lbuf);
+
+		fflush(log_file);
+	}
+
+#if 0
+	if ((runflags & (RF_LIVE | RF_STARTING)))
+		fprintf(stderr, "%s %s\n", buf, lbuf);
+#endif
+
+	va_end(args);
+}
+
+void logcommand_external(void *svs, char *type, connection_t *source, myuser_t *login, int level, const char *fmt, ...)
+{
+	va_list args;
+	time_t t;
+	struct tm tm;
+	char datetime[64];
+	char lbuf[BUFSIZE];
+
+	/* XXX use level */
+
+	va_start(args, fmt);
+
+	time(&t);
+	tm = *localtime(&t);
+	strftime(datetime, sizeof(datetime) - 1, "[%d/%m/%Y %H:%M:%S]", &tm);
+
+	vsnprintf(lbuf, BUFSIZE, fmt, args);
+
+	if (!log_file)
+		log_open();
+
+	if (log_file)
+	{
+		fprintf(log_file, "%s %s %s:%s[%s] %s\n",
+				datetime,
+				svs != NULL ? ((service_t *)svs)->name : me.name,
+				login != NULL ? login->name : "",
+				type, source->hbuf,
+				lbuf);
+
+		fflush(log_file);
+	}
+
+#if 0
+	if ((runflags & (RF_LIVE | RF_STARTING)))
+		fprintf(stderr, "%s %s\n", buf, lbuf);
+#endif
 
 	va_end(args);
 }
@@ -252,16 +256,20 @@ uint32_t shash(const unsigned char *p)
 {
 	unsigned int hval = HASHINIT;
 
-	if (*p == '\0')
-		return(0);
+#ifndef _WIN32
+	if (!strstr(me.execname, "atheme"))
+		return (rand() % HASHSIZE);
+#endif
+
+	if (!p)
+		return (0);
 	for (; *p != '\0'; ++p)
 	{
-		hval += (hval << 1) + (hval <<  4) + (hval << 7) +
-			(hval << 8) + (hval << 24);
+		hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
 		hval ^= (ToLower(*p) ^ 16);
 	}
 
-	return((hval >> HASHBITS) ^ (hval & ((1 << HASHBITS) -1)));
+	return ((hval >> HASHBITS) ^ (hval & ((1 << HASHBITS) - 1)) % HASHSIZE);
 }
 
 /* replace all occurances of 'old' with 'new' */
@@ -298,12 +306,21 @@ char *replace(char *s, int32_t size, const char *old, const char *new)
 }
 
 /* reverse of atoi() */
+#ifndef _WIN32
 char *itoa(int num)
 {
 	static char ret[32];
 	sprintf(ret, "%d", num);
 	return ret;
 }
+#else
+char *r_itoa(int num)
+{
+	static char ret[32];
+	sprintf(ret, "%d", num);
+	return ret;
+}
+#endif
 
 /* channel modes we support */
 struct flag
@@ -433,16 +450,26 @@ unsigned long makekey(void)
 	return k;
 }
 
+boolean_t is_internal_client(user_t *u)
+{
+	return (u && (!u->server || u->server == me.me));
+}
+
 int validemail(char *email)
 {
 	int i, valid = 1, chars = 0;
+
+	/* sane length */
+	if (strlen(email) >= EMAILLEN)
+		valid = 0;
 
 	/* make sure it has @ and . */
 	if (!strchr(email, '@') || !strchr(email, '.'))
 		valid = 0;
 
 	/* check for other bad things */
-	if (strchr(email, '$') || strchr(email, '/') || strchr(email, ';') || strchr(email, '<') || strchr(email, '>') || strchr(email, '&'))
+	if (strchr(email, '\'') || strchr(email, ' ') || strchr(email, ',') || strchr(email, '$')
+	    || strchr(email, '/') || strchr(email, ';') || strchr(email, '<') || strchr(email, '>') || strchr(email, '&') || strchr(email, '"'))
 		valid = 0;
 
 	/* make sure there are at least 6 characters besides the above
@@ -469,73 +496,132 @@ boolean_t validhostmask(char *host)
 
 /* send the specified type of email.
  *
- * what is what we're sending to, a username.
+ * what is what we're sending to, a nickname.
  *
  * param is an extra parameter; email, key, etc.
  *
- * If type ==:
- *   1 - username REGISTER
- *   2 - username SENDPASS
- *   3 - username SET:EMAIL
- *   4 - channel  SENDPASS
+ * assume that we are either using NickServ or UserServ
+ *
+ * u is whoever caused this to be called, the corresponding service
+ *   in case of xmlrpc
+ * type is EMAIL_*, see include/atheme.h
+ * mu is the recipient user
+ * param depends on type, also see include/atheme.h
+ *
+ * XXX -- sendemail() is broken on Windows.
  */
-void sendemail(char *what, const char *param, int type)
+int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 {
-	myuser_t *mu;
+#ifndef _WIN32
 	mychan_t *mc;
-	char *email, *date, *pass = NULL;
+	char *email, *date = NULL;
 	char cmdbuf[512], timebuf[256], to[128], from[128], subject[128];
 	FILE *out;
 	time_t t;
 	struct tm tm;
+	int pipfds[2];
+	pid_t pid;
+	int status;
+	int rc;
+	static time_t period_start = 0, lastwallops = 0;
+	static int emailcount = 0;
 
-	if (type == 1 || type == 2 || type == 3)
+	if (u == NULL || mu == NULL)
+		return 0;
+
+	if (type == EMAIL_SETEMAIL)
 	{
-		if (!(mu = myuser_find(what)))
-			return;
+		/* special case for e-mail change */
+		metadata_t *md = metadata_find(mu, METADATA_USER, "private:verify:emailchg:newemail");
 
-		if (type == 1 || type == 3)
-			pass = itoa(mu->key);
-		else
-			pass = mu->pass;
-
-		if (type == 3)
-			email = mu->temp;
-		else
-			email = mu->email;
+		if (md && md->value)
+			email = md->value;
+		else		/* should NEVER happen */
+		{
+			slog(LG_ERROR, "sendemail(): got email change request, but newemail unset!");
+			return 0;
+		}
 	}
 	else
-	{
-		if (!(mc = mychan_find(what)))
-			return;
-
-		mu = mc->founder;
-
-		pass = mc->pass;
-
 		email = mu->email;
+
+	if (CURRTIME - period_start > me.emailtime)
+	{
+		emailcount = 0;
+		period_start = CURRTIME;
 	}
+	emailcount++;
+	if (emailcount > me.emaillimit)
+	{
+		if (CURRTIME - lastwallops > 60)
+		{
+			wallops("Rejecting email for %s[%s@%s] due to too high load (type %d to %s <%s>)",
+					u->nick, u->user, u->vhost,
+					type, mu->name, email);
+			slog(LG_ERROR, "sendemail(): rejecting email for %s[%s@%s] (%s) due to too high load (type %d to %s <%s>)",
+					u->nick, u->user, u->vhost,
+					u->ip[0] ? u->ip : u->host,
+					type, mu->name, email);
+			lastwallops = CURRTIME;
+		}
+		return 0;
+	}
+
+	slog(LG_INFO, "sendemail(): email for %s[%s@%s] (%s) type %d to %s <%s>",
+			u->nick, u->user, u->vhost, u->ip[0] ? u->ip : u->host,
+			type, mu->name, email);
 
 	/* set up the email headers */
 	time(&t);
 	tm = *gmtime(&t);
-	strftime(timebuf, sizeof(timebuf) - 1, "%a, %d %b %Y %H:%M:%S", &tm);
+	strftime(timebuf, sizeof(timebuf) - 1, "%a, %d %b %Y %H:%M:%S +0000", &tm);
 
 	date = timebuf;
 
-	sprintf(from, "%s <%s@%s>", chansvs.nick, chansvs.user, chansvs.host);
-	sprintf(to, "%s <%s>", mu->name, email);
+	snprintf(from, sizeof from, "%s automailer <noreply.%s>",
+			me.netname, me.adminemail);
+	snprintf(to, sizeof to, "%s <%s>", mu->name, email);
 
-	if (type == 1)
-		strlcpy(subject, "Username Registration", 128);
-	else if (type == 2 || type == 4)
-		strlcpy(subject, "Password Retrieval", 128);
-	else if (type == 3)
-		strlcpy(subject, "Change Email Confirmation", 128);
-
+	strlcpy(subject, me.netname, sizeof subject);
+	strlcat(subject, " ", sizeof subject);
+	if (type == EMAIL_REGISTER)
+		if (nicksvs.nick)
+			strlcat(subject, "Nickname Registration", sizeof subject);
+		else
+			strlcat(subject, "Account Registration", sizeof subject);
+	else if (type == EMAIL_SENDPASS)
+		strlcat(subject, "Password Retrieval", sizeof subject);
+	else if (type == EMAIL_SETEMAIL)
+		strlcat(subject, "Change Email Confirmation", sizeof subject);
+	else if (type == EMAIL_MEMO)
+		strlcat(subject, "New memo", sizeof subject);
+	
 	/* now set up the email */
 	sprintf(cmdbuf, "%s %s", me.mta, email);
-	out = popen(cmdbuf, "w");
+	if (pipe(pipfds) < 0)
+		return 0;
+	switch (pid = fork())
+	{
+		case -1:
+			return 0;
+		case 0:
+			close(pipfds[1]);
+			dup2(pipfds[0], 0);
+			switch (fork())
+			{
+				/* fork again to avoid zombies -- jilles */
+				case -1:
+					_exit(255);
+				case 0:
+					execl("/bin/sh", "sh", "-c", cmdbuf, NULL);
+					_exit(255);
+				default:
+					_exit(0);
+			}
+	}
+	close(pipfds[0]);
+	waitpid(pid, &status, 0);
+	out = fdopen(pipfds[1], "w");
 
 	fprintf(out, "From: %s\n", from);
 	fprintf(out, "To: %s\n", to);
@@ -543,59 +629,69 @@ void sendemail(char *what, const char *param, int type)
 	fprintf(out, "Date: %s\n\n", date);
 
 	fprintf(out, "%s,\n\n", mu->name);
-	fprintf(out, "Thank you for your interest in the %s IRC network.\n\n", me.netname);
 
-	if (type == 1)
+	if (type == EMAIL_REGISTER)
 	{
-		fprintf(out, "In order to complete your registration, you must send "
-			     "the following command on IRC:\n");
-		fprintf(out, "/MSG %s REGISTER %s KEY %s\n\n", nicksvs.enable ? nicksvs.nick : chansvs.nick, what, pass);
-		fprintf(out, "Thank you for registering your %sname on the %s IRC "
-			     "network!\n", nicksvs.enable ? "nick" : "user", me.netname);
+		fprintf(out, "In order to complete your registration, you must send the following\ncommand on IRC:\n");
+		fprintf(out, "/MSG %s VERIFY REGISTER %s %s\n\n", (nicksvs.nick ? nicksvs.nick : usersvs.nick), mu->name, param);
+		fprintf(out, "Thank you for registering your %s on the %s IRC " "network!\n\n",
+				(nicksvs.nick ? "nickname" : "account"), me.netname);
 	}
-	else if (type == 2 || type == 4)
+	else if (type == EMAIL_SENDPASS)
 	{
-		fprintf(out, "Someone has requested the password for %s be sent to the "
-			     "corresponding email address. If you did not request this action "
-			     "please let us know.\n\n", what);
-		fprintf(out, "The password for %s is %s. Please write this down for "
-			     "future reference.\n", what, pass);
+		fprintf(out, "Someone has requested the password for %s be sent to the\n" "corresponding email address. If you did not request this action\n" "please let us know.\n\n", mu->name);
+		fprintf(out, "The password for %s is %s. Please write this down for " "future reference.\n\n", mu->name, param);
 	}
-	else if (type == 3)
+	else if (type == EMAIL_SETEMAIL)
 	{
-		fprintf(out, "In order to complete your email change, you must send "
-			     "the following command on IRC:\n");
-		fprintf(out, "/MSG %s SET %s EMAIL %s\n\n", chansvs.nick, what, pass);
+		fprintf(out, "In order to complete your email change, you must send\n" "the following command on IRC:\n");
+		fprintf(out, "/MSG %s VERIFY EMAILCHG %s %s\n\n", (nicksvs.nick ? nicksvs.nick : usersvs.nick), mu->name, param);
+	}
+	if (type == EMAIL_MEMO)
+	{
+		if (u->myuser != NULL)
+			fprintf(out,"You have a new memo from %s.\n\n", u->myuser->name);
+		else
+			/* shouldn't happen */
+			fprintf(out,"You have a new memo from %s (unregistered?).\n\n", u->nick);
+		fprintf(out,"%s\n\n", param);
 	}
 
+	fprintf(out, "Thank you for your interest in the %s IRC network.\n", me.netname);
+	if (u->server != me.me)
+		fprintf(out, "\nThis email was sent due to a command from %s[%s@%s]\nat %s.\n", u->nick, u->user, u->vhost, date);
+	fprintf(out, "If this message is spam, please contact %s\nwith a full copy.\n",
+			me.adminemail);
 	fprintf(out, ".\n");
-	pclose(out);
+	rc = 1;
+	if (ferror(out))
+		rc = 0;
+	if (fclose(out) < 0)
+		rc = 0;
+	if (rc == 0)
+		slog(LG_ERROR, "sendemail(): mta failure");
+	return rc;
+#else
+	return 1;
+#endif
 }
 
 /* various access level checkers */
 boolean_t is_founder(mychan_t *mychan, myuser_t *myuser)
 {
+	metadata_t *md;
+
+	if (!myuser)
+		return FALSE;
+
+	if ((myuser->flags & MU_ALIAS) && (md = metadata_find(myuser, METADATA_USER, "private:alias:parent")))
+		myuser = myuser_find(md->value);
+
+	/* master account doesn't exist anymore */
 	if (!myuser)
 		return FALSE;
 
 	if (mychan->founder == myuser)
-		return TRUE;
-
-	if ((chanacs_find(mychan, myuser, CA_FOUNDER)))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t is_successor(mychan_t *mychan, myuser_t *myuser)
-{
-	if (!myuser)
-		return FALSE;
-
-	if (mychan->successor == myuser)
-		return TRUE;
-
-	if ((chanacs_find(mychan, myuser, CA_SUCCESSOR)))
 		return TRUE;
 
 	return FALSE;
@@ -604,21 +700,19 @@ boolean_t is_successor(mychan_t *mychan, myuser_t *myuser)
 boolean_t is_xop(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 {
 	chanacs_t *ca;
+	metadata_t *md;
 
 	if (!myuser)
 		return FALSE;
 
+	if ((myuser->flags & MU_ALIAS) && (md = metadata_find(myuser, METADATA_USER, "private:alias:parent")))
+		myuser = myuser_find(md->value);
+
+	/* master account doesn't exist anymore */
+	if (!myuser)
+		return FALSE;
+
 	if ((ca = chanacs_find(mychan, myuser, level)))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t is_on_mychan(mychan_t *mychan, myuser_t *myuser)
-{
-	chanuser_t *cu;
-
-	if ((cu = chanuser_find(mychan->chan, myuser->user)))
 		return TRUE;
 
 	return FALSE;
@@ -637,15 +731,11 @@ boolean_t should_owner(mychan_t *mychan, myuser_t *myuser)
 	if (MU_NOOP & myuser->flags)
 		return FALSE;
 
-	cu = chanuser_find(mychan->chan, myuser->user);
-	if (!cu)
-		return FALSE;
-
 	if (is_founder(mychan, myuser))
 		return TRUE;
 
 	return FALSE;
-}	
+}
 
 boolean_t should_protect(mychan_t *mychan, myuser_t *myuser)
 {
@@ -660,15 +750,11 @@ boolean_t should_protect(mychan_t *mychan, myuser_t *myuser)
 	if (MU_NOOP & myuser->flags)
 		return FALSE;
 
-	cu = chanuser_find(mychan->chan, myuser->user);
-	if (!cu)
-		return FALSE;
-
-	if (is_xop(mychan, myuser, CA_FLAGS))
+	if (is_xop(mychan, myuser, CA_SET))
 		return TRUE;
 
 	return FALSE;
-}	
+}
 
 boolean_t should_op(mychan_t *mychan, myuser_t *myuser)
 {
@@ -683,10 +769,6 @@ boolean_t should_op(mychan_t *mychan, myuser_t *myuser)
 	if (MU_NOOP & myuser->flags)
 		return FALSE;
 
-	cu = chanuser_find(mychan->chan, myuser->user);
-	if (!cu)
-		return FALSE;
-
 	if (is_xop(mychan, myuser, (CA_AUTOOP)))
 		return TRUE;
 
@@ -695,12 +777,9 @@ boolean_t should_op(mychan_t *mychan, myuser_t *myuser)
 
 boolean_t should_op_host(mychan_t *mychan, char *host)
 {
-	chanacs_t *ca;
 	char hostbuf[BUFSIZE];
 
-	hostbuf[0] = '\0';
-
-	strlcat(hostbuf, chansvs.nick, BUFSIZE);
+	strlcpy(hostbuf, chansvs.nick, BUFSIZE);
 	strlcat(hostbuf, "!", BUFSIZE);
 	strlcat(hostbuf, chansvs.user, BUFSIZE);
 	strlcat(hostbuf, "@", BUFSIZE);
@@ -709,7 +788,7 @@ boolean_t should_op_host(mychan_t *mychan, char *host)
 	if (!match(host, hostbuf))
 		return FALSE;
 
-	if ((ca = chanacs_find_host(mychan, host, (CA_AUTOOP))))
+	if (chanacs_find_host(mychan, host, CA_AUTOOP))
 		return TRUE;
 
 	return FALSE;
@@ -719,10 +798,6 @@ boolean_t should_kick(mychan_t *mychan, myuser_t *myuser)
 {
 	chanuser_t *cu;
 
-	cu = chanuser_find(mychan->chan, myuser->user);
-	if (!cu)
-		return FALSE;
-
 	if (is_xop(mychan, myuser, (CA_AKICK)))
 		return TRUE;
 
@@ -731,12 +806,9 @@ boolean_t should_kick(mychan_t *mychan, myuser_t *myuser)
 
 boolean_t should_kick_host(mychan_t *mychan, char *host)
 {
-	chanacs_t *ca;
 	char hostbuf[BUFSIZE];
 
-	hostbuf[0] = '\0';
-
-	strlcat(hostbuf, chansvs.nick, BUFSIZE);
+	strlcpy(hostbuf, chansvs.nick, BUFSIZE);
 	strlcat(hostbuf, "!", BUFSIZE);
 	strlcat(hostbuf, chansvs.user, BUFSIZE);
 	strlcat(hostbuf, "@", BUFSIZE);
@@ -745,7 +817,7 @@ boolean_t should_kick_host(mychan_t *mychan, char *host)
 	if (!match(host, hostbuf))
 		return FALSE;
 
-	if ((ca = chanacs_find_host(mychan, host, (CA_AKICK))))
+	if (chanacs_find_host(mychan, host, CA_AKICK))
 		return TRUE;
 
 	return FALSE;
@@ -764,10 +836,6 @@ boolean_t should_halfop(mychan_t *mychan, myuser_t *myuser)
 	if (MU_NOOP & myuser->flags)
 		return FALSE;
 
-	cu = chanuser_find(mychan->chan, myuser->user);
-	if (!cu)
-		return FALSE;
-
 	if (is_xop(mychan, myuser, CA_AUTOHALFOP))
 		return TRUE;
 
@@ -776,12 +844,9 @@ boolean_t should_halfop(mychan_t *mychan, myuser_t *myuser)
 
 boolean_t should_halfop_host(mychan_t *mychan, char *host)
 {
-	chanacs_t *ca;
 	char hostbuf[BUFSIZE];
 
-	hostbuf[0] = '\0';
-
-	strlcat(hostbuf, chansvs.nick, BUFSIZE);
+	strlcpy(hostbuf, chansvs.nick, BUFSIZE);
 	strlcat(hostbuf, "!", BUFSIZE);
 	strlcat(hostbuf, chansvs.user, BUFSIZE);
 	strlcat(hostbuf, "@", BUFSIZE);
@@ -790,7 +855,7 @@ boolean_t should_halfop_host(mychan_t *mychan, char *host)
 	if (!match(host, hostbuf))
 		return FALSE;
 
-	if ((ca = chanacs_find_host(mychan, host, CA_AUTOHALFOP)))
+	if (chanacs_find_host(mychan, host, CA_AUTOHALFOP))
 		return TRUE;
 
 	return FALSE;
@@ -809,10 +874,6 @@ boolean_t should_voice(mychan_t *mychan, myuser_t *myuser)
 	if (MU_NOOP & myuser->flags)
 		return FALSE;
 
-	cu = chanuser_find(mychan->chan, myuser->user);
-	if (!cu)
-		return FALSE;
-
 	if (is_xop(mychan, myuser, CA_AUTOVOICE))
 		return TRUE;
 
@@ -821,12 +882,9 @@ boolean_t should_voice(mychan_t *mychan, myuser_t *myuser)
 
 boolean_t should_voice_host(mychan_t *mychan, char *host)
 {
-	chanacs_t *ca;
 	char hostbuf[BUFSIZE];
 
-	hostbuf[0] = '\0';
-
-	strlcat(hostbuf, chansvs.nick, BUFSIZE);
+	strlcpy(hostbuf, chansvs.nick, BUFSIZE);
 	strlcat(hostbuf, "!", BUFSIZE);
 	strlcat(hostbuf, chansvs.user, BUFSIZE);
 	strlcat(hostbuf, "@", BUFSIZE);
@@ -835,7 +893,7 @@ boolean_t should_voice_host(mychan_t *mychan, char *host)
 	if (!match(host, hostbuf))
 		return FALSE;
 
-	if ((ca = chanacs_find_host(mychan, host, CA_AUTOVOICE)))
+	if (chanacs_find_host(mychan, host, CA_AUTOVOICE))
 		return TRUE;
 
 	return FALSE;
@@ -866,6 +924,41 @@ boolean_t is_admin(user_t *user)
 		return TRUE;
 
 	return FALSE;
+}
+
+void set_password(myuser_t *mu, char *newpassword)
+{
+	if (mu == NULL || newpassword == NULL)
+		return;
+
+	/* if we can, try to crypt it */
+	if (crypto_module_loaded == TRUE)
+	{
+		mu->flags |= MU_CRYPTPASS;
+		strlcpy(mu->pass, crypt_string(newpassword, gen_salt()), NICKLEN);
+	}
+	else
+	{
+		mu->flags &= ~MU_CRYPTPASS;			/* just in case */
+		strlcpy(mu->pass, newpassword, NICKLEN);
+	}
+}
+
+boolean_t verify_password(myuser_t *mu, char *password)
+{
+	if (mu == NULL || password == NULL)
+		return FALSE;
+
+	if (mu->flags & MU_CRYPTPASS)
+		if (crypto_module_loaded == TRUE)
+			return crypt_verify_password(password, mu->pass);
+		else
+		{	/* not good! */
+			slog(LG_ERROR, "check_password(): can't check crypted password -- no crypto module!");
+			return FALSE;
+		}
+	else
+		return (strcmp(mu->pass, password) == 0);
 }
 
 /* stolen from Sentinel */

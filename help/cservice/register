@@ -1,13 +1,12 @@
 Help for REGISTER:
 
-REGISTER allows you to register a username
-or channel so that you have better control.
-Registration allows you to maintain a channel
-access list and other functions that are normally
+REGISTER allows you to register a channel
+so that you have better control. Registration
+allows you to maintain a channel access list
+and other functions that are normally
 provided by IRC bots.
 
-Syntax: REGISTER <username|#channel> <password> [email]
+Syntax: REGISTER <#channel>
 
 Examples:
-    /msg &nick& REGISTER foo bar foo@bar.com
-    /msg &nick& REGISTER #foo bar
+    /msg &nick& REGISTER #atheme

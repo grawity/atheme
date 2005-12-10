@@ -4,11 +4,13 @@
  *
  * This file contains protocol support for chunky monkey ircd.
  *
- * $Id: monkey.c 902 2005-07-17 02:26:34Z alambert $
+ * $Id: monkey.c 3837 2005-11-11 11:35:48Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/monkey.h"
+
+DECLARE_MODULE_V1("protocol/monkey", TRUE, _modinit, NULL, "$Id: monkey.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -22,12 +24,14 @@ ircd_t Monkey = {
         TRUE,                           /* Whether or not we support halfops. */
 	FALSE,				/* Whether or not we use P10 */
 	FALSE,				/* Whether or not we use vHosts. */
+	CMODE_OPERONLY,			/* Oper-only cmodes */
         0,                              /* Integer flag for owner channel flag. */
         0,                              /* Integer flag for protect channel flag. */
         CMODE_HALFOP,                   /* Integer flag for halfops. */
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
-        "+h"                            /* Mode we set for halfops. */
+        "+h",                           /* Mode we set for halfops. */
+	PROTOCOL_MONKEY			/* Protocol type */
 };
 
 struct cmode_ monkey_mode_list[] = {
@@ -37,8 +41,6 @@ struct cmode_ monkey_mode_list[] = {
   { 'p', CMODE_PRIV     },
   { 's', CMODE_SEC      },
   { 't', CMODE_TOPIC    },
-  { 'k', CMODE_KEY      },
-  { 'l', CMODE_LIMIT    },
   { 'c', CMODE_NOCOLOR  },
   { 'M', CMODE_MODREG   },
   { 'R', CMODE_REGONLY  },
@@ -71,174 +73,145 @@ struct cmode_ monkey_prefix_mode_list[] = {
 /* login to our uplink */
 static uint8_t monkey_server_login(void)
 {
-        int8_t ret;
+	int8_t ret;
 
-	/* XXX: Give monkeyircd time to resolve properly. Deficiency! */
-	sleep(5);
+	ret = sts("PASS %s 0280ircservices CMIRCD|nothing", curr_uplink->pass);
+	if (ret == 1)
+		return 1;
 
-        ret = sts("PASS %s 0280ircservices CMIRCD|nothing", curr_uplink->pass);
-        if (ret == 1)
-                return 1;
+	me.bursting = TRUE;
 
-        me.bursting = TRUE;
-
-        sts("CAPAB :TS4");
-        sts("SERVER %s 1 :%s", me.name, me.desc);
-        sts("SVINFO 4 4 0 :%ld", CURRTIME);
+	sts("CAPAB :TS4");
+	sts("SERVER %s 1 :%s", me.name, me.desc);
+	sts("SVINFO 4 4 0 :%ld", CURRTIME);
 
 	services_init();
 
-        return 0;
+	return 0;
 }
 
 /* introduce a client */
-static user_t *monkey_introduce_nick(char *nick, char *user, char *host, char *real, char *modes)
+static void monkey_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
-	user_t *u;
-
-	sts("NICK %s 1 %ld +%s %s %s %s 0 0 :%s", nick, CURRTIME, modes, user, host, me.name, real);
-
-	u = user_add(nick, user, host, NULL, NULL, me.me);
-	if (strchr(modes, 'o'))
-		u->flags |= UF_IRCOP;
-
-	return u;
+	sts("NICK %s 1 %ld +%s %s %s %s 0 0 :%s", nick, CURRTIME, "io", user, host, me.name, real);
 }
 
 static void monkey_quit_sts(user_t *u, char *reason)
 {
-        if (!me.connected)
-                return;
+	if (!me.connected)
+		return;
 
-        sts(":%s QUIT :%s", u->nick, reason);
-
-        user_delete(u->nick);
+	sts(":%s QUIT :%s", u->nick, reason);
 }
 
 /* WALLOPS wrapper */
 static void monkey_wallops(char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
+	va_list ap;
+	char buf[BUFSIZE];
 
-        if (config_options.silent)
-                return;
+	if (config_options.silent)
+		return;
 
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-        sts(":%s GLOBOPS :%s", chansvs.nick, buf);
+	sts(":%s GLOBOPS :%s", chansvs.nick, buf);
 }
 
 /* join a channel */
-static void monkey_join(char *chan, char *nick)
+static void monkey_join_sts(channel_t *c, user_t *u, boolean_t isnew, char *modes)
 {
-	channel_t *c = channel_find(chan);
-	chanuser_t *cu;
-
-	if (!c)
-	{
-		sts(":%s SJOIN %ld %s +nt :@%s", me.name, CURRTIME, chan, nick);
-
-		c = channel_add(chan, CURRTIME);
-	}
+	if (isnew)
+		sts(":%s SJOIN %ld %s %s :@%s", me.name, c->ts, c->name,
+				modes, u->nick);
 	else
-	{
-		if ((cu = chanuser_find(c, user_find(nick))))
-		{
-			slog(LG_DEBUG, "join(): i'm already in `%s'", c->name);
-			return;
-		}
-
-		sts(":%s SJOIN %ld %s + :@%s", me.name, c->ts, chan, nick);
-	}
-
-	cu = chanuser_add(c, nick);
-	cu->modes |= CMODE_OP;
+		sts(":%s SJOIN %ld %s + :@%s", me.name, c->ts, c->name,
+				u->nick);
 }
 
 /* kicks a user from a channel */
 static void monkey_kick(char *from, char *channel, char *to, char *reason)
 {
-        channel_t *chan = channel_find(channel);
-        user_t *user = user_find(to);
+	channel_t *chan = channel_find(channel);
+	user_t *user = user_find(to);
 
-        if (!chan || !user)
-                return;
+	if (!chan || !user)
+		return;
 
-        sts(":%s KICK %s %s :%s", from, channel, to, reason);
+	sts(":%s KICK %s %s :%s", from, channel, to, reason);
 
-        chanuser_delete(chan, user);
+	chanuser_delete(chan, user);
 }
 
 /* PRIVMSG wrapper */
-static void monkey_msg(char *target, char *fmt, ...)
+static void monkey_msg(char *from, char *target, char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
+	va_list ap;
+	char buf[BUFSIZE];
 
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-        va_end(ap);
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
 
-        sts(":%s PRIVMSG %s :%s", chansvs.nick, target, buf);
+	sts(":%s PRIVMSG %s :%s", from, target, buf);
 }
 
 /* NOTICE wrapper */
 static void monkey_notice(char *from, char *target, char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
+	va_list ap;
+	char buf[BUFSIZE];
 
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-        va_end(ap);
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
 
-        sts(":%s NOTICE %s :%s", from, target, buf);
+	sts(":%s NOTICE %s :%s", from, target, buf);
 }
 
 static void monkey_numeric_sts(char *from, int numeric, char *target, char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
+	va_list ap;
+	char buf[BUFSIZE];
 
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-        va_end(ap);
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
 
-        sts(":%s %d %s %s", from, numeric, target, buf);
+	sts(":%s %d %s %s", from, numeric, target, buf);
 }
 
 /* KILL wrapper */
 static void monkey_skill(char *from, char *nick, char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
+	va_list ap;
+	char buf[BUFSIZE];
 
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-        va_end(ap);
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
 
-        sts(":%s KILL %s :%s!%s!%s (%s)", from, nick, from, from, from, buf);
+	sts(":%s KILL %s :%s!%s!%s (%s)", from, nick, from, from, from, buf);
 }
 
 /* PART wrapper */
 static void monkey_part(char *chan, char *nick)
 {
-        user_t *u = user_find(nick);
-        channel_t *c = channel_find(chan);
-        chanuser_t *cu;
+	user_t *u = user_find(nick);
+	channel_t *c = channel_find(chan);
+	chanuser_t *cu;
 
-        if (!u || !c)
-                return;
+	if (!u || !c)
+		return;
 
-        if (!(cu = chanuser_find(c, u)))
-                return;
+	if (!(cu = chanuser_find(c, u)))
+		return;
 
-        sts(":%s PART %s", u->nick, c->name);
+	sts(":%s PART %s", u->nick, c->name);
 
-        chanuser_delete(c, u);
+	chanuser_delete(c, u);
 }
 
 /* server-to-server KLINE wrapper */
@@ -247,8 +220,7 @@ static void monkey_kline_sts(char *server, char *user, char *host, long duration
 	if (!me.connected)
 		return;
 
-	sts(":%s AKILL %s %s %ld %s %ld :%s", me.name, host, user, duration, chansvs.nick, time(NULL), 
-		reason);
+	sts(":%s AKILL %s %s %ld %s %ld :%s", me.name, host, user, duration, opersvs.nick, time(NULL), reason);
 }
 
 /* server-to-server UNKLINE wrapper */
@@ -261,12 +233,12 @@ static void monkey_unkline_sts(char *server, char *user, char *host)
 }
 
 /* topic wrapper */
-static void monkey_topic_sts(char *channel, char *setter, char *topic)
+static void monkey_topic_sts(char *channel, char *setter, time_t ts, char *topic)
 {
-        if (!me.connected)
-                return;
+	if (!me.connected)
+		return;
 
-        sts(":%s TOPIC %s %s %ld :%s", chansvs.nick, channel, setter, CURRTIME, topic);
+	sts(":%s TOPIC %s %s %ld :%s", chansvs.nick, channel, setter, ts, topic);
 }
 
 /* mode wrapper */
@@ -274,19 +246,19 @@ static void monkey_mode_sts(char *sender, char *target, char *modes)
 {
 	channel_t *c = channel_find(target);
 
-        if (!me.connected || !c)
-                return;
+	if (!me.connected || !c)
+		return;
 
-        sts(":%s MODE %s %ld %s", sender, target, c->ts, modes);
+	sts(":%s MODE %s %ld %s", sender, target, c->ts, modes);
 }
 
 /* ping wrapper */
 static void monkey_ping_sts(void)
 {
-        if (!me.connected)
-                return;
+	if (!me.connected)
+		return;
 
-        sts("PING :%s", me.name);
+	sts("PING :%s", me.name);
 }
 
 /* protocol-specific stuff to do on login */
@@ -295,7 +267,7 @@ static void monkey_on_login(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return;
 
-	sts(":%s SVSMODE %s +rd %ld", chansvs.nick, origin, time(NULL));
+	sts(":%s SVSMODE %s +rd %ld", nicksvs.nick, origin, time(NULL));
 }
 
 /* protocol-specific stuff to do on login */
@@ -304,27 +276,26 @@ static void monkey_on_logout(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return;
 
-	sts(":%s SVSMODE %s -r+d %ld", chansvs.nick, origin, time(NULL));
+	sts(":%s SVSMODE %s -r+d %ld", nicksvs.nick, origin, time(NULL));
 }
 
 static void monkey_jupe(char *server, char *reason)
 {
-        if (!me.connected)
-                return;
+	if (!me.connected)
+		return;
 
 	sts(":%s SQUIT %s :%s", opersvs.nick, server, reason);
-        sts(":%s SERVER %s 2 :%s", me.name, server, reason);
+	sts(":%s SERVER %s 2 :%s", me.name, server, reason);
 }
 
 static void m_topic(char *origin, uint8_t parc, char *parv[])
 {
-        channel_t *c = channel_find(parv[0]);
+	channel_t *c = channel_find(parv[0]);
 
-        if (!origin)
-                return;
+	if (!c)
+		return;
 
-        c->topic = sstrdup(parv[3]);
-        c->topic_setter = sstrdup(parv[1]);
+	handle_topic(c, parv[1], atol(parv[2]), parv[3]);
 }
 
 static void m_ping(char *origin, uint8_t parc, char *parv[])
@@ -361,102 +332,25 @@ static void m_pong(char *origin, uint8_t parc, char *parv[])
 
 static void m_privmsg(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u;
-	service_t *sptr;
-
-	/* we should have no more and no less */
 	if (parc != 2)
 		return;
 
-	if (!(u = user_find(origin)))
-	{
-		slog(LG_DEBUG, "m_privmsg(): got message from nonexistant user `%s'", origin);
+	handle_message(origin, parv[0], FALSE, parv[1]);
+}
+
+static void m_notice(char *origin, uint8_t parc, char *parv[])
+{
+	if (parc != 2)
 		return;
-	}
 
-	/* run it through flood checks */
-	if ((config_options.flood_msgs) && (!is_sra(u->myuser)) && (!is_ircop(u)))
-	{
-		/* check if they're being ignored */
-		if (u->offenses > 10)
-		{
-			if ((CURRTIME - u->lastmsg) > 30)
-			{
-				u->offenses -= 10;
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-			}
-			else
-				return;
-		}
-
-		if ((CURRTIME - u->lastmsg) > config_options.flood_time)
-		{
-			u->lastmsg = CURRTIME;
-			u->msgs = 0;
-		}
-
-		u->msgs++;
-
-		if (u->msgs > config_options.flood_msgs)
-		{
-			/* they're flooding. */
-			if (!u->offenses)
-			{
-				/* ignore them the first time */
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-				u->offenses = 11;
-
-				notice(parv[0], origin, "You have triggered services flood protection.");
-				notice(parv[0], origin, "This is your first offense. You will be ignored for " "30 seconds.");
-
-				snoop("FLOOD: \2%s\2", u->nick);
-
-				return;
-			}
-
-			if (u->offenses == 1)
-			{
-				/* ignore them the second time */
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-				u->offenses = 12;
-
-				notice(parv[0], origin, "You have triggered services flood protection.");
-				notice(parv[0], origin, "This is your last warning. You will be ignored for " "30 seconds.");
-
-				snoop("FLOOD: \2%s\2", u->nick);
-
-				return;
-			}
-
-			if (u->offenses == 2)
-			{
-				kline_t *k;
-
-				/* kline them the third time */
-				k = kline_add("*", u->host, "ten minute ban: flooding services", 600);
-				k->setby = sstrdup(chansvs.nick);
-
-				snoop("FLOOD:KLINE: \2%s\2", u->nick);
-
-				return;
-			}
-		}
-	}
-
-	sptr = find_service(parv[0]);
-
-	if (sptr)
-		sptr->handler(origin, parc, parv);
+	handle_message(origin, parv[0], TRUE, parv[1]);
 }
 
 static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 {
 	/*
 	 *  -> :proteus.malkier.net SJOIN 1073516550 #shrike +tn :@sycobuny @+rakaur
-	 *	also:
+	 *      also:
 	 *  -> :nenolod_ SJOIN 1117334567 #chat
 	 */
 
@@ -471,12 +365,12 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	if (origin && parc >= 4)
 	{
 		/* :origin SJOIN ts chan modestr [key or limits] :users */
-		modev[0] = parv[2];
+		modev[modec++] = parv[2];
 
 		if (parc > 4)
-			modev[++modec] = parv[3];
+			modev[modec++] = parv[3];
 		if (parc > 5)
-			modev[++modec] = parv[4];
+			modev[modec++] = parv[4];
 
 		c = channel_find(parv[1]);
 		ts = atol(parv[0]);
@@ -515,7 +409,7 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			c->ts = ts;
 		}
 
-		channel_mode(c, modec, modev);
+		channel_mode(NULL, c, modec, modev);
 
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
@@ -556,7 +450,7 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 		}
 
 		chanuser_add(c, origin);
-	}		
+	}
 }
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
@@ -600,11 +494,11 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 			return;
 		}
 
-		user_add(parv[0], parv[4], parv[5], NULL, NULL, s);
+		u = user_add(parv[0], parv[4], parv[5], NULL, NULL, NULL, parv[9], s, atoi(parv[2]));
 
-		user_mode(user_find(parv[0]), parv[3]);
+		user_mode(u, parv[3]);
 
-		handle_nickchange(user_find(parv[0]));
+		handle_nickchange(u);
 	}
 
 	/* if it's only 2 then it's a nickname change */
@@ -627,8 +521,8 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		node_free(n);
 
 		/* change the nick */
-		free(u->nick);
-		u->nick = sstrdup(parv[0]);
+		strlcpy(u->nick, parv[0], NICKLEN);
+		u->ts = atoi(parv[1]);
 
 		/* readd with new nick (so the hash works) */
 		n = node_create();
@@ -670,7 +564,7 @@ static void m_mode(char *origin, uint8_t parc, char *parv[])
 	}
 
 	if (*parv[0] == '#')
-		channel_mode(channel_find(parv[0]), parc - 1, &parv[2]);
+		channel_mode(NULL, channel_find(parv[0]), parc - 2, &parv[2]);
 	else
 		user_mode(user_find(parv[0]), parv[1]);
 }
@@ -713,34 +607,9 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 
 static void m_kill(char *origin, uint8_t parc, char *parv[])
 {
-	mychan_t *mc;
-	node_t *n;
-	int i;
-
-	slog(LG_DEBUG, "m_kill(): killed user: %s", parv[0]);
-	user_delete(parv[0]);
-
-	if (!irccasecmp(chansvs.nick, parv[0]))
-	{
-		services_init();
-
-		if (config_options.chan)
-			join(config_options.chan, chansvs.nick);
-
-		for (i = 0; i < HASHSIZE; i++)
-		{
-			LIST_FOREACH(n, mclist[i].head)
-			{
-				mc = (mychan_t *)n->data;
-
-				if ((config_options.join_chans) && (mc->chan) && (mc->chan->nummembers >= 1))
-					join(mc->name, chansvs.nick);
-
-				if ((config_options.join_chans) && (!config_options.leave_chans) && (mc->chan) && (mc->chan->nummembers == 0))
-					join(mc->name, chansvs.nick);
-			}
-		}
-	}
+	if (parc < 1)
+		return;
+	handle_kill(origin, parv[0], parc > 1 ? parv[1] : "<No reason given>");
 }
 
 static void m_squit(char *origin, uint8_t parc, char *parv[])
@@ -752,7 +621,7 @@ static void m_squit(char *origin, uint8_t parc, char *parv[])
 static void m_server(char *origin, uint8_t parc, char *parv[])
 {
 	slog(LG_DEBUG, "m_server(): new server: %s", parv[0]);
-	server_add(parv[0], atoi(parv[1]), NULL, parv[2]);
+	server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, NULL, parv[2]);
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
@@ -760,139 +629,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u = user_find(origin);
-	kline_t *k;
-	node_t *n;
-	int i;
-
-	if (!parv[0][0])
-		return;
-
-	if (irccasecmp(me.name, parv[1]))
-		return;
-
-	snoop("STATS:%c: \2%s\2", parv[0][0], origin);
-
-	switch (parv[0][0])
-	{
-	  case 'C':
-	  case 'c':
-		  sts(":%s 213 %s C *@127.0.0.1 A %s %d uplink", me.name, u->nick, (is_ircop(u)) ? curr_uplink->name : "127.0.0.1", me.port);
-		  break;
-
-	  case 'E':
-	  case 'e':
-		  if (!is_ircop(u))
-			  break;
-
-		  sts(":%s 249 %s E :Last event to run: %s", me.name, u->nick, last_event_ran);
-
-		  for (i = 0; i < MAX_EVENTS; i++)
-		  {
-			  if (event_table[i].active)
-				  sts(":%s 249 %s E :%s (%d)", me.name, u->nick, event_table[i].name, event_table[i].frequency);
-		  }
-
-		  break;
-
-	  case 'H':
-	  case 'h':
-		  sts(":%s 244 %s H * * %s", me.name, u->nick, (is_ircop(u)) ? curr_uplink->name : "127.0.0.1");
-		  break;
-
-	  case 'I':
-	  case 'i':
-		  sts(":%s 215 %s I * * *@%s 0 nonopered", me.name, u->nick, me.name);
-		  break;
-
-	  case 'K':
-		  if (!is_ircop(u))
-			  break;
-
-		  LIST_FOREACH(n, klnlist.head)
-		  {
-			  k = (kline_t *)n->data;
-
-			  if (!k->duration)
-				  sts(":%s 216 %s K %s * %s :%s", me.name, u->nick, k->host, k->user, k->reason);
-		  }
-
-		  break;
-
-	  case 'k':
-		  if (!is_ircop(u))
-			  break;
-
-		  LIST_FOREACH(n, klnlist.head)
-		  {
-			  k = (kline_t *)n->data;
-
-			  if (k->duration)
-				  sts(":%s 216 %s k %s * %s :%s", me.name, u->nick, k->host, k->user, k->reason);
-		  }
-
-		  break;
-
-	  case 'T':
-	  case 't':
-		  if (!is_ircop(u))
-			  break;
-
-		  sts(":%s 249 %s :event      %7d", me.name, u->nick, cnt.event);
-		  sts(":%s 249 %s :sra        %7d", me.name, u->nick, cnt.sra);
-		  sts(":%s 249 %s :tld        %7d", me.name, u->nick, cnt.tld);
-		  sts(":%s 249 %s :kline      %7d", me.name, u->nick, cnt.kline);
-		  sts(":%s 249 %s :server     %7d", me.name, u->nick, cnt.server);
-		  sts(":%s 249 %s :user       %7d", me.name, u->nick, cnt.user);
-		  sts(":%s 249 %s :chan       %7d", me.name, u->nick, cnt.chan);
-		  sts(":%s 249 %s :chanuser   %7d", me.name, u->nick, cnt.myuser);
-		  sts(":%s 249 %s :mychan     %7d", me.name, u->nick, cnt.mychan);
-		  sts(":%s 249 %s :chanacs    %7d", me.name, u->nick, cnt.chanacs);
-		  sts(":%s 249 %s :node       %7d", me.name, u->nick, cnt.node);
-
-		  sts(":%s 249 %s :bytes sent %7.2f%s", me.name, u->nick, bytes(cnt.bout), sbytes(cnt.bout));
-		  sts(":%s 249 %s :bytes recv %7.2f%s", me.name, u->nick, bytes(cnt.bin), sbytes(cnt.bin));
-		  break;
-
-	  case 'u':
-		  sts(":%s 242 %s :Services Up %s", me.name, u->nick, timediff(CURRTIME - me.start));
-		  break;
-
-	  default:
-		  break;
-	}
-
-	sts(":%s 219 %s %c :End of STATS report", me.name, u->nick, parv[0][0]);
+	handle_stats(origin, parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	sts(":%s 256 %s :Administrative info about %s", me.name, origin, me.name);
-	sts(":%s 257 %s :%s", me.name, origin, me.adminname);
-	sts(":%s 258 %s :Atheme IRC Services (atheme-%s)", me.name, origin, version);
-	sts(":%s 259 %s :<%s>", me.name, origin, me.adminemail);
+	handle_admin(origin);
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	sts(":%s 351 %s :atheme-%s. %s %s%s%s%s%s%s%s%s%s TS5ow",
-	    me.name, origin, version, me.name,
-	    (match_mapping) ? "A" : "",
-	    (me.loglevel & LG_DEBUG) ? "d" : "",
-	    (me.auth) ? "e" : "",
-	    (config_options.flood_msgs) ? "F" : "",
-	    (config_options.leave_chans) ? "l" : "", (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
-        sts(":%s 351 %s :Compile time: %s, build-id %s, build %s", me.name, origin, creation, revision, generation);
+	handle_version(origin);
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	uint8_t i;
+	handle_info(origin);
+}
 
-	for (i = 0; infotext[i]; i++)
-		sts(":%s 371 %s :%s", me.name, origin, infotext[i]);
+static void m_whois(char *origin, uint8_t parc, char *parv[])
+{
+	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+}
 
-	sts(":%s 374 %s :End of /INFO list", me.name, origin);
+static void m_trace(char *origin, uint8_t parc, char *parv[])
+{
+	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -929,27 +691,27 @@ static void m_error(char *origin, uint8_t parc, char *parv[])
 	slog(LG_INFO, "m_error(): error from server: %s", parv[0]);
 }
 
-void _modinit(module_t *m)
+void _modinit(module_t * m)
 {
-        /* Symbol relocation voodoo. */
-        server_login = &monkey_server_login;
-        introduce_nick = &monkey_introduce_nick;
-        quit_sts = &monkey_quit_sts;
-        wallops = &monkey_wallops;
-        join = &monkey_join;
-        kick = &monkey_kick;
-        msg = &monkey_msg;
-        notice = &monkey_notice;
-        numeric_sts = &monkey_numeric_sts;
-        skill = &monkey_skill;
-        part = &monkey_part;
-        kline_sts = &monkey_kline_sts;
-        unkline_sts = &monkey_unkline_sts;
-        topic_sts = &monkey_topic_sts;
-        mode_sts = &monkey_mode_sts;
-        ping_sts = &monkey_ping_sts;
-        ircd_on_login = &monkey_on_login;
-        ircd_on_logout = &monkey_on_logout;
+	/* Symbol relocation voodoo. */
+	server_login = &monkey_server_login;
+	introduce_nick = &monkey_introduce_nick;
+	quit_sts = &monkey_quit_sts;
+	wallops = &monkey_wallops;
+	join_sts = &monkey_join_sts;
+	kick = &monkey_kick;
+	msg = &monkey_msg;
+	notice = &monkey_notice;
+	numeric_sts = &monkey_numeric_sts;
+	skill = &monkey_skill;
+	part = &monkey_part;
+	kline_sts = &monkey_kline_sts;
+	unkline_sts = &monkey_unkline_sts;
+	topic_sts = &monkey_topic_sts;
+	mode_sts = &monkey_mode_sts;
+	ping_sts = &monkey_ping_sts;
+	ircd_on_login = &monkey_on_login;
+	ircd_on_logout = &monkey_on_logout;
 	jupe = &monkey_jupe;
 
 	mode_list = monkey_mode_list;
@@ -959,29 +721,31 @@ void _modinit(module_t *m)
 
 	ircd = &Monkey;
 
-        pcommand_add("PING", m_ping);
-        pcommand_add("PONG", m_pong);
-        pcommand_add("PRIVMSG", m_privmsg);
-        pcommand_add("SJOIN", m_sjoin);
-        pcommand_add("PART", m_part);
-        pcommand_add("NICK", m_nick);
-        pcommand_add("QUIT", m_quit);
-        pcommand_add("MODE", m_mode);
-        pcommand_add("KICK", m_kick);
-        pcommand_add("KILL", m_kill);
-        pcommand_add("SQUIT", m_squit);
-        pcommand_add("SERVER", m_server);
-        pcommand_add("STATS", m_stats);
-        pcommand_add("ADMIN", m_admin);
-        pcommand_add("VERSION", m_version);
-        pcommand_add("INFO", m_info);
-        pcommand_add("JOIN", m_join);
-        pcommand_add("PASS", m_pass);
-        pcommand_add("ERROR", m_error);
-        pcommand_add("TOPIC", m_topic);
+	pcommand_add("PING", m_ping);
+	pcommand_add("PONG", m_pong);
+	pcommand_add("PRIVMSG", m_privmsg);
+	pcommand_add("NOTICE", m_notice);
+	pcommand_add("SJOIN", m_sjoin);
+	pcommand_add("PART", m_part);
+	pcommand_add("NICK", m_nick);
+	pcommand_add("QUIT", m_quit);
+	pcommand_add("MODE", m_mode);
+	pcommand_add("KICK", m_kick);
+	pcommand_add("KILL", m_kill);
+	pcommand_add("SQUIT", m_squit);
+	pcommand_add("SERVER", m_server);
+	pcommand_add("STATS", m_stats);
+	pcommand_add("ADMIN", m_admin);
+	pcommand_add("VERSION", m_version);
+	pcommand_add("INFO", m_info);
+	pcommand_add("WHOIS", m_whois);
+	pcommand_add("TRACE", m_trace);
+	pcommand_add("JOIN", m_join);
+	pcommand_add("PASS", m_pass);
+	pcommand_add("ERROR", m_error);
+	pcommand_add("TOPIC", m_topic);
 
 	m->mflags = MODTYPE_CORE;
 
 	pmodule_loaded = TRUE;
 }
-

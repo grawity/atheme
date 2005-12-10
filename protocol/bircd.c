@@ -6,11 +6,13 @@
  * Derived mainly from the documentation (or lack thereof)
  * in my protocol bridge.
  *
- * $Id: bircd.c 902 2005-07-17 02:26:34Z alambert $
+ * $Id: bircd.c 3837 2005-11-11 11:35:48Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/asuka.h"
+
+DECLARE_MODULE_V1("protocol/asuka", TRUE, _modinit, NULL, "$Id: bircd.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -24,12 +26,14 @@ ircd_t Asuka = {
         FALSE,                          /* Whether or not we support halfops. */
 	TRUE,				/* Whether or not we use P10 */
 	TRUE,				/* Whether or not we use vhosts. */
+	0,				/* Oper-only cmodes */
         0,                              /* Integer flag for owner channel flag. */
         0,                              /* Integer flag for protect channel flag. */
         0,                              /* Integer flag for halfops. */
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
-        "+"                             /* Mode we set for halfops. */
+        "+",                            /* Mode we set for halfops. */
+	PROTOCOL_ASUKA			/* Protocol type */
 };
 
 struct cmode_ asuka_mode_list[] = {
@@ -39,8 +43,6 @@ struct cmode_ asuka_mode_list[] = {
   { 'p', CMODE_PRIV   },
   { 's', CMODE_SEC    },
   { 't', CMODE_TOPIC  },
-  { 'k', CMODE_KEY    },
-  { 'l', CMODE_LIMIT  },
   { 'c', CMODE_NOCOLOR },
   { 'C', CMODE_NOCTCP },
   { 'D', CMODE_DELAYED },
@@ -72,40 +74,28 @@ struct cmode_ asuka_prefix_mode_list[] = {
 /* login to our uplink */
 static uint8_t asuka_server_login(void)
 {
-        int8_t ret;
+	int8_t ret;
 
-	/* Override numeric choice here. */
-	curr_uplink->numeric = me.numeric;
+	ret = sts("PASS :%s", curr_uplink->pass);
+	if (ret == 1)
+		return 1;
 
-        ret = sts("PASS :%s", curr_uplink->pass);
-        if (ret == 1)
-                return 1;
-
-        me.bursting = TRUE;
+	me.bursting = TRUE;
 
 	/* SERVER irc.undernet.org 1 933022556 947908144 J10 AA]]] :[127.0.0.1] A Undernet Server */
-        sts("SERVER %s 1 %ld %ld J10 %s]]] :%s", me.name, me.start, CURRTIME, curr_uplink->numeric, me.desc);
+	sts("SERVER %s 1 %ld %ld J10 %s]]] :%s", me.name, me.start, CURRTIME, me.numeric, me.desc);
 
 	services_init();
 
 	sts("%s EB", me.numeric);
 
-        return 0;
+	return 0;
 }
 
 /* introduce a client */
-static user_t *asuka_introduce_nick(char *nick, char *user, char *host, char *real, char *modes)
+static void asuka_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
-	user_t *u;
-	char *uid = uid_get();
-
-	sts("%s N %s 1 %ld %s %s +%sk A %s :%s", curr_uplink->numeric, nick, CURRTIME, user, host, modes, uid, real);
-
-	u = user_add(nick, user, host, NULL, uid, me.me);
-	if (strchr(modes, 'o'))
-		u->flags |= UF_IRCOP;
-
-	return u;
+	sts("%s N %s 1 %ld %s %s +%sk A %s :%s", me.numeric, nick, CURRTIME, user, host, "io", uid, real);
 }
 
 static void asuka_quit_sts(user_t *u, char *reason)
@@ -114,116 +104,111 @@ static void asuka_quit_sts(user_t *u, char *reason)
 		return;
 
 	sts("%s Q :%s", u->uid, reason);
-
-	user_delete(u->nick);
 }
 
 /* WALLOPS wrapper */
 static void asuka_wallops(char *fmt, ...)
 {
-        va_list ap;
-        char buf[BUFSIZE];
-
-        if (config_options.silent)
-                return;
-
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-	va_end(ap);
-
-        sts("%s WA :%s", chansvs.me->me->uid, buf);
-}
-
-/* join a channel */
-static void asuka_join(char *chan, char *nick)
-{
-	channel_t *c = channel_find(chan);
-	user_t *u = user_find(nick);
-	chanuser_t *cu;
-
-	if (!u)
-		return;
-
-	/* If the channel doesn't exist, we need to create it. */
-	if (!c)
-	{
-		sts("%s C %s %ld", u->uid, chan, CURRTIME);
-
-		c = channel_add(chan, CURRTIME);
-	}
-	else
-	{
-		if ((cu = chanuser_find(c, user_find(nick))))
-		{
-			slog(LG_DEBUG, "join(): i'm already in `%s'", c->name);
-			return;
-		}
-
-		sts("%s J %s %ld", u->uid, chan, c->ts);
-		sts("%s M %s +o %s %ld", me.numeric, chan, u->uid, c->ts);
-	}
-
-	cu = chanuser_add(c, nick);
-	cu->modes |= CMODE_OP;
-}
-
-/* kicks a user from a channel */
-static void asuka_kick(char *from, char *channel, char *to, char *reason)
-{
-        channel_t *chan = channel_find(channel);
-	user_t *fptr = user_find(from);
-        user_t *user = user_find(to);
-
-        if (!chan || !user || !fptr)
-                return;
-
-        sts("%s K %s %s :%s", fptr->uid, channel, user->uid, reason);
-
-        chanuser_delete(chan, user);
-}
-
-/* PRIVMSG wrapper */
-static void asuka_msg(char *target, char *fmt, ...)
-{
-        va_list ap;
-        char buf[BUFSIZE];
-
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-        va_end(ap);
-
-        sts("%s P %s :%s", chansvs.me->me->uid, target, buf);
-}
-
-/* NOTICE wrapper */
-static void asuka_notice(char *from, char *target, char *fmt, ...)
-{
-        va_list ap;
-        char buf[BUFSIZE];
-	user_t *fptr = user_find(from);
-	user_t *tptr = user_find(target);
-
-	if (!fptr || !tptr)
-		return;
-
-        va_start(ap, fmt);
-        vsnprintf(buf, BUFSIZE, fmt, ap);
-        va_end(ap);
-
-        sts("%s O %s :%s", fptr->uid, tptr->uid, buf);
-}
-
-/* numeric wrapper */
-static void asuka_numeric_sts(char *from, int numeric, char *target, char *fmt, ...)
-{
 	va_list ap;
 	char buf[BUFSIZE];
+
+	if (config_options.silent)
+		return;
 
 	va_start(ap, fmt);
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-	sts(":%s %d %s %s", from, numeric, target, buf);
+	sts("%s WA :%s", chansvs.me->me->uid, buf);
+}
+
+/* join a channel */
+static void asuka_join_sts(channel_t *c, user_t *u, boolean_t isnew, char *modes)
+{
+	/* If the channel doesn't exist, we need to create it. */
+	if (isnew)
+	{
+		sts("%s C %s %ld", u->uid, c->name, c->ts);
+		if (modes[0] && modes[1])
+			sts("%s M %s %s %ld", u->uid, c->name, modes, c->ts);
+	}
+	else
+	{
+		sts("%s J %s %ld", u->uid, c->name, c->ts);
+		sts("%s M %s +o %s %ld", me.numeric, c->name, u->uid, c->ts);
+	}
+}
+
+/* kicks a user from a channel */
+static void asuka_kick(char *from, char *channel, char *to, char *reason)
+{
+	channel_t *chan = channel_find(channel);
+	user_t *fptr = user_find(from);
+	user_t *user = user_find(to);
+
+	if (!chan || !user || !fptr)
+		return;
+
+	sts("%s K %s %s :%s", fptr->uid, channel, user->uid, reason);
+
+	chanuser_delete(chan, user);
+}
+
+/* PRIVMSG wrapper */
+static void asuka_msg(char *from, char *target, char *fmt, ...)
+{
+	va_list ap;
+	user_t *u = user_find(from);
+	char buf[BUFSIZE];
+
+	if (!u)
+		return;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
+
+	sts("%s P %s :%s", u->uid, target, buf);
+}
+
+/* NOTICE wrapper */
+static void asuka_notice(char *from, char *target, char *fmt, ...)
+{
+	va_list ap;
+	char buf[BUFSIZE];
+	user_t *u = user_find(from);
+	user_t *t = user_find(target);
+
+	if (u == NULL && (from == NULL || (irccasecmp(from, me.name) && irccasecmp(from, ME))))
+	{
+		slog(LG_DEBUG, "asuka_notice(): unknown source %s for notice to %s", from, target);
+		return;
+	}
+
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
+
+	sts("%s O %s :%s", u ? u->uid : me.numeric, t ? t->uid : target, buf);
+}
+
+static void asuka_numeric_sts(char *from, int numeric, char *target, char *fmt, ...)
+{
+	va_list ap;
+	char buf[BUFSIZE];
+	user_t *source_p, *target_p;
+
+	source_p = user_find(from);
+	target_p = user_find(target);
+
+	if (!target_p)
+		return;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, ap);
+	va_end(ap);
+
+	sts("%s %d %s %s", source_p ? source_p->uid : me.numeric, numeric, target_p->uid, buf);
 }
 
 /* KILL wrapper */
@@ -241,25 +226,25 @@ static void asuka_skill(char *from, char *nick, char *fmt, ...)
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-        sts("%s D %s :%s!%s!%s (%s)", fptr->uid, tptr->uid, from, from, from, buf);
+	sts("%s D %s :%s!%s!%s (%s)", fptr->uid, tptr->uid, from, from, from, buf);
 }
 
 /* PART wrapper */
 static void asuka_part(char *chan, char *nick)
 {
-        user_t *u = user_find(nick);
-        channel_t *c = channel_find(chan);
-        chanuser_t *cu;
+	user_t *u = user_find(nick);
+	channel_t *c = channel_find(chan);
+	chanuser_t *cu;
 
-        if (!u || !c)
-                return;
+	if (!u || !c)
+		return;
 
-        if (!(cu = chanuser_find(c, u)))
-                return;
+	if (!(cu = chanuser_find(c, u)))
+		return;
 
-        sts("%s L %s", u->uid, c->name);
+	sts("%s L %s", u->uid, c->name);
 
-        chanuser_delete(c, u);
+	chanuser_delete(c, u);
 }
 
 /* server-to-server KLINE wrapper */
@@ -281,7 +266,7 @@ static void asuka_unkline_sts(char *server, char *user, char *host)
 }
 
 /* topic wrapper */
-static void asuka_topic_sts(char *channel, char *setter, char *topic)
+static void asuka_topic_sts(char *channel, char *setter, time_t ts, char *topic)
 {
 	/* ircu does not support remote topic propagation */
 }
@@ -327,8 +312,8 @@ static void asuka_on_logout(char *origin, char *user, char *wantedhost)
 
 static void asuka_jupe(char *server, char *reason)
 {
-        if (!me.connected)
-                return;
+	if (!me.connected)
+		return;
 
 	sts("%s JU * !+%s %ld :%s", me.numeric, server, CURRTIME, reason);
 }
@@ -336,19 +321,19 @@ static void asuka_jupe(char *server, char *reason)
 static void m_topic(char *origin, uint8_t parc, char *parv[])
 {
 	channel_t *c = channel_find(parv[0]);
+	user_t *u = user_find(origin);
 
-	if (!origin)
+	if (!c || !u)
 		return;
 
-	c->topic = sstrdup(parv[1]);
-	c->topic_setter = sstrdup(origin);
+	handle_topic(c, u->nick, CURRTIME, parv[1]);
 }
 
 /* AB G !1119920789.573932 services.atheme.org 1119920789.573932 */
 static void m_ping(char *origin, uint8_t parc, char *parv[])
 {
 	/* reply to PING's */
-	sts("%s Z %s %s %s", curr_uplink->numeric, parv[0], parv[1], parv[2]);
+	sts("%s Z %s %s %s", me.numeric, parv[0], parv[1], parv[2]);
 }
 
 static void m_pong(char *origin, uint8_t parc, char *parv[])
@@ -375,102 +360,18 @@ static void m_pong(char *origin, uint8_t parc, char *parv[])
 
 static void m_privmsg(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u;
-	user_t *tu;
-	service_t *sptr;
-
-	/* we should have no more and no less */
 	if (parc != 2)
 		return;
 
-	if (!(u = user_find(origin)))
-	{
-		slog(LG_DEBUG, "m_privmsg(): got message from nonexistant user `%s'", origin);
+	handle_message(origin, parv[0], FALSE, parv[1]);
+}
+
+static void m_notice(char *origin, uint8_t parc, char *parv[])
+{
+	if (parc != 2)
 		return;
-	}
 
-	if (!(tu = user_find(parv[0])))
-	{
-		slog(LG_DEBUG, "m_privmsg(): got message to nonexistant user `%s'", origin);
-		return;
-	}
-
-	/* run it through flood checks */
-	if ((config_options.flood_msgs) && (!is_sra(u->myuser)) && (!is_ircop(u)))
-	{
-		/* check if they're being ignored */
-		if (u->offenses > 10)
-		{
-			if ((CURRTIME - u->lastmsg) > 30)
-			{
-				u->offenses -= 10;
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-			}
-			else
-				return;
-		}
-
-		if ((CURRTIME - u->lastmsg) > config_options.flood_time)
-		{
-			u->lastmsg = CURRTIME;
-			u->msgs = 0;
-		}
-
-		u->msgs++;
-
-		if (u->msgs > config_options.flood_msgs)
-		{
-			/* they're flooding. */
-			if (!u->offenses)
-			{
-				/* ignore them the first time */
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-				u->offenses = 11;
-
-				notice(parv[0], origin, "You have triggered services flood protection.");
-				notice(parv[0], origin, "This is your first offense. You will be ignored for " "30 seconds.");
-
-				snoop("FLOOD: \2%s\2", u->nick);
-
-				return;
-			}
-
-			if (u->offenses == 1)
-			{
-				/* ignore them the second time */
-				u->lastmsg = CURRTIME;
-				u->msgs = 0;
-				u->offenses = 12;
-
-				notice(parv[0], origin, "You have triggered services flood protection.");
-				notice(parv[0], origin, "This is your last warning. You will be ignored for " "30 seconds.");
-
-				snoop("FLOOD: \2%s\2", u->nick);
-
-				return;
-			}
-
-			if (u->offenses == 2)
-			{
-				kline_t *k;
-
-				/* kline them the third time */
-				k = kline_add("*", u->host, "ten minute ban: flooding services", 600);
-				k->setby = sstrdup(chansvs.nick);
-
-				snoop("FLOOD:KLINE: \2%s\2", u->nick);
-
-				return;
-			}
-		}
-	}
-
-	sptr = find_service(tu->nick);
-
-	if (sptr)
-		sptr->handler(u->nick, parc, parv);
+	handle_message(origin, parv[0], TRUE, parv[1]);
 }
 
 static void m_create(char *origin, uint8_t parc, char *parv[])
@@ -533,9 +434,9 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 	{
 		c = channel_find(parv[0]);
 
-		modev[0] = parv[2];
-		modev[++modec] = parv[3];
-		modev[++modec] = parv[4];
+		modev[modec++] = parv[2];
+		modev[modec++] = parv[3];
+		modev[modec++] = parv[4];
 
 		if (!c)
 		{
@@ -543,7 +444,7 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 			c = channel_add(parv[0], atoi(parv[1]));
 		}
 
-		channel_mode(c, modec, modev);
+		channel_mode(NULL, c, modec, modev);
 
 		/* handle bans. */
 		if (parv[parc - 1][0] == '%')
@@ -590,8 +491,8 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 	{
 		c = channel_find(parv[0]);
 
-		modev[0] = parv[2];
-		modev[++modec] = parv[3];
+		modev[modec++] = parv[2];
+		modev[modec++] = parv[3];
 
 		if (parv[parc - 1][0] != '%')
 			modev[++modec] = parv[4];
@@ -602,7 +503,7 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 			c = channel_add(parv[0], atoi(parv[1]));
 		}
 
-		channel_mode(c, modec, modev);
+		channel_mode(NULL, c, modec, modev);
 
 		/* handle bans. */
 		if (parv[parc - 1][0] == '%')
@@ -649,9 +550,9 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 	{
 		c = channel_find(parv[0]);
 
-		modev[0] = parv[2];
+		modev[modec++] = parv[2];
 		if (parv[parc - 1][0] != '%')
-			modev[++modec] = parv[3];
+			modev[modec++] = parv[3];
 
 		if (!c)
 		{
@@ -659,7 +560,7 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 			c = channel_add(parv[0], atoi(parv[1]));
 		}
 
-		channel_mode(c, modec, modev);
+		channel_mode(NULL, c, modec, modev);
 
 		/* handle bans. */
 		if (parv[parc - 1][0] == '%')
@@ -795,7 +696,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 			return;
 		}
 
-		u = user_add(parv[0], parv[3], parv[4], NULL, parv[8], s);
+		u = user_add(parv[0], parv[3], parv[4], NULL, NULL, parv[8], parv[9], s, atoi(parv[2]));
 
 		user_mode(u, parv[5]);
 
@@ -827,7 +728,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 			return;
 		}
 
-		u = user_add(parv[0], parv[3], parv[4], NULL, parv[7], s);
+		u = user_add(parv[0], parv[3], parv[4], NULL, NULL, parv[7], parv[8], s, atoi(parv[2]));
 
 		user_mode(u, parv[5]);
 
@@ -859,7 +760,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 			return;
 		}
 
-		u = user_add(parv[0], parv[3], parv[4], NULL, parv[6], s);
+		u = user_add(parv[0], parv[3], parv[4], NULL, NULL, parv[6], parv[7], s, atoi(parv[2]));
 
 		handle_nickchange(u);
 	}
@@ -884,8 +785,8 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		node_free(n);
 
 		/* change the nick */
-		free(u->nick);
-		u->nick = sstrdup(parv[0]);
+		strlcpy(u->nick, parv[0], NICKLEN);
+		u->ts = atoi(parv[1]);
 
 		/* readd with new nick (so the hash works) */
 		n = node_create();
@@ -927,7 +828,7 @@ static void m_mode(char *origin, uint8_t parc, char *parv[])
 	}
 
 	if (*parv[0] == '#')
-		channel_mode(channel_find(parv[0]), parc - 1, &parv[1]);
+		channel_mode(NULL, channel_find(parv[0]), parc - 1, &parv[1]);
 	else
 		user_mode(user_find(parv[0]), parv[1]);
 }
@@ -970,34 +871,9 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 
 static void m_kill(char *origin, uint8_t parc, char *parv[])
 {
-	mychan_t *mc;
-	node_t *n;
-	int i;
-
-	slog(LG_DEBUG, "m_kill(): killed user: %s", parv[0]);
-	user_delete(parv[0]);
-
-	if (!irccasecmp(chansvs.nick, parv[0]))
-	{
-		services_init();
-
-		if (config_options.chan)
-			join(config_options.chan, chansvs.nick);
-
-		for (i = 0; i < HASHSIZE; i++)
-		{
-			LIST_FOREACH(n, mclist[i].head)
-			{
-				mc = (mychan_t *)n->data;
-
-				if ((config_options.join_chans) && (mc->chan) && (mc->chan->nummembers >= 1))
-					join(mc->name, chansvs.nick);
-
-				if ((config_options.join_chans) && (!config_options.leave_chans) && (mc->chan) && (mc->chan->nummembers == 0))
-					join(mc->name, chansvs.nick);
-			}
-		}
-	}
+	if (parc < 1)
+		return;
+	handle_kill(origin, parv[0], parc > 1 ? parv[1] : "<No reason given>");
 }
 
 static void m_squit(char *origin, uint8_t parc, char *parv[])
@@ -1013,7 +889,7 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 	parv[5][2] = '\0';
 
 	slog(LG_DEBUG, "m_server(): new server: %s, id %s", parv[0], parv[5]);
-	server_add(parv[0], atoi(parv[1]), parv[5], parv[7]);
+	server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, parv[5], parv[7]);
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
@@ -1023,138 +899,47 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u = user_find(origin);
-	kline_t *k;
-	node_t *n;
-	int i;
-
-	if (!parv[0][0])
-		return;
-
-	if (irccasecmp(curr_uplink->numeric, parv[1]))
-		return;
-
-	snoop("STATS:%c: \2%s\2", parv[0][0], (u ? u->nick : origin));
-
-	switch (parv[0][0])
-	{
-	  case 'C':
-	  case 'c':
-		  sts("%s 213 %s C *@127.0.0.1 A %s %d uplink", curr_uplink->numeric, origin, (is_ircop(u)) ? curr_uplink->name : "127.0.0.1", me.port);
-		  break;
-
-	  case 'E':
-	  case 'e':
-		  if (!is_ircop(u))
-			  break;
-
-		  sts("%s 249 %s E :Last event to run: %s", curr_uplink->numeric, origin, last_event_ran);
-
-		  for (i = 0; i < MAX_EVENTS; i++)
-		  {
-			  if (event_table[i].active)
-				  sts("%s 249 %s E :%s (%d)", curr_uplink->numeric, origin, event_table[i].name, event_table[i].frequency);
-		  }
-
-		  break;
-
-	  case 'H':
-	  case 'h':
-		  sts("%s 244 %s H * * %s", curr_uplink->numeric, origin, (is_ircop(u)) ? curr_uplink->name : "127.0.0.1");
-		  break;
-
-	  case 'I':
-	  case 'i':
-		  sts("%s 215 %s I * * *@%s 0 nonopered", curr_uplink->numeric, origin, me.name);
-		  break;
-
-	  case 'K':
-		  if (!is_ircop(u))
-			  break;
-
-		  LIST_FOREACH(n, klnlist.head)
-		  {
-			  k = (kline_t *)n->data;
-
-			  if (!k->duration)
-				  sts("%s 216 %s K %s * %s :%s", curr_uplink->numeric, origin, k->host, k->user, k->reason);
-		  }
-
-		  break;
-
-	  case 'k':
-		  if (!is_ircop(u))
-			  break;
-
-		  LIST_FOREACH(n, klnlist.head)
-		  {
-			  k = (kline_t *)n->data;
-
-			  if (k->duration)
-				  sts("%s 216 %s k %s * %s :%s", curr_uplink->numeric, origin, k->host, k->user, k->reason);
-		  }
-
-		  break;
-
-	  case 'T':
-	  case 't':
-		  if (!is_ircop(u))
-			  break;
-
-		  sts("%s 249 %s :event      %7d", curr_uplink->numeric, origin, cnt.event);
-		  sts("%s 249 %s :sra        %7d", curr_uplink->numeric, origin, cnt.sra);
-		  sts("%s 249 %s :tld        %7d", curr_uplink->numeric, origin, cnt.tld);
-		  sts("%s 249 %s :kline      %7d", curr_uplink->numeric, origin, cnt.kline);
-		  sts("%s 249 %s :server     %7d", curr_uplink->numeric, origin, cnt.server);
-		  sts("%s 249 %s :user       %7d", curr_uplink->numeric, origin, cnt.user);
-		  sts("%s 249 %s :chan       %7d", curr_uplink->numeric, origin, cnt.chan);
-		  sts("%s 249 %s :chanuser   %7d", curr_uplink->numeric, origin, cnt.myuser);
-		  sts("%s 249 %s :mychan     %7d", curr_uplink->numeric, origin, cnt.mychan);
-		  sts("%s 249 %s :chanacs    %7d", curr_uplink->numeric, origin, cnt.chanacs);
-		  sts("%s 249 %s :node       %7d", curr_uplink->numeric, origin, cnt.node);
-		  sts("%s 249 %s :bytes sent %7.2f%s", curr_uplink->numeric, origin, bytes(cnt.bout), sbytes(cnt.bout));
-		  sts("%s 249 %s :bytes recv %7.2f%s", curr_uplink->numeric, origin, bytes(cnt.bin), sbytes(cnt.bin));
-		  break;
-
-	  case 'u':
-		  sts(":%s 242 %s :Services Up %s", me.name, origin, timediff(CURRTIME - me.start));
-		  break;
-
-	  default:
-		  break;
-	}
-
-	sts("%s 219 %s %c :End of STATS report", curr_uplink->numeric, origin, parv[0][0]);
+	handle_stats(origin, parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	sts("%s 256 %s :Administrative info about %s", curr_uplink->numeric, origin, me.name);
-	sts("%s 257 %s :%s", curr_uplink->numeric, origin, me.adminname);
-	sts("%s 258 %s :Atheme IRC Services (atheme-%s)", curr_uplink->numeric, origin, version);
-	sts("%s 259 %s :<%s>", curr_uplink->numeric, origin, me.adminemail);
+	user_t *u = user_find(origin);
+
+	if (!u)
+		return;
+
+	handle_admin(u->nick);
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	sts("%s 351 %s :atheme-%s. %s %s%s%s%s%s%s%s%s%s TS5ow",
-	    curr_uplink->numeric, origin, version, me.name,
-	    (match_mapping) ? "A" : "",
-	    (me.loglevel & LG_DEBUG) ? "d" : "",
-	    (me.auth) ? "e" : "",
-	    (config_options.flood_msgs) ? "F" : "",
-	    (config_options.leave_chans) ? "l" : "", (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
-	sts("%s 351 %s :Compile time: %s, build-id %s, build %s", curr_uplink->numeric, origin, creation, revision, generation);
+	user_t *u = user_find(origin);
+
+	if (!u)
+		return;
+
+	handle_version(u->nick);
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	uint8_t i;
+	user_t *u = user_find(origin);
 
-	for (i = 0; infotext[i]; i++)
-		sts("%s 371 %s :%s", curr_uplink->numeric, origin, infotext[i]);
+	if (!u)
+		return;
 
-	sts("%s 374 %s :End of /INFO list", curr_uplink->numeric, origin);
+	handle_info(u->nick);
+}
+
+static void m_whois(char *origin, uint8_t parc, char *parv[])
+{
+	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+}
+
+static void m_trace(char *origin, uint8_t parc, char *parv[])
+{
+	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_pass(char *origin, uint8_t parc, char *parv[])
@@ -1176,28 +961,30 @@ static void m_eos(char *origin, uint8_t parc, char *parv[])
 	sts("%s EA", me.numeric);
 }
 
-void _modinit(module_t *m)
+void _modinit(module_t * m)
 {
-        /* Symbol relocation voodoo. */
-        server_login = &asuka_server_login;
-        introduce_nick = &asuka_introduce_nick;
-        quit_sts = &asuka_quit_sts;
-        wallops = &asuka_wallops;
-        join = &asuka_join;
-        kick = &asuka_kick;
-        msg = &asuka_msg;
-        notice = &asuka_notice;
-        numeric_sts = &asuka_numeric_sts;
-        skill = &asuka_skill;
-        part = &asuka_part;
-        kline_sts = &asuka_kline_sts;
-        unkline_sts = &asuka_unkline_sts;
-        topic_sts = &asuka_topic_sts;
-        mode_sts = &asuka_mode_sts;
-        ping_sts = &asuka_ping_sts;
-        ircd_on_login = &asuka_on_login;
-        ircd_on_logout = &asuka_on_logout;
+	/* Symbol relocation voodoo. */
+	server_login = &asuka_server_login;
+	introduce_nick = &asuka_introduce_nick;
+	quit_sts = &asuka_quit_sts;
+	wallops = &asuka_wallops;
+	join_sts = &asuka_join_sts;
+	kick = &asuka_kick;
+	msg = &asuka_msg;
+	notice = &asuka_notice;
+	numeric_sts = &asuka_numeric_sts;
+	skill = &asuka_skill;
+	part = &asuka_part;
+	kline_sts = &asuka_kline_sts;
+	unkline_sts = &asuka_unkline_sts;
+	topic_sts = &asuka_topic_sts;
+	mode_sts = &asuka_mode_sts;
+	ping_sts = &asuka_ping_sts;
+	ircd_on_login = &asuka_on_login;
+	ircd_on_logout = &asuka_on_logout;
 	jupe = &asuka_jupe;
+
+	parse = &p10_parse;
 
 	mode_list = asuka_mode_list;
 	ignore_mode_list = asuka_ignore_mode_list;
@@ -1206,32 +993,34 @@ void _modinit(module_t *m)
 
 	ircd = &Asuka;
 
-        pcommand_add("G", m_ping);
-        pcommand_add("Z", m_pong);
-        pcommand_add("P", m_privmsg);
+	pcommand_add("G", m_ping);
+	pcommand_add("Z", m_pong);
+	pcommand_add("P", m_privmsg);
+	pcommand_add("O", m_notice);
 	pcommand_add("C", m_create);
 	pcommand_add("J", m_join);
 	pcommand_add("EB", m_eos);
-        pcommand_add("B", m_burst);
-        pcommand_add("L", m_part);
+	pcommand_add("B", m_burst);
+	pcommand_add("L", m_part);
 	pcommand_add("N", m_nick);
-        pcommand_add("Q", m_quit);
-        pcommand_add("M", m_mode);
-        pcommand_add("K", m_kick);
-        pcommand_add("D", m_kill);
-        pcommand_add("SQ", m_squit);
-        pcommand_add("S", m_server);
-        pcommand_add("SERVER", m_server);
-        pcommand_add("R", m_stats);
-        pcommand_add("AD", m_admin);
-        pcommand_add("V", m_version);
-        pcommand_add("F", m_info);
-        pcommand_add("PASS", m_pass);
-        pcommand_add("ERROR", m_error);
-        pcommand_add("T", m_topic);
+	pcommand_add("Q", m_quit);
+	pcommand_add("M", m_mode);
+	pcommand_add("K", m_kick);
+	pcommand_add("D", m_kill);
+	pcommand_add("SQ", m_squit);
+	pcommand_add("S", m_server);
+	pcommand_add("SERVER", m_server);
+	pcommand_add("R", m_stats);
+	pcommand_add("AD", m_admin);
+	pcommand_add("V", m_version);
+	pcommand_add("F", m_info);
+	pcommand_add("W", m_whois);
+	pcommand_add("TR", m_trace);
+	pcommand_add("PASS", m_pass);
+	pcommand_add("ERROR", m_error);
+	pcommand_add("T", m_topic);
 
 	m->mflags = MODTYPE_CORE;
 
 	pmodule_loaded = TRUE;
 }
-

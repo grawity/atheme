@@ -6,7 +6,7 @@
  * This file contains customized casemapping functions.
  * This code was mostly lifted from ircd 2.10.
  *
- * $Id: match.c 908 2005-07-17 04:00:28Z w00t $
+ * $Id: match.c 3347 2005-10-31 04:04:34Z nenolod $
  */
 
 #include "atheme.h"
@@ -124,11 +124,11 @@ void set_match_mapping(int type)
 
 int match(char *mask, char *name)
 {
-	u_char *m = (u_char *) mask, *n = (u_char *) name;
+	u_char *m = (u_char *)mask, *n = (u_char *)name;
 	char *ma = mask, *na = name;
 	int wild = 0, q = 0, calls = 0;
 
-	if (!*mask)
+	if (!mask || !name)
 		return 1;
 
 	/* if the mask is "*", it matches everything */
@@ -236,10 +236,10 @@ char *collapse(char *pattern)
 **              <0, if s1 lexicographically less than s2
 **              >0, if s1 lexicographically greater than s2
 */
-int irccasecmp(char *s1, char *s2)
+int irccasecmp(const char *s1, const char *s2)
 {
-	unsigned char *str1 = (unsigned char *)s1;
-	unsigned char *str2 = (unsigned char *)s2;
+	const unsigned char *str1 = (const unsigned char *)s1;
+	const unsigned char *str2 = (const unsigned char *)s2;
 	int res;
 
 	if (!s1 || !s2)
@@ -258,10 +258,10 @@ int irccasecmp(char *s1, char *s2)
 	return (res);
 }
 
-int irccmp(char *s1, char *s2)
+int irccmp(const char *s1, const char *s2)
 {
-	unsigned char *str1 = (unsigned char *)s1;
-	unsigned char *str2 = (unsigned char *)s2;
+	const unsigned char *str1 = (const unsigned char *)s1;
+	const unsigned char *str2 = (const unsigned char *)s2;
 	int res;
 
 	if (!s1 || !s2)
@@ -280,10 +280,10 @@ int irccmp(char *s1, char *s2)
 	return (res);
 }
 
-int ircncasecmp(char *str1, char *str2, int n)
+int ircncasecmp(const char *str1, const char *str2, int n)
 {
-	unsigned char *s1 = (unsigned char *)str1;
-	unsigned char *s2 = (unsigned char *)str2;
+	const unsigned char *s1 = (const unsigned char *)str1;
+	const unsigned char *s2 = (const unsigned char *)str2;
 	int res;
 
 	if (match_mapping == MATCH_ASCII)
@@ -300,10 +300,10 @@ int ircncasecmp(char *str1, char *str2, int n)
 	return (res);
 }
 
-int ircncmp(char *str1, char *str2, int n)
+int ircncmp(const char *str1, const char *str2, int n)
 {
-	unsigned char *s1 = (unsigned char *)str1;
-	unsigned char *s2 = (unsigned char *)str2;
+	const unsigned char *s1 = (const unsigned char *)str1;
+	const unsigned char *s2 = (const unsigned char *)str2;
 	int res;
 
 	if (match_mapping == MATCH_ASCII)

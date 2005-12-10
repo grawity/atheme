@@ -1,10 +1,10 @@
 /*
- * Copyright (C) 2005 William Pitcock, et al.
+ * Copyright (c) 2005 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Data structures for account information.
  *
- * $Id: common.h 556 2005-06-23 00:16:43Z nenolod $
+ * $Id: common.h 3533 2005-11-06 05:48:20Z alambert $
  */
 
 #ifndef COMMON_H
@@ -15,9 +15,17 @@
 #define MODESTACK_WAIT 500
 #define MAXMODES 4
 #define MAXPARAMSLEN (510-32-64-34-(7+MAXMODES))
-#define MAX_EVENTS 25
 #define TOKEN_UNMATCHED -1
 #define TOKEN_ERROR -2
+
+/* lengths of buffers (string length is 1 less) */
+#define NICKLEN 51
+#define CHANNELLEN 201
+#define USERLEN 11
+#define GECOSLEN 51
+#define EMAILLEN 120
+#define MEMOLEN 129
+#define MAXMSIGNORES 40
 
 /* H A S H */
 #define HASHINIT 0x811c9dc5
@@ -35,25 +43,16 @@
 #define HEAP_CHANUSER   1024
 #define HEAP_USER       1024
 #define HEAP_SERVER     16
-#define HEAP_NODE       1024  
 #define HEAP_CHANACS    1024
 #else
 #define HEAP_CHANNEL    64
 #define HEAP_CHANUSER   128
 #define HEAP_USER       128
 #define HEAP_SERVER     8
-#define HEAP_NODE       128
 #define HEAP_CHANACS    128
 #endif
 
 #define CACHEFILE_HEAP_SIZE     32
 #define CACHELINE_HEAP_SIZE     64
-
-#ifndef uint8_t
-#define uint8_t u_int8_t
-#define uint16_t u_int16_t
-#define uint32_t u_int32_t
-#define uint64_t u_int64_t
-#endif
 
 #endif

@@ -5,7 +5,7 @@
  *
  * This file contains IRC interaction routines.
  *
- * $Id: tokenize.c 908 2005-07-17 04:00:28Z w00t $
+ * $Id: tokenize.c 2263 2005-09-16 21:53:11Z nenolod $
  */
 
 #include "atheme.h"

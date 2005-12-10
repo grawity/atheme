@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 908 2005-07-17 04:00:28Z w00t $
+# $Id: Makefile.in 3007 2005-10-19 05:01:00Z nenolod $
 #
 
 CC		= @CC@
@@ -13,55 +13,54 @@ CP		= @CP@
 INSTALL		= @INSTALL@
 PREFIX		= @prefix@
 BIN		= atheme@EXEEXT@
-MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include @PGINC@
-CFLAGS		= @CFLAGS@ -I../include @PGINC@
+MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include -I../libatheme @PGINC@ @MYINC@
+CFLAGS		= @CFLAGS@ -I../include -I../libatheme @PGINC@ @MYINC@
 
 VERSION		= @PACKAGE_VERSION@
 
-LIBS		= @LIBS@ @PQLIB@
+LIBS		= @LIBS@ @PQLIB@ @MYLIB@ -L../libatheme -lorg.atheme.claro.base
 LDFLAGS		= @LDFLAGS@
 CPPFLAGS	= @CPPFLAGS@
 
 default: all
 
-BASE_SRCS =			\
-	atheme.c		\
-	balloc.c		\
-	cmode.c			\
-	commandtree.c		\
-	conf.c			\
-	confparse.c		\
-	cservice.c		\
-	dbhandler.c		\
-	event.c			\
-	flags.c			\
-	function.c		\
-	gservice.c		\
-	help.c			\
-	hook.c			\
-	match.c			\
-	module.c		\
-	nickserv.c		\
-	node.c			\
-	oservice.c		\
-	parse.c			\
-	phandler.c		\
-	pmodule.c		\
-	services.c		\
-	servtree.c		\
-	signal.c		\
-	socket.c		\
-	tokenize.c		\
-	ubase64.c		\
-	uid.c			\
-	uplink.c		\
+BASE_SRCS =		\
+	atheme.c	\
+	authcookie.c	\
+	base64.c	\
+	cmode.c		\
+	commandtree.c	\
+	conf.c		\
+	confparse.c	\
+	crypto.c	\
+	dbhandler.c	\
+	flags.c		\
+	function.c	\
+	help.c		\
+	match.c		\
+	module.c	\
+	node.c		\
+	packet.c	\
+	parse.c		\
+	phandler.c	\
+	pmodule.c	\
+	ptasks.c	\
+	services.c	\
+	servtree.c	\
+	send.c		\
+	signal.c	\
+	tokenize.c	\
+	ubase64.c	\
+	uid.c		\
+	uplink.c	\
+	xmlrpc.c	\
 	version.c
 
 SRCS = ${BASE_SRCS}
 
 OBJS = ${SRCS:.c=.o}
 
-all: version atheme
+all: atheme
 
 build: all
 
@@ -76,7 +75,7 @@ install: build
 	$(INSTALL) -m 755 -d $(PREFIX)/var
 	$(INSTALL) -m 755 -c $(BIN) $(PREFIX)/bin
 	$(INSTALL) -m 640 -c ../dist/example.conf $(PREFIX)/etc
-	$(INSTALL) -m 640 -c ../dist/example-traditional.conf $(PREFIX)/etc
+	$(INSTALL) -m 640 -c ../dist/example.userserv.conf $(PREFIX)/etc
 	if [ ! -r $(PREFIX)/etc/atheme.db ]; then \
 		$(INSTALL) -m 640 -c ../dist/atheme.db $(PREFIX)/etc ; \
 	fi
@@ -101,7 +100,7 @@ deinstall:
 		$(RM) -rf ${PREFIX}; \
 	fi
 
-version:
+version.c:
 	/bin/sh ./version.sh $(VERSION)
 
 .c.o:

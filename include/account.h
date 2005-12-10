@@ -1,10 +1,10 @@
 /*
- * Copyright (C) 2005 William Pitcock, et al.
+ * Copyright (c) 2005 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Data structures for account information.
  *
- * $Id: account.h 946 2005-07-17 19:35:02Z nenolod $
+ * $Id: account.h 4015 2005-12-07 14:40:57Z jilles $
  */
 
 #ifndef ACCOUNT_H
@@ -14,6 +14,7 @@ typedef struct sra_ sra_t;
 typedef struct myuser_ myuser_t;
 typedef struct mychan_ mychan_t;
 typedef struct chanacs_ chanacs_t;
+typedef struct mymemo_ mymemo_t;
 
 /* sra list struct */
 struct sra_ {
@@ -23,29 +24,27 @@ struct sra_ {
 
 struct myuser_
 {
-  char *name;
-  char *pass;
-  char *email;
+  char name[NICKLEN];
+  char pass[NICKLEN];
+  char email[EMAILLEN];
 
-  user_t *user;
+  list_t logins; /* user_t's currently logged in to this */
   time_t registered;
   time_t lastlogin;
-
-  boolean_t identified;
-  uint16_t failnum;
-  char *lastfail;
-  time_t lastfailon;
 
   list_t chanacs;
   sra_t *sra;
 
   list_t metadata;
 
-  int32_t key;
-  char *temp;
-
   uint32_t flags;
   int32_t hash;
+  
+  list_t memos; /* store memos */
+  uint8_t memoct_new;
+  uint8_t memo_ratelimit_num; /* memos sent recently */
+  time_t memo_ratelimit_time; /* last time a memo was sent */
+  list_t memo_ignores;
 };
 
 #define MU_HOLD        0x00000001
@@ -53,17 +52,23 @@ struct myuser_
 #define MU_NOOP        0x00000004
 #define MU_WAITAUTH    0x00000008
 #define MU_HIDEMAIL    0x00000010
+#define MU_ALIAS       0x00000020
+#define MU_NOMEMO      0x00000040
+#define MU_EMAILMEMOS  0x00000080
+#define MU_CRYPTPASS   0x00000100
 
 #define MU_IRCOP       0x00001000
 #define MU_SRA         0x00002000
 
+/* memoserv rate limiting parameters */
+#define MEMO_MAX_NUM   5
+#define MEMO_MAX_TIME  180
+
 struct mychan_
 {
-  char *name;
-  char *pass;
+  char name[CHANNELLEN];
 
   myuser_t *founder;
-  myuser_t *successor;
   channel_t *chan;
   list_t chanacs;
   time_t registered;
@@ -77,9 +82,6 @@ struct mychan_
   uint32_t flags;
   int32_t hash;
 
-  char *url;
-  char *entrymsg;
-
   list_t metadata;
 };
 
@@ -89,14 +91,16 @@ struct mychan_
 #define MC_SECURE      0x00000008
 #define MC_VERBOSE     0x00000010
 #define MC_STAFFONLY   0x00000020
+#define MC_KEEPTOPIC   0x00000040
 
 /* struct for channel access list */
 struct chanacs_
 {
 	myuser_t *myuser;
 	mychan_t *mychan;
-	char     *host;
+	char      host[HOSTLEN];
 	uint32_t  level;
+	list_t	  metadata;
 };
 
 /* the new atheme-style channel flags */
@@ -122,8 +126,19 @@ struct chanacs_
 #define CA_HOP		 (CA_VOICE | CA_HALFOP | CA_AUTOHALFOP | CA_TOPIC | CA_ACLVIEW)
 #define CA_AOP           (CA_VOICE | CA_HALFOP | CA_OP | CA_AUTOOP | CA_TOPIC | CA_ACLVIEW)
 #define CA_SOP           (CA_AOP | CA_SET | CA_REMOVE | CA_INVITE)
-#define CA_SUCCESSOR     (CA_SOP | CA_RECOVER)
-#define CA_FOUNDER       (CA_SUCCESSOR | CA_FLAGS)
+
+/* special values for founder/successor -- jilles */
+/* used in shrike flatfile conversion: */
+#define CA_SUCCESSOR_0   (CA_VOICE | CA_OP | CA_AUTOOP | CA_TOPIC | CA_SET | CA_REMOVE | CA_INVITE | CA_RECOVER | CA_FLAGS | CA_HALFOP | CA_ACLVIEW)
+/* granted to new founder on transfer etc: */
+#define CA_FOUNDER_0     (CA_SUCCESSOR_0 | CA_FLAGS)
+/* granted to founder on new channel: */
+#define CA_INITIAL       (CA_FOUNDER_0 | CA_AUTOOP)
+
+/* joining with one of these flags updates used time */
+#define CA_USEDUPDATE    (CA_VOICE | CA_OP | CA_AUTOOP | CA_SET | CA_REMOVE | CA_RECOVER | CA_FLAGS | CA_HALFOP | CA_AUTOHALFOP)
+#define CA_ALLPRIVS      (CA_VOICE | CA_AUTOVOICE | CA_OP | CA_AUTOOP | CA_TOPIC | CA_SET | CA_REMOVE | CA_INVITE | CA_RECOVER | CA_FLAGS | CA_HALFOP | CA_AUTOHALFOP | CA_ACLVIEW)
+#define CA_ALL           (CA_ALLPRIVS | CA_AKICK)
 
 /* old CA_ flags */
 #define OLD_CA_AOP           (CA_VOICE | CA_OP | CA_AUTOOP | CA_TOPIC)
@@ -134,5 +149,18 @@ struct chanacs_
 #define SHRIKE_CA_SOP           0x00000008
 #define SHRIKE_CA_FOUNDER       0x00000010
 #define SHRIKE_CA_SUCCESSOR     0x00000020
+
+/* struct for account memos */
+struct mymemo_ {
+	char	 sender[NICKLEN];
+	char 	 text[MEMOLEN];
+	time_t	 sent;
+	uint32_t status;
+	list_t	 metadata;
+};
+
+/* memo status flags */
+#define MEMO_NEW           0x00000000
+#define MEMO_READ          0x00000001
 
 #endif

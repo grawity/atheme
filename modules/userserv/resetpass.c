@@ -4,7 +4,7 @@
  *
  * This file contains code for UserServ RESETPASS
  *
- * $Id: resetpass.c 3685 2005-11-09 01:07:04Z alambert $
+ * $Id: resetpass.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"userserv/resetpass", FALSE, _modinit, _moddeinit,
-	"$Id: resetpass.c 3685 2005-11-09 01:07:04Z alambert $",
+	"$Id: resetpass.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void us_cmd_resetpass(char *origin);
 
 command_t us_resetpass = { "RESETPASS", "Resets an account password.",
-                        AC_IRCOP, us_cmd_resetpass };
+                        PRIV_USER_ADMIN, us_cmd_resetpass };
                                                                                    
 list_t *us_cmdtree, *us_helptree;
 
@@ -40,14 +40,14 @@ void _moddeinit()
 static void us_cmd_resetpass(char *origin)
 {
 	myuser_t *mu;
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	metadata_t *md;
 	char *name = strtok(NULL, " ");
 	char *newpass;
 
 	if (!name)
 	{
-		notice(usersvs.nick, origin, "Invalid parameters specified for \2RESETPASS\2.");
+		notice(usersvs.nick, origin, STR_INVALID_PARAMS, "RESETPASS");
 		notice(usersvs.nick, origin, "Syntax: RESETPASS <account>");
 		return;
 	}
@@ -58,14 +58,14 @@ static void us_cmd_resetpass(char *origin)
 		return;
 	}
 
-	if (is_sra(mu) && !is_sra(u->myuser))
+	if (is_soper(mu) && !has_priv(u, PRIV_ADMIN))
 	{
-		logcommand(usersvs.me, u, CMDLOG_ADMIN, "failed RESETPASS %s (is SRA)", name);
-		notice(usersvs.nick, origin, "\2%s\2 belongs to a services root administrator; you must be a services root administrator to reset the password.", name);
+		logcommand(usersvs.me, u, CMDLOG_ADMIN, "failed RESETPASS %s (is SOPER)", name);
+		notice(usersvs.nick, origin, "\2%s\2 belongs to a services operator; you need %s privilege to reset the password.", name, PRIV_ADMIN);
 		return;
 	}
 
-	if ((md = metadata_find(mu, METADATA_USER, "private:mark:setter")) && is_sra(u->myuser))
+	if ((md = metadata_find(mu, METADATA_USER, "private:mark:setter")) && has_priv(u, PRIV_MARK))
 	{
 		logcommand(usersvs.me, u, CMDLOG_ADMIN, "RESETPASS %s (overriding mark by %s)", name, md->value);
 		notice(usersvs.nick, origin, "Overriding MARK placed by %s on the account %s.", md->value, name);
@@ -77,7 +77,7 @@ static void us_cmd_resetpass(char *origin)
 		return;
 	}
 
-	if ((md = metadata_find(mu, METADATA_USER, "private:mark:setter")) && !is_sra(u->myuser))
+	if (md = metadata_find(mu, METADATA_USER, "private:mark:setter"))
 	{
 		logcommand(usersvs.me, u, CMDLOG_ADMIN, "failed RESETPASS %s (marked by %s)", name, md->value);
 		notice(usersvs.nick, origin, "This operation cannot be performed on %s, because the account has been marked by %s.", name, md->value);

@@ -4,7 +4,7 @@
  *
  * Implements NICKSERV RETURN.
  *
- * $Id: return.c 3687 2005-11-09 01:51:22Z alambert $
+ * $Id: return.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/return", FALSE, _modinit, _moddeinit,
-	"$Id: return.c 3687 2005-11-09 01:51:22Z alambert $",
+	"$Id: return.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_return(char *origin);
 
 command_t ns_return = { "RETURN", "Returns a nickname to its owner.",
-			AC_IRCOP, ns_cmd_return };
+			PRIV_USER_ADMIN, ns_cmd_return };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -39,7 +39,7 @@ void _moddeinit()
 
 static void ns_cmd_return(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	char *target = strtok(NULL, " ");
 	char *newmail = strtok(NULL, " ");
 	char *newpass;
@@ -51,7 +51,7 @@ static void ns_cmd_return(char *origin)
 
 	if (!target || !newmail)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters for \2RETURN\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "RETURN");
 		notice(nicksvs.nick, origin, "Usage: RETURN <nickname> <e-mail address>");
 		return;
 	}
@@ -62,10 +62,10 @@ static void ns_cmd_return(char *origin)
 		return;
 	}
 
-	if (is_sra(mu))
+	if (is_soper(mu))
 	{
-		logcommand(nicksvs.me, u, CMDLOG_ADMIN, "failed RETURN %s to %s (is SRA)", target, newmail);
-		notice(nicksvs.nick, origin, "\2%s\2 belongs to a services root administrator; it cannot be returned.", target);
+		logcommand(nicksvs.me, u, CMDLOG_ADMIN, "failed RETURN %s to %s (is SOPER)", target, newmail);
+		notice(nicksvs.nick, origin, "\2%s\2 belongs to a services operator; it cannot be returned.", target);
 		return;
 	}
 

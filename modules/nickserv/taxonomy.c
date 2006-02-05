@@ -4,7 +4,7 @@
  *
  * Lists object properties via their metadata table.
  *
- * $Id: taxonomy.c 3941 2005-11-17 00:24:49Z jilles $
+ * $Id: taxonomy.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/taxonomy", FALSE, _modinit, _moddeinit,
-	"$Id: taxonomy.c 3941 2005-11-17 00:24:49Z jilles $",
+	"$Id: taxonomy.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -39,26 +39,25 @@ void _moddeinit()
 static void ns_cmd_taxonomy(char *origin)
 {
 	char *target = strtok(NULL, " ");
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	node_t *n;
 	boolean_t isoper;
 
 	if (!target)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters for TAXONOMY.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "TAXONOMY");
 		notice(nicksvs.nick, origin, "Syntax: TAXONOMY <nick>");
 		return;
 	}
 
-	if (!(mu = myuser_find(target)))
+	if (!(mu = myuser_find_ext(target)))
 	{
 		notice(nicksvs.nick, origin, "\2%s\2 is not a registered nickname.", target);
 		return;
 	}
 
-	isoper = is_ircop(u) || is_sra(u->myuser);
-	/*snoop("TAXONOMY:\2%s\2 by \2%s\2", target, origin);*/
+	isoper = has_priv(u, PRIV_USER_AUSPEX);
 	if (isoper)
 		logcommand(nicksvs.me, u, CMDLOG_ADMIN, "TAXONOMY %s (oper)", target);
 	else

@@ -4,7 +4,7 @@
  *
  * This file contains functionality which implements the OService RAW command.
  *
- * $Id: raw.c 3601 2005-11-06 23:36:34Z jilles $
+ * $Id: raw.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"operserv/raw", FALSE, _modinit, _moddeinit,
-	"$Id: raw.c 3601 2005-11-06 23:36:34Z jilles $",
+	"$Id: raw.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_raw(char *origin);
 
 command_t os_raw = { "RAW", "Sends data to the uplink.",
-                        AC_SRA, os_cmd_raw };
+                        PRIV_ADMIN, os_cmd_raw };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -48,12 +48,12 @@ static void os_cmd_raw(char *origin)
 
 	if (!s)
 	{
-		notice(opersvs.nick, origin, "Insufficient parameters for \2RAW\2.");
+		notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "RAW");
 		notice(opersvs.nick, origin, "Syntax: RAW <parameters>");
 		return;
 	}
 
 	snoop("RAW: \"%s\" by \2%s\2", s, origin);
-	logcommand(opersvs.me, user_find(origin), CMDLOG_ADMIN, "RAW %s", s);
+	logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "RAW %s", s);
 	sts("%s", s);
 }

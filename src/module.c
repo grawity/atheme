@@ -4,7 +4,7 @@
  *
  * Module management.
  *
- * $Id: module.c 3579 2005-11-06 21:28:05Z jilles $
+ * $Id: module.c 4217 2005-12-27 03:36:36Z nenolod $
  */
 
 #include "atheme.h"
@@ -16,90 +16,13 @@
 static BlockHeap *module_heap;
 list_t modules;
 
+module_t *modtarget = NULL;
+
 /* Microsoft's POSIX API is a joke. */
 #ifdef _WIN32
 
 #define dlerror() ""
 
-/*
-#define dirent dirent
-#define DIR lt_DIR
-
-struct dirent
-{
-	char d_name[2048];
-	int d_namlen;
-};
-
-typedef struct _DIR
-{
-	HANDLE hSearch;
-	WIN32_FIND_DATA Win32FindData;
-	BOOL firsttime;
-	struct dirent file_info;
-} DIR;
-
-static void closedir(DIR * entry)
-{
-	FindClose(entry->hSearch);
-	free(entry);
-}
-
-static DIR *opendir(const char *path)
-{
-	char filespec[BUFISIZE * 2];
-	DIR *entry;
-
-	strlcpy(filespec, path, BUFSIZE * 2);
-	filespec[strlen(filespec)] = '\0';
-	strcat(filespec, "\\");
-	entry = malloc(sizeof(DIR));
-
-	if (entry != NULL)
-	{
-		entry->firsttime = TRUE;
-		entry->hSearch = FindFirstFile(filespec, &entry->Win32FindData);
-	}
-
-	if (entry->hSearch == INVALID_HANDLE_VALUE)
-	{
-		strcat(filespec, "\\*.*");
-		entry->hSearch = FindFirstFile(filespec, &entry->Win32FindData);
-
-		if (entry->hSearch == INVALID_HANDLE_VALUE)
-		{
-			free(entry);
-			return NULL;
-		}
-	}
-
-	return entry;
-}
-
-static struct dirent *readdir(DIR * entry)
-{
-	int status;
-
-	if (!entry)
-		return NULL;
-
-	if (!entry->firsttime)
-	{
-		status = FindNextFile(entry->hSearch, &entry->Win32FindData);
-
-		if (status == 0)
-			return NULL;
-	}
-
-	entry->firsttime = FALSE;
-	strlcpy(entry->file_info.d_name, entry->Win32FindData.cFileName, BUFSIZE * 2);
-
-	entry->file_info.d_name[2048] = '\0';
-	entry->file_info.d_namlen = strlen(entry->file_info.d_name);
-
-	return &entry->file_info;
-}
-*/
 #endif
 
 void modules_init(void)
@@ -112,7 +35,7 @@ void modules_init(void)
 		exit(EXIT_FAILURE);
 	}
 
-	module_load_dir(PREFIX "/modules");
+	module_load_dir(MODDIR "/modules");
 }
 
 /*
@@ -193,8 +116,14 @@ module_t *module_load(char *filespec)
 
 	node_add(m, n, &modules);
 
+	/* set the module target for module dependencies */
+	modtarget = m;
+
 	if (h->modinit)
 		h->modinit(m);
+
+	/* we won't be loading symbols outside the init code */
+	modtarget = NULL;
 
 	slog(LG_DEBUG, "module_load(): loaded %s at [0x%lx; MAPI version %d]", h->name, m->address, h->abi_ver);
 
@@ -295,7 +224,7 @@ void module_load_dir_match(char *dirspec, char *pattern)
  */
 void module_unload(module_t * m)
 {
-	node_t *n;
+	node_t *n, *tn;
 
 	if (!m)
 		return;
@@ -303,6 +232,20 @@ void module_unload(module_t * m)
 	slog(LG_INFO, "module_unload(): unloaded %s", m->header->name);
 	if (me.connected)
 		wallops("Module %s unloaded.", m->header->name);
+
+	/* unload modules which depend on us */
+	LIST_FOREACH_SAFE(n, tn, m->dephost.head)
+		module_unload((module_t *) n->data);
+
+	/* let modules that we depend on know that we no longer exist */
+	LIST_FOREACH_SAFE(n, tn, m->deplist.head)
+	{
+		module_t *hm = (module_t *) n->data;
+		node_t *hn = node_find(m, &hm->dephost);
+
+		node_del(hn, &hm->dephost);		
+		node_del(n, &m->deplist);
+	}
 
 	n = node_find(m, &modules);
 
@@ -337,6 +280,14 @@ void *module_locate_symbol(char *modname, char *sym)
 	{
 		slog(LG_DEBUG, "module_locate_symbol(): %s is not loaded.", modname);
 		return NULL;
+	}
+
+	if (modtarget != NULL && !node_find(m, &modtarget->deplist))
+	{
+		slog(LG_DEBUG, "module_locate_symbol(): %s added as a dependency for %s (symbol: %s)",
+			m->header->name, modtarget->header->name, sym);
+		node_add(m, node_create(), &modtarget->deplist);
+		node_add(modtarget, node_create(), &m->dephost);
 	}
 
 	symptr = linker_getsym(m->handle, sym);

@@ -4,7 +4,7 @@
  *
  * This file contains protocol support for hyperion-based ircd.
  *
- * $Id: hyperion.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: hyperion.c 4719 2006-01-25 12:40:27Z jilles $
  */
 
 /* option: use SVSLOGIN/SIGNON to remember users even if they're
@@ -15,7 +15,7 @@
 #include "atheme.h"
 #include "protocol/hyperion.h"
 
-DECLARE_MODULE_V1("protocol/hyperion", TRUE, _modinit, NULL, "$Id: hyperion.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/hyperion", TRUE, _modinit, NULL, "$Id: hyperion.c 4719 2006-01-25 12:40:27Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -36,7 +36,11 @@ ircd_t Hyperion = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+",                            /* Mode we set for halfops. */
-	PROTOCOL_HYPERION		/* Protocol type */
+	PROTOCOL_HYPERION,		/* Protocol type */
+	CMODE_PERM | CMODE_JUPED,       /* Permanent cmodes */
+	"beIqd",                        /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ hyperion_mode_list[] = {
@@ -59,13 +63,11 @@ struct cmode_ hyperion_mode_list[] = {
 };
 
 struct cmode_ hyperion_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
-  { 'q', CMODE_QUIET  },
-  { 'd', CMODE_DENY   },
+  { 'D', 0 },
+  { 'J', 0 },
+  { 'f', 0 },
   { '\0', 0 }
 };
-/* missing +D (oper-only, dubious), +f (we don't do forwarding), +J */
 
 struct cmode_ hyperion_status_mode_list[] = {
   { 'o', CMODE_OP    },
@@ -94,7 +96,7 @@ static uint8_t hyperion_server_login(void)
 
 	me.bursting = TRUE;
 
-	sts("CAPAB :QS KLN UNKLN QU DNCR SRV CHW SIGNON");
+	sts("CAPAB :QS EX DE CHW IE QU DNCR SRV SIGNON");
 	sts("SERVER %s 1 :%s", me.name, me.desc);
 	sts("SVINFO 5 3 0 :%ld", CURRTIME);
 
@@ -116,6 +118,12 @@ static void hyperion_introduce_nick(char *nick, char *user, char *host, char *re
 	const char *privs = "6@BFmMopPRUX";
 	sts("NICK %s 1 %ld +ei%s %s %s %s 0.0.0.0 :%s", nick, CURRTIME, privs, user, host, me.name, real);
 	sts(":%s OPER %s +%s", me.name, nick, privs);
+}
+
+/* invite a user to a channel */
+static void hyperion_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void hyperion_quit_sts(user_t *u, char *reason)
@@ -194,6 +202,16 @@ static void hyperion_notice(char *from, char *target, char *fmt, ...)
 	sts(":%s NOTICE %s :%s", from, target, buf);
 }
 
+static void hyperion_wallchops(user_t *sender, channel_t *channel, char *message)
+{
+	/* +p does not grant the ability to send to @#channel (!) */
+	if (chanuser_find(channel, sender))
+		sts(":%s NOTICE @%s :%s", CLIENT_NAME(sender), channel->name,
+				message);
+	else /* do not join for this, everyone would see -- jilles */
+		generic_wallchops(sender, channel, message);
+}
+
 /* numeric wrapper */
 static void hyperion_numeric_sts(char *from, int numeric, char *target, char *fmt, ...)
 {
@@ -245,7 +263,7 @@ static void hyperion_kline_sts(char *server, char *user, char *host, long durati
 		return;
 
 	if (duration)
-		sts(":%s KLINE %s %ld %s@%s :%s", me.name, me.name, (duration / 60), user, host, reason);
+		sts(":%s KLINE %s %ld %s@%s :%s", me.name, me.name, duration > 60 ? (duration / 60) : 1, user, host, reason);
 	else
 		sts(":%s KLINE %s %s@%s :%s", me.name, me.name, user, host, reason);
 }
@@ -304,30 +322,31 @@ static void hyperion_on_login(char *origin, char *user, char *wantedhost)
 	 * to change the fields yet */
 
 	/* set +e if they're identified to the nick they are using */
-	if (irccasecmp(origin, user))
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
 		return;
 
 	sts(":%s MODE %s +e", me.name, origin);
 }
 
 /* protocol-specific stuff to do on login */
-static void hyperion_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t hyperion_on_logout(char *origin, char *user, char *wantedhost)
 {
 	user_t *u;
 
 	if (!me.connected)
-		return;
+		return FALSE;
 
 	u = user_find(origin);
 	if (!u)
-		return;
+		return FALSE;
 	if (use_svslogin)
 		sts(":%s SVSLOGIN %s %s %s %s %s %s", me.name, u->server->name, origin, "0", origin, u->user, wantedhost ? u->host : u->vhost);
 
-	if (irccasecmp(origin, user))
-		return;
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return FALSE;
 
 	sts(":%s MODE %s -e", me.name, origin);
+	return FALSE;
 }
 
 static void hyperion_jupe(char *server, char *reason)
@@ -345,6 +364,13 @@ static void hyperion_sethost_sts(char *source, char *target, char *host)
 		return;
 
 	sts(":%s SETHOST %s :%s", source, target, host);
+}
+
+static void hyperion_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
+{
+	/* XXX this should be combined with the SVSLOGIN to set login id
+	 * and SETHOST, if any -- jilles */
+	sts(":%s SVSLOGIN %s %s %s %s %s %s", me.name, u->server->name, u->nick, u->myuser ? u->myuser->name : "0", newnick, u->user, u->vhost);
 }
 
 static void m_topic(char *origin, uint8_t parc, char *parv[])
@@ -540,6 +566,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		user_mode(u, parv[3]);
 
 		/* umode +e: identified to current nick */
+		/* As hyperion clears +e on nick changes, this is safe. */
 		if (!use_svslogin && strchr(parv[3], 'e'))
 			handle_burstlogin(u, parv[0]);
 
@@ -565,7 +592,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
 
 		/* fix up +e if necessary -- jilles */
-		if (u->myuser != NULL && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
+		if (nicksvs.me != NULL && u->myuser != NULL && !(u->myuser->flags & MU_WAITAUTH) && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
 			/* changed nick to registered one, reset +e */
 			sts(":%s MODE %s +e", me.name, parv[0]);
 
@@ -600,7 +627,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -652,10 +679,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -688,32 +715,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -885,7 +912,8 @@ void _modinit(module_t * m)
 	join_sts = &hyperion_join_sts;
 	kick = &hyperion_kick;
 	msg = &hyperion_msg;
-	notice = &hyperion_notice;
+	notice_sts = &hyperion_notice;
+	wallchops = &hyperion_wallchops;
 	numeric_sts = &hyperion_numeric_sts;
 	skill = &hyperion_skill;
 	part = &hyperion_part;
@@ -898,6 +926,8 @@ void _modinit(module_t * m)
 	ircd_on_logout = &hyperion_on_logout;
 	jupe = &hyperion_jupe;
 	sethost_sts = &hyperion_sethost_sts;
+	fnc_sts = &hyperion_fnc_sts;
+	invite_sts = &hyperion_invite_sts;
 
 	mode_list = hyperion_mode_list;
 	ignore_mode_list = hyperion_ignore_mode_list;

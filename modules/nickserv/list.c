@@ -5,7 +5,7 @@
  * This file contains code for the NickServ LIST function.
  * Based on Alex Lambert's LISTEMAIL.
  *
- * $Id: list.c 3583 2005-11-06 21:48:28Z jilles $
+ * $Id: list.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -13,13 +13,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/list", FALSE, _modinit, _moddeinit,
-	"$Id: list.c 3583 2005-11-06 21:48:28Z jilles $",
+	"$Id: list.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_list(char *origin);
 
-command_t ns_list = { "LIST", "Lists nicknames registered matching a given pattern.", AC_IRCOP, ns_cmd_list };
+command_t ns_list = { "LIST", "Lists nicknames registered matching a given pattern.", PRIV_USER_AUSPEX, ns_cmd_list };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -39,7 +39,7 @@ void _moddeinit()
 
 static void ns_cmd_list(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	node_t *n;
 	char *nickpattern = strtok(NULL, " ");
@@ -52,7 +52,7 @@ static void ns_cmd_list(char *origin)
 
 	if (!nickpattern)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters specified for \2LIST\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "LIST");
 		notice(nicksvs.nick, origin, "Syntax: LIST <nickname pattern>");
 		return;
 	}
@@ -73,9 +73,6 @@ static void ns_cmd_list(char *origin)
 				/* in the future we could add a LIMIT parameter */
 				*buf = '\0';
 
-				if (metadata_find(mu, METADATA_USER, "private:alias:parent")) {
-					strlcat(buf, "\2[child]\2", BUFSIZE);
-				}
 				if (metadata_find(mu, METADATA_USER, "private:freeze:freezer")) {
 					if (*buf)
 						strlcat(buf, " ", BUFSIZE);

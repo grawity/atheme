@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 3605 2005-11-06 23:52:07Z jilles $
+ * $Id: main.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"global/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 3605 2005-11-06 23:52:07Z jilles $",
+	"$Id: main.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -25,9 +25,9 @@ static void gs_cmd_global(char *origin);
 static void gs_cmd_help(char *origin);
 
 command_t gs_help = { "HELP", "Displays contextual help information.",
-                        AC_IRCOP, gs_cmd_help };
+                        PRIV_GLOBAL, gs_cmd_help };
 command_t gs_global = { "GLOBAL", "Sends a global notice.",
-                        AC_IRCOP, gs_cmd_global };
+                        PRIV_GLOBAL, gs_cmd_global };
 
 /* *INDENT-ON* */
 
@@ -48,37 +48,7 @@ static void gs_cmd_help(char *origin)
 	}
 
 	/* take the command through the hash table */
-	if ((c = help_cmd_find(globsvs.nick, origin, command, &gs_helptree)))
-	{
-		if (c->file)
-		{
-			help_file = fopen(c->file, "r");
-
-			if (!help_file)
-			{
-				notice(globsvs.nick, origin, "No help available for \2%s\2.", command);
-				return;
-			}
-
-			while (fgets(buf, BUFSIZE, help_file))
-			{
-				strip(buf);
-
-				replace(buf, sizeof(buf), "&nick&", globsvs.disp);
-
-				if (buf[0])
-					notice(globsvs.nick, origin, "%s", buf);
-				else
-					notice(globsvs.nick, origin, " ");
-			}
-
-			fclose(help_file);
-		}
-		else if (c->func)
-			c->func(origin);
-		else
-			notice(globsvs.nick, origin, "No help available for \2%s\2.", command);
-	}
+	help_display(globsvs.nick, globsvs.disp, origin, command, &gs_helptree);
 }
 
 /* GLOBAL <parameters>|SEND|CLEAR */
@@ -94,7 +64,7 @@ static void gs_cmd_global(char *origin)
 
 	if (!params)
 	{
-		notice(globsvs.nick, origin, "Insufficient parameters for \2GLOBAL\2.");
+		notice(globsvs.nick, origin, STR_INSUFFICIENT_PARAMS, "GLOBAL");
 		notice(globsvs.nick, origin, "Syntax: GLOBAL <parameters>|SEND|CLEAR");
 		return;
 	}
@@ -147,9 +117,9 @@ static void gs_cmd_global(char *origin)
 				sts(":%s NOTICE %s*%s :[Network Notice] %s", globsvs.nick, ircd->tldprefix, tld->name, global->text);
 			}
 			/* log everything */
-			logcommand(globsvs.me, user_find(origin), CMDLOG_ADMIN, "GLOBAL %s", global->text);
+			logcommand(globsvs.me, user_find_named(origin), CMDLOG_ADMIN, "GLOBAL %s", global->text);
 		}
-		logcommand(globsvs.me, user_find(origin), CMDLOG_ADMIN, "GLOBAL (%d lines sent)", LIST_LENGTH(&globlist));
+		logcommand(globsvs.me, user_find_named(origin), CMDLOG_ADMIN, "GLOBAL (%d lines sent)", LIST_LENGTH(&globlist));
 
 		/* destroy the list we made */
 		LIST_FOREACH_SAFE(n, tn, globlist.head)
@@ -244,8 +214,6 @@ void gservice(char *origin, uint8_t parc, char *parv[])
 		       (me.loglevel & LG_DEBUG) ? "d" : "",
 		       (me.auth) ? "e" : "",
 		       (config_options.flood_msgs) ? "F" : "",
-		       (config_options.leave_chans) ? "l" : "",
-		       (config_options.join_chans) ? "j" : "",
 		       (config_options.leave_chans) ? "l" : "", (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
 
 		return;
@@ -308,7 +276,10 @@ void _modinit(module_t *m)
 void _moddeinit(void)
 {
 	if (globsvs.me)
+	{
 		del_service(globsvs.me);
+		globsvs.me = NULL;
+	}
 
 	command_delete(&gs_global, &gs_cmdtree);
 

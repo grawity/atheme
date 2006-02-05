@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService HELP command.
  *
- * $Id: help.c 2561 2005-10-04 06:59:29Z nenolod $
+ * $Id: help.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"operserv/help", FALSE, _modinit, _moddeinit,
-	"$Id: help.c 2561 2005-10-04 06:59:29Z nenolod $",
+	"$Id: help.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_help(char *origin);
 
 command_t os_help = { "HELP", "Displays contextual help information.",
-			AC_IRCOP, os_cmd_help };
+			AC_NONE, os_cmd_help };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -43,9 +43,12 @@ void _moddeinit()
 static void os_cmd_help(char *origin)
 {
 	char *command = strtok(NULL, "");
-	char buf[BUFSIZE];
-	struct help_command_ *c;
-	FILE *help_file;
+
+	if (!has_any_privs(user_find_named(origin)))
+	{
+		notice(opersvs.nick, origin, "You are not authorized to use %s.", opersvs.nick);
+		return;
+	}
 
 	if (!command)
 	{
@@ -65,37 +68,5 @@ static void os_cmd_help(char *origin)
 	}
 
 	/* take the command through the hash table */
-	if ((c = help_cmd_find(opersvs.nick, origin, command, os_helptree)))
-	{
-		if (c->file)
-		{
-			help_file = fopen(c->file, "r");
-
-			if (!help_file)
-			{
-				notice(opersvs.nick, origin, "No help available for \2%s\2.", command);
-				return;
-			}
-
-			notice(opersvs.nick, origin, "***** \2%s Help\2 *****", opersvs.nick);
-
-			while (fgets(buf, BUFSIZE, help_file))
-			{
-				strip(buf);
-
-				replace(buf, sizeof(buf), "&nick&", opersvs.disp);
-
-				if (buf[0])
-					notice(opersvs.nick, origin, "%s", buf);
-				else
-					notice(opersvs.nick, origin, " ");
-			}
-
-			notice(opersvs.nick, origin, "***** \2End of Help\2 *****", opersvs.nick);
-
-			fclose(help_file);
-		}
-		else
-			notice(opersvs.nick, origin, "No help available for \2%s\2.", command);
-	}
+	help_display(opersvs.nick, opersvs.disp, origin, command, os_helptree);
 }

@@ -4,7 +4,7 @@
  *
  * Gives services the ability to freeze nicknames
  *
- * $Id: freeze.c 3583 2005-11-06 21:48:28Z jilles $
+ * $Id: freeze.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/freeze", FALSE, _modinit, _moddeinit,
-	"$Id: freeze.c 3583 2005-11-06 21:48:28Z jilles $",
+	"$Id: freeze.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -20,7 +20,7 @@ static void ns_cmd_freeze(char *origin);
 
 /* FREEZE ON|OFF -- don't pollute the root with THAW */
 command_t ns_freeze = { "FREEZE", "Freezes a nickname.",
-			AC_IRCOP, ns_cmd_freeze };
+			PRIV_USER_ADMIN, ns_cmd_freeze };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -41,7 +41,7 @@ void _moddeinit()
 static void ns_cmd_freeze(char *origin)
 {
 	myuser_t *mu;
-	user_t *source = user_find(origin);
+	user_t *source = user_find_named(origin);
 	char *target = strtok(NULL, " ");
 	char *action = strtok(NULL, " ");
 	char *reason = strtok(NULL, "");
@@ -51,12 +51,12 @@ static void ns_cmd_freeze(char *origin)
 
 	if (!target || !action)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters for \2FREEZE\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FREEZE");
 		notice(nicksvs.nick, origin, "Usage: FREEZE <username> <ON|OFF> [reason]");
 		return;
 	}
 
-	mu = myuser_find(target);
+	mu = myuser_find_ext(target);
 
 	if (!mu)
         {
@@ -68,14 +68,14 @@ static void ns_cmd_freeze(char *origin)
 	{
 		if (!reason)
 		{
-			notice(nicksvs.nick, origin, "Insufficient parameters for \2FREEZE\2.");
+			notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FREEZE");
 			notice(nicksvs.nick, origin, "Usage: FREEZE <username> ON <reason>");
 			return;
 		}
 
-	if (is_sra(mu))
+	if (is_soper(mu))
 	{
-                notice(nicksvs.nick, origin, "The nickname \2%s\2 belongs to a services root administrator; it cannot be frozen.", target);
+                notice(nicksvs.nick, origin, "The nickname \2%s\2 belongs to a services operator; it cannot be frozen.", target);
 		return;
 	}
 
@@ -112,7 +112,7 @@ static void ns_cmd_freeze(char *origin)
 	}
 	else
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters for \2FREEZE\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FREEZE");
 		notice(nicksvs.nick, origin, "Usage: FREEZE <account> <ON|OFF> [reason]");
 	}
 }

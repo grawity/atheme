@@ -4,7 +4,7 @@
  *
  * This file contains functionality which implements the OService MODE command.
  *
- * $Id: mode.c 3601 2005-11-06 23:36:34Z jilles $
+ * $Id: mode.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"operserv/mode", FALSE, _modinit, _moddeinit,
-	"$Id: mode.c 3601 2005-11-06 23:36:34Z jilles $",
+	"$Id: mode.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_mode(char *origin);
 
 command_t os_mode = { "MODE", "Changes modes on channels.",
-                        AC_IRCOP, os_cmd_mode };
+                        PRIV_OMODE, os_cmd_mode };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -49,7 +49,7 @@ static void os_cmd_mode(char *origin)
 
         if (!channel || !mode)
         {
-                notice(opersvs.nick, origin, "Insufficient parameters for \2MODE\2.");
+                notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MODE");
                 notice(opersvs.nick, origin, "Syntax: MODE <parameters>");
                 return;
         }
@@ -57,13 +57,13 @@ static void os_cmd_mode(char *origin)
 	c = channel_find(channel);
 	if (!c)
 	{
-                notice(opersvs.nick, origin, "Channel \002%s\002 does not exist.", channel);
+                notice(opersvs.nick, origin, "Channel \2%s\2 does not exist.", channel);
                 return;
 	}
 
 	wallops("\2%s\2 is using MODE on \2%s\2 (set: \2%s\2)",
 		origin, channel, mode);
-	logcommand(opersvs.me, user_find(origin), CMDLOG_SET, "MODE %s %s", channel, mode);
+	logcommand(opersvs.me, user_find_named(origin), CMDLOG_SET, "MODE %s %s", channel, mode);
 
 	parc = sjtoken(mode, ' ', parv);
 

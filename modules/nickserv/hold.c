@@ -4,7 +4,7 @@
  *
  * Controls noexpire options for nicknames.
  *
- * $Id: hold.c 3583 2005-11-06 21:48:28Z jilles $
+ * $Id: hold.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/hold", FALSE, _modinit, _moddeinit,
-	"$Id: hold.c 3583 2005-11-06 21:48:28Z jilles $",
+	"$Id: hold.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_hold(char *origin);
 
 command_t ns_hold = { "HOLD", "Prevents a nickname from expiring.",
-			AC_SRA, ns_cmd_hold };
+			PRIV_HOLD, ns_cmd_hold };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -42,19 +42,19 @@ static void ns_cmd_hold(char *origin)
 	char *target = strtok(NULL, " ");
 	char *action = strtok(NULL, " ");
 	myuser_t *mu;
-	user_t *source = user_find(origin);
+	user_t *source = user_find_named(origin);
 
 	if (source == NULL)
 		return;
 
 	if (!target || !action)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters for \2HOLD\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "HOLD");
 		notice(nicksvs.nick, origin, "Usage: HOLD <nickname> <ON|OFF>");
 		return;
 	}
 
-	if (!(mu = myuser_find(target)))
+	if (!(mu = myuser_find_ext(target)))
 	{
 		notice(nicksvs.nick, origin, "\2%s\2 is not registered.", target);
 		return;
@@ -90,7 +90,7 @@ static void ns_cmd_hold(char *origin)
 	}
 	else
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters for \2HOLD\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "HOLD");
 		notice(nicksvs.nick, origin, "Usage: HOLD <nickname> <ON|OFF>");
 	}
 }

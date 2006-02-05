@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService OP functions.
  *
- * $Id: op.c 3739 2005-11-09 12:52:23Z jilles $
+ * $Id: op.c 4745 2006-01-31 02:26:19Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/op", FALSE, _modinit, _moddeinit,
-	"$Id: op.c 3739 2005-11-09 12:52:23Z jilles $",
+	"$Id: op.c 4745 2006-01-31 02:26:19Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -66,11 +66,10 @@ static void cs_cmd_op(char *origin)
 	mychan_t *mc;
 	user_t *u, *tu;
 	chanuser_t *cu;
-	char hostbuf[BUFSIZE];
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2OP\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "OP");
 		notice(chansvs.nick, origin, "Syntax: OP <#channel> [nickname]");
 		return;
 	}
@@ -82,7 +81,7 @@ static void cs_cmd_op(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_OP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -125,16 +124,16 @@ static void cs_cmd_op(char *origin)
 		return;
 	}
 
-	if (CMODE_OP & cu->modes)
-	{
-		notice(chansvs.nick, origin, "\2%s\2 is already opped on \2%s\2.", tu->nick, mc->name);
-		return;
-	}
-
 	cmode(chansvs.nick, chan, "+o", CLIENT_NAME(tu));
 	cu->modes |= CMODE_OP;
+
+	/* TODO: Add which username had access to perform the command */
+	if (tu != u)
+		notice(chansvs.nick, tu->nick, "You have been opped on %s by %s", mc->name, origin);
+
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s OP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been opped on \2%s\2.", tu->nick, mc->name);
+	if (!chanuser_find(mc->chan, u))
+		notice(chansvs.nick, origin, "\2%s\2 has been opped on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_cmd_deop(char *origin)
@@ -147,7 +146,7 @@ static void cs_cmd_deop(char *origin)
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2DEOP\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "DEOP");
 		notice(chansvs.nick, origin, "Syntax: DEOP <#channel> [nickname]");
 		return;
 	}
@@ -159,7 +158,7 @@ static void cs_cmd_deop(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_OP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -194,16 +193,16 @@ static void cs_cmd_deop(char *origin)
 		return;
 	}
 
-	if (!(CMODE_OP & cu->modes))
-	{
-		notice(chansvs.nick, origin, "\2%s\2 is not opped on \2%s\2.", tu->nick, mc->name);
-		return;
-	}
-
 	cmode(chansvs.nick, chan, "-o", CLIENT_NAME(tu));
 	cu->modes &= ~CMODE_OP;
+
+	/* TODO: Add which username had access to perform the command */
+	if (tu != u)
+		notice(chansvs.nick, tu->nick, "You have been deopped on %s by %s", mc->name, origin);
+
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s DEOP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been deopped on \2%s\2.", tu->nick, mc->name);
+	if (!chanuser_find(mc->chan, u))
+		notice(chansvs.nick, origin, "\2%s\2 has been deopped on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_fcmd_op(char *origin, char *chan)
@@ -220,7 +219,7 @@ static void cs_fcmd_op(char *origin, char *chan)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_OP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -266,16 +265,10 @@ static void cs_fcmd_op(char *origin, char *chan)
 			continue;
 		}
 
-		if (CMODE_OP & cu->modes)
-		{
-			notice(chansvs.nick, origin, "\2%s\2 is already opped on \2%s\2.", tu->nick, mc->name);
-			continue;
-		}
-
 		cmode(chansvs.nick, chan, "+o", CLIENT_NAME(tu));
 		cu->modes |= CMODE_OP;
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s OP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	} while (nick = strtok(NULL, " "));
+	} while ((nick = strtok(NULL, " ")) != NULL);
 }
 
 static void cs_fcmd_deop(char *origin, char *chan)
@@ -292,7 +285,7 @@ static void cs_fcmd_deop(char *origin, char *chan)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_OP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -330,16 +323,9 @@ static void cs_fcmd_deop(char *origin, char *chan)
 			continue;
 		}
 
-		if (!(CMODE_OP & cu->modes))
-		{
-			notice(chansvs.nick, origin, "\2%s\2 is not opped on \2%s\2.", tu->nick, mc->name);
-			continue;
-		}
-
 		cmode(chansvs.nick, chan, "-o", CLIENT_NAME(tu));
 		cu->modes &= ~CMODE_OP;
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s DEOP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	} while (nick = strtok(NULL, " "));
-
+	} while ((nick = strtok(NULL, " ")) != NULL);
 }
 

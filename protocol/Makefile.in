@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 2995 2005-10-19 04:01:49Z nenolod $
+# $Id: Makefile.in 4747 2006-02-01 14:22:48Z nenolod $
 #
 
 CC		= @CC@
@@ -11,7 +11,16 @@ RM		= @RM@
 MV		= @MV@
 CP		= @CP@
 INSTALL		= @INSTALL@
-PREFIX		= @prefix@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+datadir		= @datadir@
+sysconfdir		= @sysconfdir@
+libdir		= @libdir@
+sbindir		= @sbindir@
+DOCDIR		= @DOCDIR@
+MODDIR		= @MODDIR@
+SHAREDIR	= @SHAREDIR@
 BIN		= atheme@EXEEXT@
 MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include
 PICFLAGS	= @PICFLAGS@
@@ -29,6 +38,7 @@ BASE_SRCS = 		\
 	bircd.c         \
 	charybdis.c	\
 	dreamforge.c    \
+	hybrid.c	\
 	hyperion.c      \
 	inspircd.c      \
 	ircnet.c        \
@@ -36,8 +46,8 @@ BASE_SRCS = 		\
 	plexus.c        \
 	ptlink.c	\
 	ratbox.c        \
-	scylla.c        \
 	shadowircd.c    \
+	solidircd.c	\
 	sorcery.c       \
 	ultimate3.c	\
 	undernet.c      \
@@ -52,8 +62,8 @@ all: protocols
 build: all
 
 install: build
-	${INSTALL} -d ${PREFIX}/protocol
-	${INSTALL} -m 755 *.so ${PREFIX}/protocol
+	${INSTALL} -d ${MODDIR}/protocol
+	${INSTALL} -m 755 *.so ${MODDIR}/protocol
 
 protocols: $(OBJS)
 

@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for bahamut-based ircd.
  *
- * $Id: dreamforge.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: dreamforge.c 4723 2006-01-25 12:44:18Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/dreamforge.h"
 
-DECLARE_MODULE_V1("protocol/dreamforge", TRUE, _modinit, NULL, "$Id: dreamforge.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/dreamforge", TRUE, _modinit, NULL, "$Id: dreamforge.c 4723 2006-01-25 12:44:18Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t DreamForge = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+",                            /* Mode we set for halfops. */
-	PROTOCOL_DREAMFORGE		/* Protocol type */
+	PROTOCOL_DREAMFORGE,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"b",                            /* Ban-like cmodes */
+	0,                              /* Except mchar */
+	0                               /* Invex mchar */
 };
 
 struct cmode_ dreamforge_mode_list[] = {
@@ -47,8 +51,6 @@ struct cmode_ dreamforge_mode_list[] = {
 };
 
 struct cmode_ dreamforge_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
   { '\0', 0 }
 };
 
@@ -90,6 +92,12 @@ static void dreamforge_introduce_nick(char *nick, char *user, char *host, char *
 {
 	sts("NICK %s 1 %ld %s %s %s 0 :%s", nick, CURRTIME, user, host, me.name, real);
 	sts(":%s MODE %s +%s", nick, nick, "io");
+}
+
+/* invite a user to a channel */
+static void dreamforge_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void dreamforge_quit_sts(user_t *u, char *reason)
@@ -266,25 +274,26 @@ static void dreamforge_on_login(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return;
 
-	/* Can only record identified state if logged in to correct nick,
-	 * sorry -- jilles
+	/* Can only do this for nickserv, and can only record identified
+	 * state if logged in to correct nick, sorry -- jilles
 	 */
-	if (irccasecmp(origin, user))
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
 		return;
 
 	sts(":%s SVSMODE %s +rd %ld", nicksvs.nick, origin, time(NULL));
 }
 
 /* protocol-specific stuff to do on login */
-static void dreamforge_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t dreamforge_on_logout(char *origin, char *user, char *wantedhost)
 {
 	if (!me.connected)
-		return;
+		return FALSE;
 
-	if (irccasecmp(origin, user))
-		return;
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return FALSE;
 
 	sts(":%s SVSMODE %s -r+d %ld", nicksvs.nick, origin, time(NULL));
+	return FALSE;
 }
 
 static void dreamforge_jupe(char *server, char *reason)
@@ -395,6 +404,9 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		user_add(parv[0], parv[3], parv[4], NULL, NULL, NULL, parv[7], s, atoi(parv[2]));
 
+		/* Note: cannot rely on umode +r to see if they're identified
+		 * -- jilles */
+
 		handle_nickchange(user_find(parv[0]));
 	}
 
@@ -412,10 +424,16 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
 
-		/* fix up +e if necessary -- jilles */
-		if (u->myuser != NULL && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
-			/* changed nick to registered one, reset +e */
-			sts(":%s MODE %s +rd %ld", me.name, parv[0], CURRTIME);
+		/* fix up +r if necessary -- jilles */
+		if (nicksvs.me != NULL && u->myuser != NULL && !(u->myuser->flags & MU_WAITAUTH) && irccasecmp(u->nick, parv[0]))
+		{
+			if (!irccasecmp(parv[0], u->myuser->name))
+				/* changed nick to registered one, reset +r */
+				sts(":%s SVSMODE %s +rd %ld", nicksvs.nick, parv[0], CURRTIME);
+			else if (!irccasecmp(u->nick, u->myuser->name))
+				/* changed from registered nick, remove +r */
+				sts(":%s SVSMODE %s -r+d %ld", nicksvs.nick, parv[0], CURRTIME);
+		}
 
 		/* remove the current one from the list */
 		n = node_find(u, &userlist[u->hash]);
@@ -448,7 +466,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -500,10 +518,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -531,32 +549,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -617,7 +635,7 @@ void _modinit(module_t * m)
 	join_sts = &dreamforge_join_sts;
 	kick = &dreamforge_kick;
 	msg = &dreamforge_msg;
-	notice = &dreamforge_notice;
+	notice_sts = &dreamforge_notice;
 	numeric_sts = &dreamforge_numeric_sts;
 	skill = &dreamforge_skill;
 	part = &dreamforge_part;
@@ -629,6 +647,7 @@ void _modinit(module_t * m)
 	ircd_on_login = &dreamforge_on_login;
 	ircd_on_logout = &dreamforge_on_logout;
 	jupe = &dreamforge_jupe;
+	invite_sts = &dreamforge_invite_sts;
 
 	mode_list = dreamforge_mode_list;
 	ignore_mode_list = dreamforge_ignore_mode_list;

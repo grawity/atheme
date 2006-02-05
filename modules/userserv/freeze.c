@@ -4,7 +4,7 @@
  *
  * Gives services the ability to freeze accounts
  *
- * $Id: freeze.c 3719 2005-11-09 06:13:21Z alambert $
+ * $Id: freeze.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"userserv/freeze", FALSE, _modinit, _moddeinit,
-	"$Id: freeze.c 3719 2005-11-09 06:13:21Z alambert $",
+	"$Id: freeze.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -20,7 +20,7 @@ static void us_cmd_freeze(char *origin);
 
 /* FREEZE ON|OFF -- don't pollute the root with THAW */
 command_t us_freeze = { "FREEZE", "Freezes a account.",
-			AC_IRCOP, us_cmd_freeze };
+			PRIV_USER_ADMIN, us_cmd_freeze };
 
 list_t *us_cmdtree, *us_helptree;
 
@@ -41,7 +41,7 @@ void _moddeinit()
 static void us_cmd_freeze(char *origin)
 {
 	myuser_t *mu;
-	user_t *source = user_find(origin);
+	user_t *source = user_find_named(origin);
 	char *target = strtok(NULL, " ");
 	char *action = strtok(NULL, " ");
 	char *reason = strtok(NULL, "");
@@ -51,12 +51,12 @@ static void us_cmd_freeze(char *origin)
 
 	if (!target || !action)
 	{
-		notice(usersvs.nick, origin, "Insufficient parameters for \2FREEZE\2.");
+		notice(usersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FREEZE");
 		notice(usersvs.nick, origin, "Usage: FREEZE <username> <ON|OFF> [reason]");
 		return;
 	}
 
-	mu = myuser_find(target);
+	mu = myuser_find_ext(target);
 
 	if (!mu)
         {
@@ -68,14 +68,14 @@ static void us_cmd_freeze(char *origin)
 	{
 		if (!reason)
 		{
-			notice(usersvs.nick, origin, "Insufficient parameters for \2FREEZE\2.");
+			notice(usersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FREEZE");
 			notice(usersvs.nick, origin, "Usage: FREEZE <username> ON <reason>");
 			return;
 		}
 
-		if (is_sra(mu))
+		if (is_soper(mu))
 		{
-	                notice(usersvs.nick, origin, "The account \2%s\2 belongs to a services root administrator; it cannot be frozen.", target);
+	                notice(usersvs.nick, origin, "The account \2%s\2 belongs to a services operator; it cannot be frozen.", target);
 			return;
 		}
 
@@ -111,7 +111,7 @@ static void us_cmd_freeze(char *origin)
 	}
 	else
 	{
-		notice(usersvs.nick, origin, "Insufficient parameters for \2FREEZE\2.");
+		notice(usersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FREEZE");
 		notice(usersvs.nick, origin, "Usage: FREEZE <account> <ON|OFF> [reason]");
 	}
 }

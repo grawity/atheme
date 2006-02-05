@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService TOPIC functions.
  *
- * $Id: topic.c 3735 2005-11-09 12:23:51Z jilles $
+ * $Id: topic.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/topic", FALSE, _modinit, _moddeinit,
-	"$Id: topic.c 3735 2005-11-09 12:23:51Z jilles $",
+	"$Id: topic.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -69,7 +69,7 @@ static void cs_cmd_topic(char *origin)
 
 	if (!chan || !topic)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2TOPIC\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "TOPIC");
 		notice(chansvs.nick, origin, "Syntax: TOPIC <#channel> <topic>");
 		return;
 	}
@@ -94,7 +94,7 @@ static void cs_cmd_topic(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 
 	if (!chanacs_user_has_flag(mc, u, CA_TOPIC))
 	{
@@ -106,7 +106,8 @@ static void cs_cmd_topic(char *origin)
 	topic_sts(chan, origin, CURRTIME, topic);
 
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s TOPIC", mc->name);
-	notice(chansvs.nick, origin, "Topic set to \2%s\2 on \2%s\2.", topic, chan);
+	if (!chanuser_find(c, u))
+		notice(chansvs.nick, origin, "Topic set to \2%s\2 on \2%s\2.", topic, chan);
 }
 
 static void cs_cmd_topicappend(char *origin)
@@ -120,7 +121,7 @@ static void cs_cmd_topicappend(char *origin)
 
         if (!chan || !topic)
         {
-                notice(chansvs.nick, origin, "Insufficient parameters specified for \2TOPICAPPEND\2.");
+                notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "TOPICAPPEND");
                 notice(chansvs.nick, origin, "Syntax: TOPICAPPEND <#channel> <topic>");
                 return;
         }
@@ -139,7 +140,7 @@ static void cs_cmd_topicappend(char *origin)
                 return;
         }
 
-        u = user_find(origin);
+        u = user_find_named(origin);
 
         if (!chanacs_user_has_flag(mc, u, CA_TOPIC))
         {
@@ -168,7 +169,8 @@ static void cs_cmd_topicappend(char *origin)
 	topic_sts(chan, origin, CURRTIME, topicbuf);
 
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s TOPICAPPEND", mc->name);
-        notice(chansvs.nick, origin, "Topic set to \2%s\2 on \2%s\2.", c->topic, chan);
+	if (!chanuser_find(c, u))
+        	notice(chansvs.nick, origin, "Topic set to \2%s\2 on \2%s\2.", c->topic, chan);
 }
 
 
@@ -181,7 +183,7 @@ static void cs_fcmd_topic(char *origin, char *chan)
 
         if (!topic)
         {
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2!TOPIC\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "!TOPIC");
 		notice(chansvs.nick, origin, "Syntax: !TOPIC <topic>");
                 return;
         }
@@ -201,7 +203,7 @@ static void cs_fcmd_topic(char *origin, char *chan)
                 return;
         }
 
-        u = user_find(origin);
+        u = user_find_named(origin);
 
         if (!chanacs_user_has_flag(mc, u, CA_TOPIC))
         {
@@ -224,13 +226,13 @@ static void cs_fcmd_topicappend(char *origin, char *chan)
 {
         char *topic = strtok(NULL, "");
         mychan_t *mc;
-        user_t *u = user_find(origin);
+        user_t *u = user_find_named(origin);
         char topicbuf[BUFSIZE];
         channel_t *c;
 
         if (!topic)
         {
-                notice(chansvs.nick, origin, "Insufficient parameters specified for \2!TOPICAPPEND\2.");
+                notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "!TOPICAPPEND");
                 notice(chansvs.nick, origin, "Syntax: !TOPICAPPEND <topic>");
                 return;
         }
@@ -276,5 +278,4 @@ static void cs_fcmd_topicappend(char *origin, char *chan)
         topic_sts(chan, origin, CURRTIME, topicbuf);
 
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s TOPICAPPEND", mc->name);
-        notice(chansvs.nick, origin, "Topic set to \2%s\2 on \2%s\2.", c->topic, chan);
 }

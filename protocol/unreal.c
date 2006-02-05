@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for bahamut-based ircd.
  *
- * $Id: unreal.c 3977 2005-11-25 20:14:28Z nenolod $
+ * $Id: unreal.c 4701 2006-01-24 17:31:20Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/unreal.h"
 
-DECLARE_MODULE_V1("protocol/unreal", TRUE, _modinit, NULL, "$Id: unreal.c 3977 2005-11-25 20:14:28Z nenolod $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/unreal", TRUE, _modinit, NULL, "$Id: unreal.c 4701 2006-01-24 17:31:20Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t Unreal = {
         "+q",                           /* Mode we set for owner. */
         "+a",                           /* Mode we set for protect. */
         "+h",                           /* Mode we set for halfops. */
-	PROTOCOL_UNREAL			/* Protocol type */
+	PROTOCOL_UNREAL,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"beI",                          /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ unreal_mode_list[] = {
@@ -58,8 +62,6 @@ struct cmode_ unreal_mode_list[] = {
 };
 
 struct cmode_ unreal_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
   { 'j', CMODE_JTHROT },
   { '\0', 0 }
 };
@@ -108,6 +110,12 @@ static uint8_t unreal_server_login(void)
 static void unreal_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	sts("NICK %s 1 %ld %s %s %s 0 +%s * :%s", nick, CURRTIME, user, host, me.name, "io", real);
+}
+
+/* invite a user to a channel */
+static void unreal_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void unreal_quit_sts(user_t *u, char *reason)
@@ -276,29 +284,36 @@ static void unreal_ping_sts(void)
 /* protocol-specific stuff to do on login */
 static void unreal_on_login(char *origin, char *user, char *wantedhost)
 {
+	user_t *u;
+
 	if (!me.connected)
 		return;
 
-	/* Can only record identified state if logged in to correct nick,
-	 * sorry -- jilles
+	/* Can only do this for nickserv, and can only record identified
+	 * state if logged in to correct nick, sorry -- jilles
 	 */
-	if (irccasecmp(origin, user))
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return;
+
+	u = user_find(origin);
+	if (u == NULL)
 		return;
 
 	/* imo, we should be using SVS2MODE to show the modechange here and on logout --w00t */
-	sts(":%s SVS2MODE %s +rd %ld", nicksvs.nick, origin, time(NULL));
+	sts(":%s SVS2MODE %s +rd %ld", nicksvs.nick, origin, u->ts);
 }
 
 /* protocol-specific stuff to do on logout */
-static void unreal_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t unreal_on_logout(char *origin, char *user, char *wantedhost)
 {
 	if (!me.connected)
-		return;
+		return FALSE;
 
-	if (irccasecmp(origin, user))
-		return;
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return FALSE;
 
-	sts(":%s SVS2MODE %s -r+d %ld", nicksvs.nick, origin, time(NULL));
+	sts(":%s SVS2MODE %s -r+d 0", nicksvs.nick, origin);
+	return FALSE;
 }
 
 static void unreal_jupe(char *server, char *reason)
@@ -315,10 +330,15 @@ static void unreal_sethost_sts(char *source, char *target, char *host)
 	if (!me.connected)
 		return;
 
-	sts(":%s SVS2MODE %s +x", source, target, host);
 	sts(":%s CHGHOST %s :%s", source, target, host);
 }
 
+static void unreal_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
+{
+	sts(":%s SVSNICK %s %s %lu", source->nick, u->nick, newnick,
+			(unsigned long)(CURRTIME - 60));
+}
+	
 static void m_topic(char *origin, uint8_t parc, char *parv[])
 {
 	channel_t *c = channel_find(parv[0]);
@@ -377,6 +397,29 @@ static void m_notice(char *origin, uint8_t parc, char *parv[])
 	handle_message(origin, parv[0], TRUE, parv[1]);
 }
 
+static void remove_our_modes(channel_t *c)
+{
+	/* the TS changed.  a TS change requires the following things
+	 * to be done to the channel:  reset all modes to nothing, remove
+	 * all status modes on known users on the channel (including ours),
+	 * and set the new TS.
+	 */
+	chanuser_t *cu;
+	node_t *n;
+
+	c->modes = 0;
+	c->limit = 0;
+	if (c->key)
+		free(c->key);
+	c->key = NULL;
+
+	LIST_FOREACH(n, c->members.head)
+	{
+		cu = (chanuser_t *)n->data;
+		cu->modes = 0;
+	}
+}
+
 static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 {
 	/*
@@ -416,41 +459,21 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 
 		if (ts < c->ts)
 		{
-			chanuser_t *cu;
-			node_t *n;
-
-			/* the TS changed.  a TS change requires the following things
-			 * to be done to the channel:  reset all modes to nothing, remove
-			 * all status modes on known users on the channel (including ours),
-			 * and set the new TS.
-			 */
-
-			c->modes = 0;
-			c->limit = 0;
-			if (c->key)
-				free(c->key);
-			c->key = NULL;
-
-			LIST_FOREACH(n, c->members.head)
-			{
-				cu = (chanuser_t *)n->data;
-				cu->modes = 0;
-			}
-
+			remove_our_modes(c);
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
-
 			c->ts = ts;
 		}
 
 		channel_mode(NULL, c, modec, modev);
-
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
 		for (i = 0; i < userc; i++)
-			if ((*userv[i] == '\'') || (*userv[i] == '"'))	/* ignore cmodes +I, +e */
-				;
-			else if (*userv[i] == '&')	/* channel ban */
-				chanban_add(c, userv[i] + 1);
+			if (*userv[i] == '&')	/* channel ban */
+				chanban_add(c, userv[i] + 1, 'b');
+			else if (*userv[i] == '"')	/* exception */
+				chanban_add(c, userv[i] + 1, 'e');
+			else if (*userv[i] == '\'')	/* invex */
+				chanban_add(c, userv[i] + 1, 'I');
 			else
 				chanuser_add(c, userv[i]);
 	}
@@ -468,75 +491,35 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 
 		if (ts < c->ts)
 		{
-			chanuser_t *cu;
-			node_t *n;
-
-			/* the TS changed.  a TS change requires the following things
-			 * to be done to the channel:  reset all modes to nothing, remove
-			 * all status modes on known users on the channel (including ours),
-			 * and set the new TS.
-			 */
-
-			c->modes = 0;
-			c->limit = 0;
-			if (c->key)
-				free(c->key);
-			c->key = NULL;
-
-			LIST_FOREACH(n, c->members.head)
-			{
-				cu = (chanuser_t *)n->data;
-				cu->modes = 0;
-			}
-
+			remove_our_modes(c);
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
-
 			c->ts = ts;
 		}
 
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
 		for (i = 0; i < userc; i++)
-			if ((*userv[i] == '\'') || (*userv[i] == '"'))	/* ignore cmodes +I, +e */
-				;
-			else if (*userv[i] == '&')	/* channel ban */
-				chanban_add(c, userv[i] + 1);
+			if (*userv[i] == '&')	/* channel ban */
+				chanban_add(c, userv[i] + 1, 'b');
+			else if (*userv[i] == '"')	/* exception */
+				chanban_add(c, userv[i] + 1, 'e');
+			else if (*userv[i] == '\'')	/* invex */
+				chanban_add(c, userv[i] + 1, 'I');
 			else
 				chanuser_add(c, userv[i]);
 	}
 	else if (parc == 2)
 	{
 		c = channel_find(parv[1]);
-		/* XXX what if the channel doesn't exist? */
+		/* XXX what if the channel doesn't exist? -- XXX in which case, doesn't the ircd realise the chan doesn't exist...??*/
 		ts = atol(parv[0]);
 
 		if (ts < c->ts)
 		{
-			chanuser_t *cu;
-			node_t *n;
-
-			/* the TS changed.  a TS change requires the following things
-			 * to be done to the channel:  reset all modes to nothing, remove
-			 * all status modes on known users on the channel (including ours),
-			 * and set the new TS.
-			 */
-
-			c->modes = 0;
-			c->limit = 0;
-			if (c->key)
-				free(c->key);
-			c->key = NULL;
-
-			LIST_FOREACH(n, c->members.head)
-			{
-				cu = (chanuser_t *)n->data;
-				cu->modes = 0;
-			}
-
+			remove_our_modes(c);
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
-
 			c->ts = ts;
-			/* XXX lost modes! */
+			/* XXX lost modes! -- XXX - pardon? why do we worry about this? TS reset requires modes reset.. */
 		}
 
 		chanuser_add(c, origin);
@@ -586,16 +569,9 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		user_mode(u, parv[7]);
 
-		/* Ok, we have the user ready to go.
-		 * Here's the deal -- if the user's SVID is before
-		 * the start time, and not 0, then check to see
-		 * if it's a registered account or not.
-		 *
-		 * If it IS registered, deal with that accordingly,
-		 * via handle_burstlogin(). --nenolod
-		 */
-		/* Changed to just check umode +r for now -- jilles */
-		if (strchr(parv[7], 'r'))
+		/* If the user's SVID is equal to their nick TS,
+		 * they're properly logged in -- jilles */
+		if (u->ts > 100 && (uint32_t)atoi(parv[6]) == u->ts)
 			handle_burstlogin(u, parv[0]);
 
 		handle_nickchange(u);
@@ -616,9 +592,15 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
 
 		/* fix up +r if necessary -- jilles */
-		if (u->myuser != NULL && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
-			/* changed nick to registered one, reset +r */
-			sts(":%s SVS2MODE %s +rd %ld", nicksvs.nick, parv[0], time(NULL));
+		if (nicksvs.me != NULL && u->myuser != NULL && !(u->myuser->flags & MU_WAITAUTH) && irccasecmp(u->nick, parv[0]))
+		{
+			if (!irccasecmp(parv[0], u->myuser->name))
+				/* changed nick to registered one, reset +r */
+				sts(":%s SVS2MODE %s +rd %ld", nicksvs.nick, parv[0], atoi(parv[1]));
+			else if (!irccasecmp(u->nick, u->myuser->name))
+				/* changed from registered nick, remove +r */
+				sts(":%s SVS2MODE %s -r+d 0", nicksvs.nick, parv[0]);
+		}
 
 		/* remove the current one from the list */
 		n = node_find(u, &userlist[u->hash]);
@@ -651,7 +633,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -714,10 +696,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -745,32 +727,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -827,7 +809,7 @@ void _modinit(module_t * m)
 	join_sts = &unreal_join_sts;
 	kick = &unreal_kick;
 	msg = &unreal_msg;
-	notice = &unreal_notice;
+	notice_sts = &unreal_notice;
 	numeric_sts = &unreal_numeric_sts;
 	skill = &unreal_skill;
 	part = &unreal_part;
@@ -840,6 +822,8 @@ void _modinit(module_t * m)
 	ircd_on_logout = &unreal_on_logout;
 	jupe = &unreal_jupe;
 	sethost_sts = &unreal_sethost_sts;
+	fnc_sts = &unreal_fnc_sts;
+	invite_sts = &unreal_invite_sts;
 
 	mode_list = unreal_mode_list;
 	ignore_mode_list = unreal_ignore_mode_list;

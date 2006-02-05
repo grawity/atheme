@@ -4,7 +4,7 @@
  *
  * IRCServices's weird password encryption thingy, taken from Anope 1.6.3.
  *
- * $Id: ircservices.c 4071 2005-12-10 20:03:28Z nenolod $
+ * $Id: ircservices.c 4745 2006-01-31 02:26:19Z nenolod $
  */
 /* Include file for high-level encryption routines.
  *
@@ -89,9 +89,9 @@ typedef void *POINTER;
 #define S43 15
 #define S44 21
 
-static void MD5Transform(UINT4[4], unsigned char[64]);
+static void MD5Transform(UINT4[4], unsigned const char[64]);
 static void Encode(unsigned char *, UINT4 *, unsigned int);
-static void Decode(UINT4 *, unsigned char *, unsigned int);
+static void Decode(UINT4 *, unsigned const char *, unsigned int);
 
 static unsigned char PADDING[64] = {
     0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -151,12 +151,12 @@ static void MD5Init(MD5_CTX *context)
   operation, processing another message block, and updating the
   context.
  */
-static void MD5Update(MD5_CTX *context, unsigned char *input, unsigned int inputLen)
+static void MD5Update(MD5_CTX *context, unsigned const char *input, unsigned int inputLen)
 {
-    unsigned int i, index, partLen;
+    unsigned int i, ii, partLen;
 
     /* Compute number of bytes mod 64 */
-    index = (unsigned int) ((context->count[0] >> 3) & 0x3F);
+    ii = (unsigned int) ((context->count[0] >> 3) & 0x3F);
 
     /* Update number of bits */
     if ((context->count[0] += ((UINT4) inputLen << 3))
@@ -164,25 +164,25 @@ static void MD5Update(MD5_CTX *context, unsigned char *input, unsigned int input
         context->count[1]++;
     context->count[1] += ((UINT4) inputLen >> 29);
 
-    partLen = 64 - index;
+    partLen = 64 - ii;
 
     /* Transform as many times as possible.
      */
     if (inputLen >= partLen) {
         memcpy
-            ((POINTER) & context->buffer[index], (POINTER) input, partLen);
+            ((POINTER) & context->buffer[ii], input, partLen);
         MD5Transform(context->state, context->buffer);
 
         for (i = partLen; i + 63 < inputLen; i += 64)
             MD5Transform(context->state, &input[i]);
 
-        index = 0;
+        ii = 0;
     } else
         i = 0;
 
     /* Buffer remaining input */
     memcpy
-        ((POINTER) & context->buffer[index], (POINTER) & input[i],
+        ((POINTER) & context->buffer[ii], &input[i],
          inputLen - i);
 }
 
@@ -192,15 +192,15 @@ static void MD5Update(MD5_CTX *context, unsigned char *input, unsigned int input
 static void MD5Final(unsigned char digest[16], MD5_CTX *context)
 {
     unsigned char bits[8];
-    unsigned int index, padLen;
+    unsigned int ii, padLen;
 
     /* Save number of bits */
     Encode(bits, context->count, 8);
 
     /* Pad out to 56 mod 64.
      */
-    index = (unsigned int) ((context->count[0] >> 3) & 0x3f);
-    padLen = (index < 56) ? (56 - index) : (120 - index);
+    ii = (unsigned int) ((context->count[0] >> 3) & 0x3f);
+    padLen = (ii < 56) ? (56 - ii) : (120 - ii);
     MD5Update(context, PADDING, padLen);
 
     /* Append length (before padding) */
@@ -213,11 +213,8 @@ static void MD5Final(unsigned char digest[16], MD5_CTX *context)
     memset((POINTER) context, 0, sizeof(*context));
 }
 
-/* MD5 basic transformation. Transforms state based on block.
- */
-static void MD5Transform(state, block)
-UINT4 state[4];
-unsigned char block[64];
+/* MD5 basic transformation. Transforms state based on block. */
+static void MD5Transform(UINT4 state[4], unsigned const char block[64])
 {
     UINT4 a = state[0], b = state[1], c = state[2], d = state[3], x[16];
 
@@ -308,10 +305,7 @@ unsigned char block[64];
 /* Encodes input (UINT4) into output (unsigned char). Assumes len is
   a multiple of 4.
  */
-static void Encode(output, input, len)
-unsigned char *output;
-UINT4 *input;
-unsigned int len;
+static void Encode(unsigned char *output, UINT4 *input, unsigned int len)
 {
     unsigned int i, j;
 
@@ -326,10 +320,7 @@ unsigned int len;
 /* Decodes input (unsigned char) into output (UINT4). Assumes len is
   a multiple of 4.
  */
-static void Decode(output, input, len)
-UINT4 *output;
-unsigned char *input;
-unsigned int len;
+static void Decode(UINT4 *output, unsigned const char *input, unsigned int len)
 {
     unsigned int i, j;
 
@@ -373,8 +364,9 @@ static int myencrypt(const char *src, int len, char *dest, int size)
     memset(&digest, 0, sizeof(digest));
 
     MD5Init(&context);
-    MD5Update(&context, (unsigned char *) src, (size_t) len);
+    MD5Update(&context, (unsigned const char *) src, (size_t) len);
     MD5Final((unsigned char *) digest, &context);
+
     for (i = 0; i < 32; i += 2)
         dest2[i / 2] = XTOI(digest[i]) << 4 | XTOI(digest[i + 1]);
 
@@ -422,7 +414,7 @@ static int check_password(const char *plaintext, const char *password)
 DECLARE_MODULE_V1
 (
 	"crypto/ircservices", FALSE, _modinit, _moddeinit,
-	"$Id: ircservices.c 4071 2005-12-10 20:03:28Z nenolod $",
+	"$Id: ircservices.c 4745 2006-01-31 02:26:19Z nenolod $",
 	"Jilles Tjoelker <jilles@stack.nl>"
 );
 

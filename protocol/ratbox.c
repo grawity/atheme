@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for ratbox-based ircd.
  *
- * $Id: ratbox.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: ratbox.c 4639 2006-01-21 22:06:41Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/ratbox.h"
 
-DECLARE_MODULE_V1("protocol/ratbox", TRUE, _modinit, NULL, "$Id: ratbox.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ratbox", TRUE, _modinit, NULL, "$Id: ratbox.c 4639 2006-01-21 22:06:41Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t Ratbox = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+",                            /* Mode we set for halfops. */
-	PROTOCOL_RATBOX			/* Protocol type */
+	PROTOCOL_RATBOX,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"beI",                          /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ ratbox_mode_list[] = {
@@ -45,8 +49,6 @@ struct cmode_ ratbox_mode_list[] = {
 };
 
 struct cmode_ ratbox_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
   { '\0', 0 }
 };
 
@@ -64,6 +66,7 @@ struct cmode_ ratbox_prefix_mode_list[] = {
 
 static boolean_t use_rserv_support = FALSE;
 static boolean_t use_tb = FALSE;
+static boolean_t use_rsfnc = FALSE;
 
 static void server_eob(server_t *s);
 
@@ -95,7 +98,7 @@ static uint8_t ratbox_server_login(void)
 
 	me.bursting = TRUE;
 
-	sts("CAPAB :QS KLN UNKLN ENCAP TB SERVICES");
+	sts("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES");
 	sts("SERVER %s 1 :%s", me.name, me.desc);
 	sts("SVINFO %d 3 0 :%ld", ircd->uses_uid ? 6 : 5, CURRTIME);
 
@@ -106,13 +109,24 @@ static uint8_t ratbox_server_login(void)
 static void ratbox_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	if (ircd->uses_uid)
-		sts(":%s UID %s 1 %ld +%s%s %s %s 0 %s :%s",
+		sts(":%s UID %s 1 %ld +%s%s%s %s %s 0 %s :%s",
 			me.numeric, nick, CURRTIME, "io",
+			chansvs.fantasy ? "" : "D",
 			use_rserv_support ? "S" : "", user, host, uid, real);
 	else
-		sts("NICK %s 1 %ld +%s%s %s %s %s :%s",
-			nick, CURRTIME, "io", use_rserv_support ? "S" : "",
+		sts("NICK %s 1 %ld +%s%s%s %s %s %s :%s",
+			nick, CURRTIME, "io", chansvs.fantasy ? "" : "D",
+			use_rserv_support ? "S" : "",
 			user, host, me.name, real);
+}
+
+/* invite a user to a channel */
+static void ratbox_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	/* some older TSora ircds require the sender to be
+	 * on the channel, but hyb7/ratbox don't
+	 * let's just assume it's not necessary -- jilles */
+	sts(":%s INVITE %s %s", CLIENT_NAME(sender), CLIENT_NAME(target), channel->name);
 }
 
 static void ratbox_quit_sts(user_t *u, char *reason)
@@ -215,6 +229,15 @@ static void ratbox_notice(char *from, char *target, char *fmt, ...)
 		 * hyb6 won't accept this, oh well, they'll have to
 		 * enable join_chans -- jilles */
 		sts(":%s NOTICE %s :%s: %s", ME, target, u->nick, buf);
+}
+
+static void ratbox_wallchops(user_t *sender, channel_t *channel, char *message)
+{
+	if (chanuser_find(channel, sender))
+		sts(":%s NOTICE @%s :%s", CLIENT_NAME(sender), channel->name,
+				message);
+	else /* do not join for this, everyone would see -- jilles */
+		generic_wallchops(sender, channel, message);
 }
 
 /* numeric wrapper */
@@ -345,14 +368,15 @@ static void ratbox_on_login(char *origin, char *user, char *wantedhost)
 }
 
 /* protocol-specific stuff to do on login */
-static void ratbox_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t ratbox_on_logout(char *origin, char *user, char *wantedhost)
 {
 	user_t *u = user_find(origin);
 
 	if (!me.connected || !use_rserv_support || !u)
-		return;
+		return FALSE;
 
 	sts(":%s ENCAP * SU %s", ME, CLIENT_NAME(u));
+	return FALSE;
 }
 
 static void ratbox_jupe(char *server, char *reason)
@@ -362,6 +386,19 @@ static void ratbox_jupe(char *server, char *reason)
 
 	sts(":%s SQUIT %s :%s", CLIENT_NAME(opersvs.me->me), server, reason);
 	sts(":%s SERVER %s 2 :%s", me.name, server, reason);
+}
+
+static void ratbox_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
+{
+	if (use_rsfnc)
+		/* XXX assumes whole net has it -- jilles */
+		sts(":%s ENCAP %s RSFNC %s %s %lu %lu", ME,
+			u->server->name,
+			CLIENT_NAME(u), newnick,
+			(unsigned long)(CURRTIME - 60),
+			(unsigned long)u->ts);
+	else
+		generic_fnc_sts(source, u, newnick, type);
 }
 
 static void m_topic(char *origin, uint8_t parc, char *parv[])
@@ -622,6 +659,7 @@ static void m_bmask(char *origin, uint8_t parc, char *parv[])
 	uint8_t ac, i;
 	char *av[256];
 	channel_t *c = channel_find(parv[1]);
+	int type;
 
 	/* :1JJ BMASK 1127474361 #services b :*!*@*evil* *!*eviluser1@* */
 	if (!c)
@@ -629,15 +667,18 @@ static void m_bmask(char *origin, uint8_t parc, char *parv[])
 		slog(LG_DEBUG, "m_bmask(): got bmask for unknown channel");
 		return;
 	}
-
-	/* if it isn't a ban, we don't care. */
-	if (*parv[2] != 'b')
+	
+	type = *parv[2];
+	if (!strchr(ircd->ban_like_modes, type))
+	{
+		slog(LG_DEBUG, "m_bmask(): got unknown type '%c'", type);
 		return;
+	}
 
 	ac = sjtoken(parv[parc - 1], ' ', av);
 
 	for (i = 0; i < ac; i++)
-		chanban_add(c, av[i]);
+		chanban_add(c, av[i], type);
 }
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
@@ -792,7 +833,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -864,10 +905,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]) || !irccasecmp(chansvs.me->me->uid, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -919,32 +960,32 @@ static void m_sid(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_pass(char *origin, uint8_t parc, char *parv[])
@@ -1008,6 +1049,7 @@ static void m_capab(char *origin, uint8_t parc, char *parv[])
 
 	use_rserv_support = FALSE;
 	use_tb = FALSE;
+	use_rsfnc = FALSE;
 	for (p = strtok(parv[0], " "); p != NULL; p = strtok(NULL, " "))
 	{
 		if (!irccasecmp(p, "SERVICES"))
@@ -1019,6 +1061,11 @@ static void m_capab(char *origin, uint8_t parc, char *parv[])
 		{
 			slog(LG_DEBUG, "m_capab(): uplink does topic bursting, using if appropriate.");
 			use_tb = TRUE;
+		}
+		if (!irccasecmp(p, "RSFNC"))
+		{
+			slog(LG_DEBUG, "m_capab(): uplink does RSFNC, assuming whole net has it.");
+			use_rsfnc = TRUE;
 		}
 	}
 
@@ -1050,7 +1097,8 @@ void _modinit(module_t * m)
 	join_sts = &ratbox_join_sts;
 	kick = &ratbox_kick;
 	msg = &ratbox_msg;
-	notice = &ratbox_notice;
+	notice_sts = &ratbox_notice;
+	wallchops = &ratbox_wallchops;
 	numeric_sts = &ratbox_numeric_sts;
 	skill = &ratbox_skill;
 	part = &ratbox_part;
@@ -1062,6 +1110,8 @@ void _modinit(module_t * m)
 	ircd_on_login = &ratbox_on_login;
 	ircd_on_logout = &ratbox_on_logout;
 	jupe = &ratbox_jupe;
+	fnc_sts = &ratbox_fnc_sts;
+	invite_sts = &ratbox_invite_sts;
 
 	mode_list = ratbox_mode_list;
 	ignore_mode_list = ratbox_ignore_mode_list;

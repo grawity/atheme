@@ -3,16 +3,16 @@ dnl Rights to this code are documented in doc/LICENSE.
 dnl
 dnl This file is the autoconf stub.
 dnl
-dnl $Id: configure.ac 3971 2005-11-25 03:06:59Z nenolod $
+dnl $Id: configure.ac 4775 2006-02-04 21:15:19Z nenolod $
 
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
 
-AC_INIT(atheme, 0.3, bugs@atheme.org)
+AC_INIT(atheme, 1.0, bugs@atheme.org)
 
 dnl Sneaky way to get an id into the configure script.
-AC_COPYRIGHT([$Id: configure.ac 3971 2005-11-25 03:06:59Z nenolod $])
+AC_COPYRIGHT([$Id: configure.ac 4775 2006-02-04 21:15:19Z nenolod $])
 
 AC_CONFIG_AUX_DIR(autoconf)
 
@@ -25,7 +25,8 @@ if test "$prefix" = "NONE"; then
 	prefix="${ac_default_prefix}"
 fi
 
-AC_DEFINE_UNQUOTED([PREFIX], "${prefix}", [Installation prefix.])
+dnl the following is wrong! -- jilles
+dnl AC_DEFINE_UNQUOTED([PREFIX], "${prefix}", [Installation prefix.])
 
 dnl Checks for programs.
 AC_ISC_POSIX
@@ -142,6 +143,34 @@ echo " "
 echo "Tweaks"
 echo " "
 
+DOCDIR='${prefix}/doc'
+MODDIR='${exec_prefix}'
+SHAREDIR='${prefix}'
+
+FHSPATHS="no"
+AC_MSG_CHECKING(if you want FHS-like pathnames)
+AC_ARG_ENABLE(fhs-paths,
+AC_HELP_STRING([--enable-fhs-paths],[ Use more FHS-like pathnames.]),
+[
+  case "$enableval" in
+  yes)
+    FHSPATHS="yes"
+    DOCDIR='${datadir}/doc/atheme'
+    MODDIR='${libdir}/atheme'
+    SHAREDIR='${datadir}/atheme'
+    ;;
+  no)
+    FHSPATHS="no"
+    ;;
+  esac
+])
+AC_MSG_RESULT($FHSPATHS)
+AC_SUBST(DOCDIR)
+AC_SUBST(MODDIR)
+AC_SUBST(SHAREDIR)
+dnl the following is wrong! -- jilles
+dnl AC_DEFINE_UNQUOTED([MODDIR], "${MODDIR}", [Module root directory.])
+
 LARGENET="no"
 AC_MSG_CHECKING(if you want large network support)
 AC_ARG_ENABLE(large-net,
@@ -221,10 +250,13 @@ if test -d /usr/include/mysql; then
 	my_inc_dir="/usr/include/mysql"
 elif test -d /usr/local/include/mysql; then
 	my_inc_dir="/usr/local/include/mysql"
+	LDFLAGS="$LDFLAGS -L/usr/local/lib"
 elif test -d /usr/local/mysql/include; then
 	my_inc_dir="/usr/local/mysql/include"
+	LDFLAGS="$LDFLAGS -L/usr/local/mysql/lib"
 elif test -d /opt/mysql/include; then
 	my_inc_dir="/opt/mysql/include"
+	LDFLAGS="$LDFLAGS -L/opt/mysql/lib"
 else
 	my_inc_dir="no"
 	MYLIB=""
@@ -499,7 +531,7 @@ ac_save_LDFLAGS="${LDFLAGS} -pg"
 LDFLAGS=${ac_save_LDFLAGS}
 ])
 
-ac_save_CFLAGS="${CFLAGS} ${orig_CFLAGS} ${CWARNS}"
+ac_save_CFLAGS="${CFLAGS} ${orig_CFLAGS} ${CWARNS} -DPREFIX=\\\"\${prefix}\\\" -DMODDIR=\\\"\${MODDIR}\\\" -DSHAREDIR=\\\"${SHAREDIR}\\\""
 CFLAGS=${ac_save_CFLAGS}
 dnl export CFLAGS
 
@@ -521,13 +553,17 @@ AC_OUTPUT(Makefile \
 	modules/userserv/Makefile \
 	modules/xmlrpc/Makefile \
 	modules/memoserv/Makefile \
+	modules/helpserv/Makefile \
 	protocol/Makefile \
 	src/Makefile)
 
+d=`eval echo ${MODDIR}`
+d=`eval echo $d`
 echo "
 Configuration:
         Atheme version       : ${PACKAGE_VERSION}
         Installation prefix  : ${prefix}
+        Module root directory: `eval echo $d`
         Large network support: ${LARGENET}
         PostgreSQL support   : ${POSTGRESQL}
         MySQL support        : ${MYSQL}

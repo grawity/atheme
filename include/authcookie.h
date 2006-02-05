@@ -4,7 +4,7 @@
  *
  * Remote authentication ticket management.
  *
- * $Id: authcookie.h 3849 2005-11-11 12:41:32Z jilles $
+ * $Id: authcookie.h 3847 2005-11-11 12:39:20Z jilles $
  */
 
 #ifndef AUTHCOOKIE_H

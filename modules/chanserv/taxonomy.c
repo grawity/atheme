@@ -4,7 +4,7 @@
  *
  * Lists object properties via their metadata table.
  *
- * $Id: taxonomy.c 3941 2005-11-17 00:24:49Z jilles $
+ * $Id: taxonomy.c 4745 2006-01-31 02:26:19Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/taxonomy", FALSE, _modinit, _moddeinit,
-	"$Id: taxonomy.c 3941 2005-11-17 00:24:49Z jilles $",
+	"$Id: taxonomy.c 4745 2006-01-31 02:26:19Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -42,15 +42,14 @@ void _moddeinit()
 void cs_cmd_taxonomy(char *origin)
 {
 	char *target = strtok(NULL, " ");
-	user_t *u = user_find(origin);
-	myuser_t *mu;
+	user_t *u = user_find_named(origin);
 	mychan_t *mc;
 	node_t *n;
 	boolean_t isoper;
 
 	if (!target || *target != '#')
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters for TAXONOMY.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "TAXONOMY");
 		notice(chansvs.nick, origin, "Syntax: TAXONOMY <#channel>");
 		return;
 	}
@@ -61,8 +60,7 @@ void cs_cmd_taxonomy(char *origin)
 		return;
 	}
 
-	isoper = is_ircop(u) || is_sra(u->myuser);
-	/*snoop("TAXONOMY: \2%s\2", origin);*/
+	isoper = has_priv(u, PRIV_CHAN_AUSPEX);
 	if (isoper)
 		logcommand(chansvs.me, u, CMDLOG_ADMIN, "%s TAXONOMY (oper)", mc->name);
 	else

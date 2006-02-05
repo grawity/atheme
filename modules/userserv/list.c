@@ -5,7 +5,7 @@
  * This file contains code for the NickServ LIST function.
  * Based on Alex Lambert's LISTEMAIL.
  *
- * $Id: list.c 3653 2005-11-08 00:49:36Z jilles $
+ * $Id: list.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -13,13 +13,13 @@
 DECLARE_MODULE_V1
 (
 	"userserv/list", FALSE, _modinit, _moddeinit,
-	"$Id: list.c 3653 2005-11-08 00:49:36Z jilles $",
+	"$Id: list.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void us_cmd_list(char *origin);
 
-command_t us_list = { "LIST", "Lists accounts registered matching a given pattern.", AC_IRCOP, us_cmd_list };
+command_t us_list = { "LIST", "Lists accounts registered matching a given pattern.", PRIV_USER_AUSPEX, us_cmd_list };
 
 list_t *us_cmdtree, *us_helptree;
 
@@ -39,7 +39,7 @@ void _moddeinit()
 
 static void us_cmd_list(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	node_t *n;
 	char *nickpattern = strtok(NULL, " ");
@@ -51,7 +51,7 @@ static void us_cmd_list(char *origin)
 
 	if (!nickpattern)
 	{
-		notice(usersvs.nick, origin, "Insufficient parameters specified for \2LIST\2.");
+		notice(usersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "LIST");
 		notice(usersvs.nick, origin, "Syntax: LIST <account pattern>");
 		return;
 	}
@@ -69,11 +69,6 @@ static void us_cmd_list(char *origin)
 				/* in the future we could add a LIMIT parameter */
 				if (matches == 0)
 					notice(usersvs.nick, origin, "Nicknames matching pattern \2%s\2:", nickpattern);
-				if (metadata_find(mu, METADATA_USER, "private:alias:parent"))
-				{
-					notice(usersvs.nick, origin, "- %s (%s) [Child]", mu->name, mu->email);
-				}
-				else
 				notice(usersvs.nick, origin, "- %s (%s)", mu->name, mu->email);
 				matches++;
 			}

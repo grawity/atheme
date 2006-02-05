@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService SET command.
  *
- * $Id: set.c 3685 2005-11-09 01:07:04Z alambert $
+ * $Id: set.c 4631 2006-01-20 16:38:15Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/set", FALSE, _modinit, _moddeinit,
-	"$Id: set.c 3685 2005-11-09 01:07:04Z alambert $",
+	"$Id: set.c 4631 2006-01-20 16:38:15Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -63,7 +63,7 @@ static void ns_cmd_set(char *origin)
 
 	if (!setting || !params)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters specified for \2SET\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "SET");
 		notice(nicksvs.nick, origin, "Syntax: SET <setting> <parameters>");
 		return;
 	}
@@ -80,7 +80,7 @@ static void ns_cmd_set(char *origin)
 
 static void ns_set_email(char *origin, char *name, char *params)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	char *email = strtok(params, " ");
 	myuser_t *mu;
 
@@ -98,14 +98,14 @@ static void ns_set_email(char *origin, char *name, char *params)
 
 	if (!email)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters specified for \2EMAIL\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "EMAIL");
 		notice(nicksvs.nick, origin, "Syntax: SET EMAIL <new e-mail>");
 		return;
 	}
 
 	if (strlen(email) >= EMAILLEN)
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters specified for \2EMAIL\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "EMAIL");
 		return;
 	}
 
@@ -161,7 +161,7 @@ static void ns_set_email(char *origin, char *name, char *params)
 
 static void ns_set_hidemail(char *origin, char *name, char *params)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 
 	if (!(mu = myuser_find(name)))
@@ -185,7 +185,6 @@ static void ns_set_hidemail(char *origin, char *name, char *params)
 			return;
 		}
 
-		snoop("SET:HIDEMAIL:ON: for \2%s\2", mu->name);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET HIDEMAIL ON");
 
 		mu->flags |= MU_HIDEMAIL;
@@ -203,7 +202,6 @@ static void ns_set_hidemail(char *origin, char *name, char *params)
 			return;
 		}
 
-		snoop("SET:HIDEMAIL:OFF: for \2%s\2", mu->name);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET HIDEMAIL OFF");
 
 		mu->flags &= ~MU_HIDEMAIL;
@@ -215,14 +213,14 @@ static void ns_set_hidemail(char *origin, char *name, char *params)
 
 	else
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters specified for \2HIDEMAIL\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "HIDEMAIL");
 		return;
 	}
 }
 
 static void ns_set_emailmemos(char *origin, char *name, char *params)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 
 	if (!(mu = myuser_find(name)))
@@ -245,13 +243,17 @@ static void ns_set_emailmemos(char *origin, char *name, char *params)
 
 	if (!strcasecmp("ON", params))
 	{
+		if (me.mta == NULL)
+		{
+			notice(nicksvs.nick, origin, "Sending email is administratively disabled.");
+			return;
+		}
 		if (MU_EMAILMEMOS & mu->flags)
 		{
 			notice(nicksvs.nick, origin, "The \2EMAILMEMOS\2 flag is already set for \2%s\2.", mu->name);
 			return;
 		}
 
-		snoop("SET:EMAILMEMOS:ON: for \2%s\2 by \2%s\2", mu->name, origin);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET EMAILMEMOS ON");
 		mu->flags |= MU_EMAILMEMOS;
 		notice(nicksvs.nick, origin, "The \2EMAILMEMOS\2 flag has been set for \2%s\2.", mu->name);
@@ -266,7 +268,6 @@ static void ns_set_emailmemos(char *origin, char *name, char *params)
                         return;
                 }
 
-                snoop("SET:EMAILMEMOS:OFF: for \2%s\2 by \2%s\2", mu->name, origin);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET EMAILMEMOS OFF");
                 mu->flags &= ~MU_EMAILMEMOS;
                 notice(nicksvs.nick, origin, "The \2EMAILMEMOS\2 flag has been removed for \2%s\2.", mu->name);
@@ -275,7 +276,7 @@ static void ns_set_emailmemos(char *origin, char *name, char *params)
 
         else
         {
-                notice(nicksvs.nick, origin, "Invalid parameters specified for \2EMAILMEMOS\2.");
+                notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "EMAILMEMOS");
                 return;
         }
 }
@@ -284,7 +285,7 @@ static void ns_set_emailmemos(char *origin, char *name, char *params)
 
 static void ns_set_nomemo(char *origin, char *name, char *params)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 
 	if (!(mu = myuser_find(name)))
@@ -307,7 +308,6 @@ static void ns_set_nomemo(char *origin, char *name, char *params)
 			return;
                 }
 
-		snoop("SET:NOMEMO:ON: for \2%s\2 by \2%s\2", mu->name, origin);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET NOMEMO ON");
                 mu->flags |= MU_NOMEMO;
                 notice(nicksvs.nick, origin, "The \2NOMEMO\2 flag has been set for \2%s\2.", mu->name);
@@ -322,7 +322,6 @@ static void ns_set_nomemo(char *origin, char *name, char *params)
 			return;
 		}
 
-		snoop("SET:NOMEMO:OFF: for \2%s\2 by \2%s\2", mu->name, origin);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET NOMEMO OFF");
 		mu->flags &= ~MU_NOMEMO;
 		notice(nicksvs.nick, origin, "The \2NOMEMO\2 flag has been removed for \2%s\2.", mu->name);
@@ -331,7 +330,7 @@ static void ns_set_nomemo(char *origin, char *name, char *params)
 	
 	else
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters specified for \2NOMEMO\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "NOMEMO");
 		return;
 	}
 }
@@ -339,7 +338,7 @@ static void ns_set_nomemo(char *origin, char *name, char *params)
 
 static void ns_set_neverop(char *origin, char *name, char *params)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 
 	if (!(mu = myuser_find(name)))
@@ -362,7 +361,6 @@ static void ns_set_neverop(char *origin, char *name, char *params)
 			return;
 		}
 
-		snoop("SET:NEVEROP:ON: for \2%s\2 by \2%s\2", mu->name, origin);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET NEVEROP ON");
 
 		mu->flags |= MU_NEVEROP;
@@ -380,7 +378,6 @@ static void ns_set_neverop(char *origin, char *name, char *params)
 			return;
 		}
 
-		snoop("SET:NEVEROP:OFF: for \2%s\2 by \2%s\2", mu->name, origin);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET NEVEROP OFF");
 
 		mu->flags &= ~MU_NEVEROP;
@@ -392,14 +389,14 @@ static void ns_set_neverop(char *origin, char *name, char *params)
 
 	else
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters specified for \2NEVEROP\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "NEVEROP");
 		return;
 	}
 }
 
 static void ns_set_noop(char *origin, char *name, char *params)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 
 	if (!(mu = myuser_find(name)))
@@ -423,7 +420,6 @@ static void ns_set_noop(char *origin, char *name, char *params)
 			return;
 		}
 
-		snoop("SET:NOOP:ON: for \2%s\2", mu->name);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET NOOP ON");
 
 		mu->flags |= MU_NOOP;
@@ -441,7 +437,6 @@ static void ns_set_noop(char *origin, char *name, char *params)
 			return;
 		}
 
-		snoop("SET:NOOP:OFF: for \2%s\2", mu->name);
 		logcommand(nicksvs.me, u, CMDLOG_SET, "SET NOOP OFF");
 
 		mu->flags &= ~MU_NOOP;
@@ -453,14 +448,14 @@ static void ns_set_noop(char *origin, char *name, char *params)
 
 	else
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters specified for \2NOOP\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "NOOP");
 		return;
 	}
 }
 
 static void ns_set_property(char *origin, char *name, char *params)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	char *property = strtok(params, " ");
 	char *value = strtok(NULL, "");
@@ -483,13 +478,14 @@ static void ns_set_property(char *origin, char *name, char *params)
 		return;
 	}
 
-	if (strchr(property, ':') && !is_ircop(u) && !is_sra(mu))
+	if (strchr(property, ':') && !has_priv(u, PRIV_METADATA))
 	{
 		notice(nicksvs.nick, origin, "Invalid property name.");
 		return;
 	}
 
-	snoop("SET:PROPERTY: \2%s\2: \2%s\2/\2%s\2", mu->name, property, value);
+	if (strchr(property, ':'))
+		snoop("SET:PROPERTY: \2%s\2: \2%s\2/\2%s\2", mu->name, property, value);
 
 	if (mu->metadata.count >= me.mdlimit)
 	{
@@ -528,7 +524,7 @@ static void ns_set_property(char *origin, char *name, char *params)
 static void ns_set_password(char *origin, char *name, char *params)
 {
 	char *password = strtok(params, " ");
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 
 	if (!(mu = myuser_find(name)))
@@ -545,7 +541,7 @@ static void ns_set_password(char *origin, char *name, char *params)
 
 	if (strlen(password) > 32)
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters specified for \2PASSWORD\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "PASSWORD");
 		return;
 	}
 
@@ -556,7 +552,7 @@ static void ns_set_password(char *origin, char *name, char *params)
 		return;
 	}
 
-	snoop("SET:PASSWORD: \2%s\2 as \2%s\2 for \2%s\2", u->nick, mu->name, mu->name);
+	/*snoop("SET:PASSWORD: \2%s\2 as \2%s\2 for \2%s\2", u->nick, mu->name, mu->name);*/
 	logcommand(nicksvs.me, u, CMDLOG_SET, "SET PASSWORD");
 
 	set_password(mu, password);
@@ -585,29 +581,23 @@ static struct set_command_ ns_set_commands[] = {
 
 static struct set_command_ *ns_set_cmd_find(char *origin, char *command)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	struct set_command_ *c;
 
 	for (c = ns_set_commands; c->name; c++)
 	{
 		if (!strcasecmp(command, c->name))
 		{
-			/* no special access required, so go ahead... */
-			if (c->access == AC_NONE)
-				return c;
-
-			/* sra? */
-			if ((c->access == AC_SRA) && (is_sra(u->myuser)))
-				return c;
-
-			/* ircop? */
-			if ((c->access == AC_IRCOP) && (is_ircop(u)))
+			if (has_priv(u, c->access))
 				return c;
 
 			/* otherwise... */
 			else
 			{
-				notice(nicksvs.nick, origin, "You are not authorized to perform this operation.");
+				if (has_any_privs(u))
+					notice(nicksvs.nick, origin, "You do not have %s privilege.", c->access);
+				else
+					notice(nicksvs.nick, origin, "You are not authorized to perform this operation.");
 				return NULL;
 			}
 		}

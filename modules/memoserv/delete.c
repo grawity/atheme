@@ -4,7 +4,7 @@
  *
  * This file contains code for the Memoserv DELETE function
  *
- * $Id: delete.c 3335 2005-10-31 03:48:14Z nenolod $
+ * $Id: delete.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/delete", FALSE, _modinit, _moddeinit,
-	"$Id: delete.c 3335 2005-10-31 03:48:14Z nenolod $",
+	"$Id: delete.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ms_cmd_delete(char *origin);
 
-command_t ms_delete = { "DELETE", "Deletes memos",
+command_t ms_delete = { "DELETE", "Deletes memos.",
                         AC_NONE, ms_cmd_delete };
 command_t ms_del = { "DEL", "Alias for DELETE",
 			AC_NONE, ms_cmd_delete };
@@ -45,7 +45,7 @@ void _moddeinit()
 static void ms_cmd_delete(char *origin)
 {
 	/* Misc structs etc */
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu = u->myuser;
 	node_t *n, *tn;
 	uint8_t i = 0, delcount = 0, memonum = 0, deleteall = 0;
@@ -58,7 +58,7 @@ static void ms_cmd_delete(char *origin)
 	if (!arg1)
 	{
 		notice(memosvs.nick, origin, 
-			"Insufficient parameters specified for \2DELETE\2.");
+			STR_INSUFFICIENT_PARAMS, "DELETE");
 		
 		notice(memosvs.nick, origin, "Syntax: DELETE ALL|message id");
 		return;

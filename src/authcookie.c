@@ -4,7 +4,7 @@
  *
  * Remote authentication cookie handling. (think kerberos.)
  *
- * $Id: authcookie.c 3849 2005-11-11 12:41:32Z jilles $
+ * $Id: authcookie.c 3847 2005-11-11 12:39:20Z jilles $
  */
 
 #include "atheme.h"

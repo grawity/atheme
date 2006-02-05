@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ IDENTIFY function.
  *
- * $Id: identify.c 4015 2005-12-07 14:40:57Z jilles $
+ * $Id: identify.c 4651 2006-01-21 23:37:16Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/identify", FALSE, _modinit, _moddeinit,
-	"$Id: identify.c 4015 2005-12-07 14:40:57Z jilles $",
+	"$Id: identify.c 4651 2006-01-21 23:37:16Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -45,7 +45,7 @@ void _moddeinit()
 
 static void ns_cmd_identify(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	chanuser_t *cu;
 	chanacs_t *ca;
@@ -67,7 +67,7 @@ static void ns_cmd_identify(char *origin)
 
 	if (!target && !password)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters for \2IDENTIFY\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "IDENTIFY");
 		notice(nicksvs.nick, origin, "Syntax: IDENTIFY [nick] <password>");
 		return;
 	}
@@ -92,6 +92,9 @@ static void ns_cmd_identify(char *origin)
 		notice(nicksvs.nick, origin, "You are already logged in as \2%s\2.", mu->name);
 		return;
 	}
+	else if (u->myuser != NULL && ircd_on_logout(u->nick, u->myuser->name, NULL))
+		/* logout killed the user... */
+		return;
 
 	/* we use this in both cases, so set it up here. may be NULL. */
 	md_failnum = metadata_find(mu, METADATA_USER, "private:loginfail:failnum");
@@ -121,12 +124,9 @@ static void ns_cmd_identify(char *origin)
 		        u->myuser = NULL;
 		}
 
-		/*snoop("LOGIN:AS: \2%s\2 to \2%s\2", u->nick, mu->name);*/
-
-		if (is_sra(mu))
+		if (is_soper(mu))
 		{
-			snoop("SRA: \2%s\2 as \2%s\2", u->nick, mu->name);
-			wallops("\2%s\2 is now an SRA.", u->nick);
+			snoop("SOPER: \2%s\2 as \2%s\2", u->nick, mu->name);
 		}
 
 		myuser_notice(nicksvs.nick, mu, "%s!%s@%s has just authenticated as you (%s)", u->nick, u->user, u->vhost, mu->name);
@@ -181,52 +181,65 @@ static void ns_cmd_identify(char *origin)
 		mu->lastlogin = CURRTIME;
 
 		/* now we get to check for xOP */
+		/* we don't check for host access yet (could match different
+		 * entries because of services cloaks) */
 		LIST_FOREACH(n, mu->chanacs.head)
 		{
 			ca = (chanacs_t *)n->data;
 
 			cu = chanuser_find(ca->mychan->chan, u);
-			if (cu)
+			if (cu && chansvs.me != NULL)
 			{
-				if (should_kick(ca->mychan, ca->myuser))
+				if (ca->level & CA_AKICK && !(ca->level & CA_REMOVE))
 				{
+					/* Stay on channel if this would empty it -- jilles */
+					if (ca->mychan->chan->nummembers <= (config_options.join_chans ? 2 : 1))
+					{
+						ca->mychan->flags |= MC_INHABIT;
+						if (!config_options.join_chans)
+							join(cu->chan->name, chansvs.nick);
+					}
 					ban(chansvs.nick, ca->mychan->name, u);
+					remove_ban_exceptions(chansvs.me->me, channel_find(ca->mychan->name), u);
 					kick(chansvs.nick, ca->mychan->name, u->nick, "User is banned from this channel");
 					continue;
 				}
 
-				if (ircd->uses_owner && should_owner(ca->mychan, ca->myuser))
+				if (ca->level & CA_USEDUPDATE)
+					ca->mychan->used = CURRTIME;
+
+				if (ca->mychan->flags & MC_NOOP || mu->flags & MU_NOOP)
+					continue;
+
+				if (ircd->uses_owner && !(cu->modes & ircd->owner_mode) && should_owner(ca->mychan, ca->myuser))
 				{
 					cmode(chansvs.nick, ca->mychan->name, ircd->owner_mchar, CLIENT_NAME(u));
 					cu->modes |= ircd->owner_mode;
 				}
 
-				if (ircd->uses_protect && should_protect(ca->mychan, ca->myuser))
+				if (ircd->uses_protect && !(cu->modes & ircd->protect_mode) && should_protect(ca->mychan, ca->myuser))
 				{
 					cmode(chansvs.nick, ca->mychan->name, ircd->protect_mchar, CLIENT_NAME(u));
 					cu->modes |= ircd->protect_mode;
 				}
 
-				if (should_op(ca->mychan, ca->myuser))
+				if (!(cu->modes & CMODE_OP) && ca->level & CA_AUTOOP)
 				{
 					cmode(chansvs.nick, ca->mychan->name, "+o", CLIENT_NAME(u));
 					cu->modes |= CMODE_OP;
 				}
 
-				if (ircd->uses_halfops && should_halfop(ca->mychan, ca->myuser))
+				if (ircd->uses_halfops && !(cu->modes & (CMODE_OP | ircd->halfops_mode)) && ca->level & CA_AUTOHALFOP)
 				{
 					cmode(chansvs.nick, ca->mychan->name, "+h", CLIENT_NAME(u));
 					cu->modes |= ircd->halfops_mode;
 				}
 
-				if (should_voice(ca->mychan, ca->myuser))
+				if (!(cu->modes & (CMODE_OP | ircd->halfops_mode | CMODE_VOICE)) && ca->level & CA_AUTOVOICE)
 				{
 					cmode(chansvs.nick, ca->mychan->name, "+v", CLIENT_NAME(u));
 					cu->modes |= CMODE_VOICE;
 				}
-
-				if (ca->level & CA_USEDUPDATE)
-					ca->mychan->used = CURRTIME;
 			}
 		}
 
@@ -241,7 +254,6 @@ static void ns_cmd_identify(char *origin)
 		return;
 	}
 
-	snoop("LOGIN:AF: \2%s\2 to \2%s\2", u->nick, mu->name);
 	logcommand(nicksvs.me, u, CMDLOG_LOGIN, "failed IDENTIFY to %s (bad password)", mu->name);
 
 	notice(nicksvs.nick, origin, "Invalid password for \2%s\2.", mu->name);

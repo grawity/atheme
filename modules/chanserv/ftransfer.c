@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService FTRANSFER function.
  *
- * $Id: ftransfer.c 3785 2005-11-10 22:42:24Z jilles $
+ * $Id: ftransfer.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/ftransfer", FALSE, _modinit, _moddeinit,
-	"$Id: ftransfer.c 3785 2005-11-10 22:42:24Z jilles $",
+	"$Id: ftransfer.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_ftransfer(char *origin);
 
 command_t cs_ftransfer = { "FTRANSFER", "Forces foundership transfer of a channel.",
-                           AC_IRCOP, cs_cmd_ftransfer };
+                           PRIV_CHAN_ADMIN, cs_cmd_ftransfer };
                                                                                    
 list_t *cs_cmdtree;
 list_t *cs_helptree;
@@ -48,12 +48,12 @@ static void cs_cmd_ftransfer(char *origin)
 
 	if (!name || !newfndr)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2FTRANSFER\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FTRANSFER");
 		notice(chansvs.nick, origin, "Syntax: FTRANSFER <#channel> <newfounder>");
 		return;
 	}
 
-	if (!(tmu = myuser_find(newfndr)))
+	if (!(tmu = myuser_find_ext(newfndr)))
 	{
 		notice(chansvs.nick, origin, "\2%s\2 is not registered.", newfndr);
 		return;
@@ -75,7 +75,7 @@ static void cs_cmd_ftransfer(char *origin)
 
 	snoop("FTRANSFER: %s transferred %s from %s to %s", origin, name, mc->founder->name, newfndr);
 	wallops("%s transferred foundership of %s from %s to %s", origin, name, mc->founder->name, newfndr);
-	logcommand(chansvs.me, user_find(origin), CMDLOG_ADMIN, "%s FTRANSFER from %s to %s", mc->name, mc->founder->name, newfndr);
+	logcommand(chansvs.me, user_find_named(origin), CMDLOG_ADMIN, "%s FTRANSFER from %s to %s", mc->name, mc->founder->name, newfndr);
 	notice(chansvs.nick, origin, "Foundership of \2%s\2 has been transferred from \2%s\2 to \2%s\2.",
 		name, mc->founder->name, newfndr);
 

@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService INFO functions.
  *
- * $Id: info.c 3807 2005-11-11 02:02:22Z jilles $
+ * $Id: info.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/info", FALSE, _modinit, _moddeinit,
-	"$Id: info.c 3807 2005-11-11 02:02:22Z jilles $",
+	"$Id: info.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -41,24 +41,25 @@ void _moddeinit()
 
 static void cs_cmd_info(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	mychan_t *mc;
 	char *name = strtok(NULL, " ");
 	char buf[BUFSIZE], strfbuf[32];
 	struct tm tm;
 	metadata_t *md;
+	hook_channel_req_t req;
 
 	if (!name)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2INFO\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "INFO");
 		notice(chansvs.nick, origin, "Syntax: INFO <#channel>");
 		return;
 	}
 
 	if (*name != '#')
 	{
-		notice(chansvs.nick, origin, "Invalid parameters specified for \2INFO\2.");
+		notice(chansvs.nick, origin, STR_INVALID_PARAMS, "INFO");
 		notice(chansvs.nick, origin, "Syntax: INFO <#channel>");
 		return;
 	}
@@ -69,7 +70,7 @@ static void cs_cmd_info(char *origin)
 		return;
 	}
 
-	if (!(is_ircop(u) || is_sra(u->myuser)) && (md = metadata_find(mc, METADATA_CHANNEL, "private:close:closer")))
+	if (!has_priv(u, PRIV_CHAN_AUSPEX) && (md = metadata_find(mc, METADATA_CHANNEL, "private:close:closer")))
 	{
 		notice(chansvs.nick, origin, "\2%s\2 has been closed down by the %s administration.", mc->name, me.netname);
 		return;
@@ -78,7 +79,7 @@ static void cs_cmd_info(char *origin)
 	tm = *localtime(&mc->registered);
 	strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &tm);
 
-	notice(chansvs.nick, origin, "Information on \2%s\2", mc->name);
+	notice(chansvs.nick, origin, "Information on \2%s\2:", mc->name);
 
 	if (LIST_LENGTH(&mc->founder->logins))
 		notice(chansvs.nick, origin, "Founder    : %s (logged in)", mc->founder->name);
@@ -155,6 +156,13 @@ static void cs_cmd_info(char *origin)
 
 		strcat(buf, "VERBOSE");
 	}
+	if (MC_VERBOSE_OPS & mc->flags)
+	{
+		if (*buf)
+			strcat(buf, " ");
+
+		strcat(buf, "VERBOSE_OPS");
+	}
 
 	if (MC_STAFFONLY & mc->flags)
 	{
@@ -175,17 +183,17 @@ static void cs_cmd_info(char *origin)
 	if (*buf)
 		notice(chansvs.nick, origin, "Flags      : %s", buf);
 
-	if ((is_ircop(u) || is_sra(u->myuser)) && (md = metadata_find(mc, METADATA_CHANNEL, "private:mark:setter")))
+	if (has_priv(u, PRIV_CHAN_AUSPEX) && (md = metadata_find(mc, METADATA_CHANNEL, "private:mark:setter")))
 	{
 		char *setter = md->value;
 		char *reason;
 		time_t ts;
 
 		md = metadata_find(mc, METADATA_CHANNEL, "private:mark:reason");
-		reason = md->value;
+		reason = md != NULL ? md->value : "unknown";
 
 		md = metadata_find(mc, METADATA_CHANNEL, "private:mark:timestamp");
-		ts = atoi(md->value);
+		ts = md != NULL ? atoi(md->value) : 0;
 
 		tm = *localtime(&ts);
 		strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &tm);
@@ -193,23 +201,27 @@ static void cs_cmd_info(char *origin)
 		notice(chansvs.nick, origin, "%s was \2MARKED\2 by %s on %s (%s)", mc->name, setter, strfbuf, reason);
 	}
 
-	if ((is_ircop(u) || is_sra(u->myuser)) && (md = metadata_find(mc, METADATA_CHANNEL, "private:close:closer")))
+	if (has_priv(u, PRIV_CHAN_AUSPEX) && (md = metadata_find(mc, METADATA_CHANNEL, "private:close:closer")))
 	{
 		char *setter = md->value;
 		char *reason;
 		time_t ts;
 
 		md = metadata_find(mc, METADATA_CHANNEL, "private:close:reason");
-		reason = md->value;
+		reason = md != NULL ? md->value : "unknown";
 
 		md = metadata_find(mc, METADATA_CHANNEL, "private:close:timestamp");
-		ts = atoi(md->value);
+		ts = md != NULL ? atoi(md->value) : 0;
 
 		tm = *localtime(&ts);
 		strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &tm);
 
 		notice(chansvs.nick, origin, "%s was \2CLOSED\2 by %s on %s (%s)", mc->name, setter, strfbuf, reason);
 	}
+
+	req.u = u;
+	req.mc = mc;
+	hook_call_event("channel_info", &req);
 
 	notice(chansvs.nick,origin, "\2*** End of Info ***\2");
 	logcommand(chansvs.me, u, CMDLOG_GET, "%s INFO", mc->name);

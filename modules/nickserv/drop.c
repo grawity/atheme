@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ DROP function.
  *
- * $Id: drop.c 3763 2005-11-10 00:55:02Z alambert $
+ * $Id: drop.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/drop", FALSE, _modinit, _moddeinit,
-	"$Id: drop.c 3763 2005-11-10 00:55:02Z alambert $",
+	"$Id: drop.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -38,14 +38,14 @@ void _moddeinit()
 
 static void ns_cmd_drop(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	char *nick = strtok(NULL, " ");
 	char *pass = strtok(NULL, " ");
 
-	if (!nick || !pass)
+	if (!nick)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters specified for \2DROP\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "DROP");
 		notice(nicksvs.nick, origin, "Syntax: DROP <nickname> <password>");
 		return;
 	}
@@ -56,24 +56,24 @@ static void ns_cmd_drop(char *origin)
 		return;
 	}
 
-	if (!is_sra(u->myuser) && !verify_password(mu, pass))
+	if ((pass || !has_priv(u, PRIV_USER_ADMIN)) && !verify_password(mu, pass))
 	{
 		notice(nicksvs.nick, origin, "Authentication failed. Invalid password for \2%s\2.", mu->name);
 		return;
 	}
 
-	if (is_sra(mu))
+	if (is_soper(mu))
 	{
-		notice(nicksvs.nick, origin, "The nickname \2%s\2 belongs to a services root administrator; it cannot be dropped.", nick);
+		notice(nicksvs.nick, origin, "The nickname \2%s\2 belongs to a services operator; it cannot be dropped.", nick);
 		return;
 	}
 
-	if (is_sra(u->myuser) && !pass)
+	if (!pass)
 		wallops("%s dropped the nickname \2%s\2", origin, mu->name);
 
 	snoop("DROP: \2%s\2 by \2%s\2", mu->name, u->nick);
-	logcommand(nicksvs.me, u, CMDLOG_REGISTER, "DROP %s", mu->name);
+	logcommand(nicksvs.me, u, pass ? CMDLOG_REGISTER : CMDLOG_ADMIN, "DROP %s%s", mu->name, pass ? "" : " (admin)");
 	hook_call_event("user_drop", mu);
 	notice(nicksvs.nick, origin, "The nickname \2%s\2 has been dropped.", mu->name);
-	myuser_delete(mu->name);
+	myuser_delete(mu);
 }

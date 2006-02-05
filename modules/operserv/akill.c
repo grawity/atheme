@@ -5,7 +5,7 @@
  * This file contains functionality which implements
  * the OService AKILL/KLINE command.
  *
- * $Id: akill.c 3601 2005-11-06 23:36:34Z jilles $
+ * $Id: akill.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/akill", FALSE, _modinit, _moddeinit,
-	"$Id: akill.c 3601 2005-11-06 23:36:34Z jilles $",
+	"$Id: akill.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -23,12 +23,12 @@ static void os_cmd_akill_del(char *origin, char *target);
 static void os_cmd_akill_list(char *origin, char *target);
 
 
-command_t os_kline = { "KLINE", "Manages network bans. [deprecated, use OS AKILL in future.]", AC_IRCOP, os_cmd_akill };
-command_t os_akill = { "AKILL", "Manages network bans.", AC_IRCOP, os_cmd_akill };
+command_t os_kline = { "KLINE", "Manages network bans. [deprecated, use OS AKILL in future.]", PRIV_AKILL, os_cmd_akill };
+command_t os_akill = { "AKILL", "Manages network bans.", PRIV_AKILL, os_cmd_akill };
 
-fcommand_t os_akill_add = { "ADD", AC_IRCOP, os_cmd_akill_add };
-fcommand_t os_akill_del = { "DEL", AC_IRCOP, os_cmd_akill_del };
-fcommand_t os_akill_list = { "LIST", AC_IRCOP, os_cmd_akill_list };
+fcommand_t os_akill_add = { "ADD", AC_NONE, os_cmd_akill_add };
+fcommand_t os_akill_del = { "DEL", AC_NONE, os_cmd_akill_del };
+fcommand_t os_akill_list = { "LIST", AC_NONE, os_cmd_akill_list };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -66,14 +66,14 @@ void _moddeinit()
 static void os_cmd_akill(char *origin)
 {
 	/* Grab args */
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	char *cmd = strtok(NULL, " ");
 	char *arg = strtok(NULL, " ");
 	
 	/* Bad/missing arg */
 	if (!cmd)
 	{
-		notice(opersvs.nick, origin, "Insufficient parameters for \2AKILL\2.");
+		notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKILL");
 		notice(opersvs.nick, origin, "Syntax: AKILL ADD|DEL|LIST");
 		return;
 	}
@@ -92,7 +92,7 @@ static void os_cmd_akill_add(char *origin, char *target)
 
 	if (!target || !token)
 	{
-		notice(opersvs.nick, origin, "Insufficient parameters for \2AKILL ADD\2.");
+		notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKILL ADD");
 		notice(opersvs.nick, origin, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
 		return;
 	}
@@ -118,7 +118,7 @@ static void os_cmd_akill_add(char *origin, char *target)
 		if (s)
 			duration = (atol(s) * 60);
 		else {
-			notice(opersvs.nick, origin, "Insufficient parameters for \2AKILL ADD\2.");
+			notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKILL ADD");
 			notice(opersvs.nick, origin, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
 			return;
 		}
@@ -137,6 +137,12 @@ static void os_cmd_akill_add(char *origin, char *target)
 		}			
 	}
 
+	if (strchr(target,'!'))
+	{
+		notice(opersvs.nick, origin, "Invalid character '%c' in user@host.", '!');
+		return;
+	}
+
 	if (!(strchr(target, '@')))
 	{
 		if (!(u = user_find_named(target)))
@@ -148,39 +154,44 @@ static void os_cmd_akill_add(char *origin, char *target)
 		if (is_internal_client(u))
 			return;
 
-		if ((k = kline_find(u->user, u->host)))
+		if ((k = kline_find("*", u->host)))
 		{
-			notice(opersvs.nick, origin, "AKILL \2%s@%s\2 is already matched in the database.", u->user, u->host);
+			notice(opersvs.nick, origin, "AKILL \2*@%s\2 is already matched in the database.", u->host);
 			return;
 		}
 
-		k = kline_add(u->user, u->host, reason, duration);
+		k = kline_add("*", u->host, reason, duration);
 		k->setby = sstrdup(origin);
 	}
 	else
 	{
 		char *userbuf = strtok(target, "@");
 		char *hostbuf = strtok(NULL, "");
-		char *tmphost;
+		char *p;
 		int i = 0;
 
 		if (!userbuf || !hostbuf)
 		{
-			notice(opersvs.nick, origin, "Insufficient parameters to \2AKILL ADD\2.");
+			notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKILL ADD");
 			notice(opersvs.nick, origin, "Syntax: AKILL ADD <user>@<host> [options] <reason>");
 			return;
 		}
 
-		/* make sure there's at least 5 non-wildcards */
-		for (tmphost = hostbuf; *tmphost; tmphost++)
+		/* make sure there's at least 4 non-wildcards */
+		for (p = userbuf; *p; p++)
 		{
-			if (*tmphost != '*' && *tmphost != '?')
+			if (*p != '*' && *p != '?' && *p != '.')
+				i++;
+		}
+		for (p = hostbuf; *p; p++)
+		{
+			if (*p != '*' && *p != '?' && *p != '.')
 				i++;
 		}
 
-		if (i < 5)
+		if (i < 4)
 		{
-			notice(opersvs.nick, origin, "Invalid host: \2%s\2. At least five non-wildcard characters are required.", hostbuf);
+			notice(opersvs.nick, origin, "Invalid user@host: \2%s@%s\2. At least four non-wildcard characters are required.", userbuf, hostbuf);
 			return;
 		}
 
@@ -195,12 +206,15 @@ static void os_cmd_akill_add(char *origin, char *target)
 	}
 
 	if (duration)
-		notice(opersvs.nick, origin, "Timed AKILL on \2%s@%s\2 was successfully added and will " "expire in %s.", k->user, k->host, timediff(duration));
+		notice(opersvs.nick, origin, "Timed AKILL on \2%s@%s\2 was successfully added and will expire in %s.", k->user, k->host, timediff(duration));
 	else
 		notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 was successfully added.", k->user, k->host);
 
 	snoop("AKILL:ADD: \2%s@%s\2 by \2%s\2 for \2%s\2", k->user, k->host, origin, k->reason);
-	logcommand(opersvs.me, user_find(origin), CMDLOG_SET, "AKILL ADD %s@%s %s", k->user, k->host, k->reason);
+
+	verbose_wallops("\2%s\2 is \2adding\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2", origin, k->user, k->host, 
+		k->reason);
+	logcommand(opersvs.me, user_find_named(origin), CMDLOG_SET, "AKILL ADD %s@%s %s", k->user, k->host, k->reason);
 }
 
 static void os_cmd_akill_del(char *origin, char *target)
@@ -212,7 +226,7 @@ static void os_cmd_akill_del(char *origin, char *target)
 
 	if (!target)
 	{
-		notice(opersvs.nick, origin, "Insuccicient parameters for \2AKILL DEL\2.");
+		notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKILL DEL");
 		notice(opersvs.nick, origin, "Syntax: AKILL DEL <hostmask>");
 		return;
 	}
@@ -251,8 +265,11 @@ static void os_cmd_akill_del(char *origin, char *target)
 					}
 
 					notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+					verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
+						origin, k->user, k->host, k->reason);
+
 					snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
-					logcommand(opersvs.me, user_find(origin), CMDLOG_SET, "AKILL DEL %s@%s", k->user, k->host);
+					logcommand(opersvs.me, user_find_named(origin), CMDLOG_SET, "AKILL DEL %s@%s", k->user, k->host);
 					kline_delete(k->user, k->host);
 				}
 
@@ -268,8 +285,11 @@ static void os_cmd_akill_del(char *origin, char *target)
 			}
 
 			notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+			verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
+				origin, k->user, k->host, k->reason);
+
 			snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
-			logcommand(opersvs.me, user_find(origin), CMDLOG_SET, "AKILL DEL %s@%s", k->user, k->host);
+			logcommand(opersvs.me, user_find_named(origin), CMDLOG_SET, "AKILL DEL %s@%s", k->user, k->host);
 			kline_delete(k->user, k->host);
 		} while ((s = strtok(NULL, ",")));
 
@@ -306,6 +326,9 @@ static void os_cmd_akill_del(char *origin, char *target)
 				}
 
 				notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+				verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
+					origin, k->user, k->host, k->reason);
+
 				snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
 				kline_delete(k->user, k->host);
 			}
@@ -322,8 +345,12 @@ static void os_cmd_akill_del(char *origin, char *target)
 		}
 
 		notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+
+		verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
+			origin, k->user, k->host, k->reason);
+
 		snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
-		logcommand(opersvs.me, user_find(origin), CMDLOG_SET, "AKILL DEL %s@%s", k->user, k->host);
+		logcommand(opersvs.me, user_find_named(origin), CMDLOG_SET, "AKILL DEL %s@%s", k->user, k->host);
 		kline_delete(k->user, k->host);
 		return;
 	}
@@ -338,22 +365,24 @@ static void os_cmd_akill_del(char *origin, char *target)
 	}
 
 	notice(opersvs.nick, origin, "AKILL on \2%s@%s\2 has been successfully removed.", userbuf, hostbuf);
+
+	verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
+		origin, k->user, k->host, k->reason);
+
 	snoop("AKILL:DEL: \2%s@%s\2 by \2%s\2", k->user, k->host, origin);
-	logcommand(opersvs.me, user_find(origin), CMDLOG_SET, "AKILL DEL %s@%s", k->user, k->host);
+	logcommand(opersvs.me, user_find_named(origin), CMDLOG_SET, "AKILL DEL %s@%s", k->user, k->host);
 	kline_delete(userbuf, hostbuf);
 }
 
-static void os_cmd_akill_list(char *origin, char *target)
+static void os_cmd_akill_list(char *origin, char *param)
 {
 	boolean_t full = FALSE;
 	node_t *n;
 	kline_t *k;
-	int i = 0;
-	char *s = strtok(NULL, " ");
 
-	if (s && !strcasecmp(s, "FULL"))
+	if (param != NULL && !strcasecmp(param, "FULL"))
 		full = TRUE;
-
+	
 	if (full)
 		notice(opersvs.nick, origin, "AKILL list (with reasons):");
 	else
@@ -363,19 +392,17 @@ static void os_cmd_akill_list(char *origin, char *target)
 	{
 		k = (kline_t *)n->data;
 
-		i++;
-
 		if (k->duration && full)
-			notice(opersvs.nick, origin, "%d: %s@%s - by \2%s\2 - expires in \2%s\2 - (%s)", k->number, k->user, k->host, k->setby, timediff(k->expires - CURRTIME), k->reason);
+			notice(opersvs.nick, origin, "%d: %s@%s - by \2%s\2 - expires in \2%s\2 - (%s)", k->number, k->user, k->host, k->setby, timediff(k->expires > CURRTIME ? k->expires - CURRTIME : 0), k->reason);
 		else if (k->duration && !full)
-			notice(opersvs.nick, origin, "%d: %s@%s - by \2%s\2 - expires in \2%s\2", k->number, k->user, k->host, k->setby, timediff(k->expires - CURRTIME));
+			notice(opersvs.nick, origin, "%d: %s@%s - by \2%s\2 - expires in \2%s\2", k->number, k->user, k->host, k->setby, timediff(k->expires > CURRTIME ? k->expires - CURRTIME : 0));
 		else if (!k->duration && full)
 			notice(opersvs.nick, origin, "%d: %s@%s - by \2%s\2 - \2permanent\2 - (%s)", k->number, k->user, k->host, k->setby, k->reason);
 		else
 			notice(opersvs.nick, origin, "%d: %s@%s - by \2%s\2 - \2permanent\2", k->number, k->user, k->host, k->setby);
 	}
 
-	notice(opersvs.nick, origin, "Total of \2%d\2 %s in AKILL list.", i, (i == 1) ? "entry" : "entries");
-	logcommand(opersvs.me, user_find(origin), CMDLOG_GET, "AKILL LIST%s", full ? " FULL" : "");
+	notice(opersvs.nick, origin, "Total of \2%d\2 %s in AKILL list.", klnlist.count, (klnlist.count == 1) ? "entry" : "entries");
+	logcommand(opersvs.me, user_find_named(origin), CMDLOG_GET, "AKILL LIST%s", full ? " FULL" : "");
 }
 

@@ -4,7 +4,7 @@
  *
  * A simple module inspector.
  *
- * $Id: modinspect.c 3607 2005-11-06 23:57:17Z jilles $
+ * $Id: modinspect.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,25 +12,29 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modinspect", FALSE, _modinit, _moddeinit,
-	"$Id: modinspect.c 3607 2005-11-06 23:57:17Z jilles $",
+	"$Id: modinspect.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_modinspect(char *origin);
 
 list_t *os_cmdtree;
+list_t *os_helptree;
 
-command_t os_modinspect = { "MODINSPECT", "Displays information about loaded modules.", AC_IRCOP, os_cmd_modinspect };
+command_t os_modinspect = { "MODINSPECT", "Displays information about loaded modules.", PRIV_SERVER_AUSPEX, os_cmd_modinspect };
 
 void _modinit(module_t *m)
 {
 	os_cmdtree = module_locate_symbol("operserv/main", "os_cmdtree");
+	os_helptree = module_locate_symbol("operserv/main", "os_helptree");
 	command_add(&os_modinspect, os_cmdtree);
+	help_addentry(os_helptree, "MODINSPECT", "help/oservice/modinspect", NULL);
 }
 
 void _moddeinit(void)
 {
 	command_delete(&os_modinspect, os_cmdtree);
+	help_delentry(os_helptree, "MODINSPECT");
 }
 
 static void os_cmd_modinspect(char *origin)
@@ -40,12 +44,12 @@ static void os_cmd_modinspect(char *origin)
 
 	if (!mname)
 	{
-		notice(opersvs.nick, origin, "Insufficient parameters for \2MODINSPECT\2.");
+		notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MODINSPECT");
 		notice(opersvs.nick, origin, "Syntax: MODINSPECT <module>");
 		return;
 	}
 
-	logcommand(opersvs.me, user_find(origin), CMDLOG_GET, "MODINSPECT %s", mname);
+	logcommand(opersvs.me, user_find_named(origin), CMDLOG_GET, "MODINSPECT %s", mname);
 
 	m = module_find_published(mname);
 

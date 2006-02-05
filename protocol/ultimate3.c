@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for Ultimate3 ircd.
  *
- * $Id: ultimate3.c 4065 2005-12-10 01:25:13Z jilles $
+ * $Id: ultimate3.c 4721 2006-01-25 12:43:15Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/ultimate3.h"
 
-DECLARE_MODULE_V1("protocol/ultimate3", TRUE, _modinit, NULL, "$Id: ultimate3.c 4065 2005-12-10 01:25:13Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ultimate3", TRUE, _modinit, NULL, "$Id: ultimate3.c 4721 2006-01-25 12:43:15Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t ultimate3 = {
         "+",                            /* Mode we set for owner. */
         "+a",                           /* Mode we set for protect. */
         "+h",                           /* Mode we set for halfops. */
-	PROTOCOL_ULTIMATE3		/* Protocol type */
+	PROTOCOL_ULTIMATE3,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"be",                           /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	0                               /* Invex mchar */
 };
 
 struct cmode_ ultimate3_mode_list[] = {
@@ -48,7 +52,6 @@ struct cmode_ ultimate3_mode_list[] = {
 };
 
 struct cmode_ ultimate3_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
   { '\0', 0 }
 };
 
@@ -94,6 +97,12 @@ static uint8_t ultimate3_server_login(void)
 static void ultimate3_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	sts("CLIENT %s 1 %ld %s + %s %s * %s 0 0 :%s", nick, CURRTIME, "io", user, host, me.name, real);
+}
+
+/* invite a user to a channel */
+static void ultimate3_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void ultimate3_quit_sts(user_t *u, char *reason)
@@ -274,26 +283,26 @@ static void ultimate3_on_login(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return;
 
-	/*
-	 * Can only record identified state if logged in to correct nick,
-	 * * sorry -- jilles
+	/* Can only do this for nickserv, and can only record identified
+	 * state if logged in to correct nick, sorry -- jilles
 	 */
-	if (irccasecmp(origin, user))
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
 		return;
 
 	sts(":%s SVSMODE %s +rd %ld", nicksvs.nick, origin, time(NULL));
 }
 
 /* protocol-specific stuff to do on login */
-static void ultimate3_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t ultimate3_on_logout(char *origin, char *user, char *wantedhost)
 {
 	if (!me.connected)
-		return;
+		return FALSE;
 
-	if (irccasecmp(origin, user))
-		return;
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return FALSE;
 
 	sts(":%s SVSMODE %s -r+d %ld", nicksvs.nick, origin, time(NULL));
+	return FALSE;
 }
 
 static void ultimate3_jupe(char *server, char *reason)
@@ -577,8 +586,14 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		 * * via handle_burstlogin(). --nenolod
 		 */
 		/* Changed to just check umode +r for now -- jilles */
+#if 0
+		/* We can't be sure if this is safe, so disable it for now.
+		 * (If ircd unsets +r on nick changes, it is safe.)
+		 * If you know this is safe or want to port over the
+		 * svsid stuff from unreal.c, you're welcome -- jilles */
 		if (strchr(parv[3], 'r'))
 			handle_burstlogin(u, parv[0]);
+#endif
 
 		handle_nickchange(u);
 	}
@@ -599,13 +614,9 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
 
-		/*
-		 * fix up +r if necessary -- jilles 
-		 */
-		if (u->myuser != NULL && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
-			/*
-			 * changed nick to registered one, reset +r 
-			 */
+		/* fix up +r if necessary -- jilles */
+		if (nicksvs.me != NULL && u->myuser != NULL && !(u->myuser->flags & MU_WAITAUTH) && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
+			/* changed nick to registered one, reset +r */
 			sts(":%s SVSMODE %s +rd %ld", nicksvs.nick, parv[0], time(NULL));
 
 		/*
@@ -648,7 +659,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	/*
 	 * user_delete() takes care of removing channels and so forth 
 	 */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -701,13 +712,11 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 
 	chanuser_delete(c, u);
 
-	/*
-	 * if they kicked us, let's rejoin 
-	 */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	/* if they kicked us, let's rejoin */
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -745,32 +754,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -821,7 +830,7 @@ void _modinit(module_t * m)
 	join_sts = &ultimate3_join_sts;
 	kick = &ultimate3_kick;
 	msg = &ultimate3_msg;
-	notice = &ultimate3_notice;
+	notice_sts = &ultimate3_notice;
 	numeric_sts = &ultimate3_numeric_sts;
 	skill = &ultimate3_skill;
 	part = &ultimate3_part;
@@ -834,6 +843,7 @@ void _modinit(module_t * m)
 	ircd_on_logout = &ultimate3_on_logout;
 	jupe = &ultimate3_jupe;
 	sethost_sts = &ultimate3_sethost_sts;
+	invite_sts = &ultimate3_invite_sts;
 
 	mode_list = ultimate3_mode_list;
 	ignore_mode_list = ultimate3_ignore_mode_list;

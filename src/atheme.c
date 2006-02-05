@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 Atheme Development Group.
+ * Copyright (c) 2005-2006 Atheme Development Group.
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the main() routine.
  *
- * $Id: atheme.c 3585 2005-11-06 21:52:51Z alambert $
+ * $Id: atheme.c 4539 2006-01-08 23:46:58Z jilles $
  */
 
 #include "atheme.h"
@@ -27,18 +27,19 @@ boolean_t cold_start = FALSE;
 /* *INDENT-OFF* */
 static void print_help(void)
 {
-	printf("usage: atheme [-c config] [-dhnv]\n\n"
+	printf("usage: atheme [-dhnv] [-c config] [-p pidfile]\n\n"
 	       "-c <file>    Specify the config file\n"
 	       "-d           Start in debugging mode\n"
 	       "-h           Print this message and exit\n"
 	       "-n           Don't fork into the background (log screen + log file)\n"
+	       "-p <file>    Specify the pid file (will be overwritten)\n"
 	       "-v           Print version information and exit\n");
 }
 
 static void print_version(void)
 {
 	printf("Atheme IRC Services (atheme-%s.%s)\n\n"
-	       "Copyright (c) 2005 Atheme Development Group\n"
+	       "Copyright (c) 2005-2006 Atheme Development Group\n"
 	       "Rights to this code are documented in doc/LICENSE.\n", version, generation);
 }
 /* *INDENT-ON* */
@@ -49,6 +50,7 @@ int main(int argc, char *argv[])
 	char buf[32];
 	int i, pid, r;
 	FILE *restart_file, *pid_file;
+	char *pidfilename = "var/atheme.pid";
 #ifndef _WIN32
 	struct rlimit rlim;
 #endif
@@ -73,7 +75,7 @@ int main(int argc, char *argv[])
 #endif
 	
 	/* do command-line options */
-	while ((r = getopt(argc, argv, "c:dhnv")) != -1)
+	while ((r = getopt(argc, argv, "c:dhnp:v")) != -1)
 	{
 		switch (r)
 		{
@@ -91,12 +93,15 @@ int main(int argc, char *argv[])
 		  case 'n':
 			  runflags |= RF_LIVE;
 			  break;
+		  case 'p':
+			  pidfilename = optarg;
+			  break;
 		  case 'v':
 			  print_version();
 			  exit(EXIT_SUCCESS);
 			  break;
 		  default:
-			  printf("usage: atheme [-c conf] [-dhnv]\n");
+			  printf("usage: atheme [-dhnv] [-c conf] [-p pidfile]\n");
 			  exit(EXIT_SUCCESS);
 			  break;
 		}
@@ -113,19 +118,18 @@ int main(int argc, char *argv[])
 	CURRTIME = me.start;
 	me.execname = argv[0];
 
-	/* set signal handlers */
-	signal(SIGINT, sighandler);
-	signal(SIGTERM, sighandler);
+	/* set signal handlers, first part */
 	signal(SIGFPE, sighandler);
 	signal(SIGILL, sighandler);
 #ifndef _WIN32
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGQUIT, sighandler);
-	signal(SIGHUP, sighandler);
+	/* on daemonizing, we may get a SIGHUP if the parent exits,
+	 * and it's a controlling process -- jilles */
+	signal(SIGHUP, SIG_IGN);
 	signal(SIGTRAP, sighandler);
 	signal(SIGIOT, sighandler);
 	signal(SIGALRM, SIG_IGN);
-	signal(SIGUSR2, sighandler);
 	signal(SIGCHLD, SIG_IGN);
 	signal(SIGWINCH, SIG_IGN);
 	signal(SIGTTIN, SIG_IGN);
@@ -136,6 +140,8 @@ int main(int argc, char *argv[])
 
 	/* open log */
 	log_open();
+	if (log_file == NULL)
+		fprintf(stderr, "atheme: unable to open log file!\n");
 
 	/* since me.loglevel isn't there until after the
 	 * config routines run, we set the default here
@@ -145,7 +151,7 @@ int main(int argc, char *argv[])
 	printf("atheme: version atheme-%s\n", version);
 
 	/* check for pid file */
-	if ((pid_file = fopen("var/atheme.pid", "r")))
+	if ((pid_file = fopen(pidfilename, "r")))
 	{
 		if (fgets(buf, 32, pid_file))
 		{
@@ -177,15 +183,15 @@ int main(int argc, char *argv[])
 	pcommand_init();
 
 	conf_init();
-	conf_parse();
+	conf_parse(config_file);
+
+	if (config_options.languagefile)
+	{
+		slog(LG_DEBUG, "Using language: %s", config_options.languagefile);
+		conf_parse(config_options.languagefile);
+	}
 
 	authcookie_init();
-
-	if (!pmodule_loaded)
-	{
-		fprintf(stderr, "atheme: no protocol modules loaded, see your configuration file.\n");
-		exit(EXIT_FAILURE);
-	}
 
 	if (!backend_loaded)
 	{
@@ -209,11 +215,18 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "atheme: no backend modules loaded, see your configuration file.\n");
 		exit(EXIT_FAILURE);
 	}
+	db_check();
 
 #ifndef _WIN32
 	/* fork into the background */
 	if (!(runflags & RF_LIVE))
 	{
+		close(0);
+		if (open("/dev/null", O_RDWR) != 0)
+		{
+			fprintf(stderr, "atheme: unable to open /dev/null??\n");
+			exit(EXIT_FAILURE);
+		}
 		if ((i = fork()) < 0)
 		{
 			fprintf(stderr, "atheme: can't fork into the background\n");
@@ -229,11 +242,13 @@ int main(int argc, char *argv[])
 		}
 
 		/* parent is gone, just us now */
-		if (setpgid(0, 0) < 0)
+		if (setsid() < 0)
 		{
-			fprintf(stderr, "atheme: unable to set process group\n");
+			fprintf(stderr, "atheme: unable to create new session\n");
 			exit(EXIT_FAILURE);
 		}
+		dup2(0, 1);
+		dup2(0, 2);
 	}
 	else
 	{
@@ -246,7 +261,7 @@ int main(int argc, char *argv[])
 
 #ifndef _WIN32
 	/* write pid */
-	if ((pid_file = fopen("var/atheme.pid", "w")))
+	if ((pid_file = fopen(pidfilename, "w")))
 	{
 		fprintf(pid_file, "%d\n", getpid());
 		fclose(pid_file);
@@ -256,6 +271,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "atheme: unable to write pid file\n");
 		exit(EXIT_FAILURE);
 	}
+#endif
+	/* rest of signal handlers now we're started more fully -- jilles */
+	signal(SIGINT, sighandler);
+	signal(SIGTERM, sighandler);
+#ifndef _WIN32
+	signal(SIGHUP, sighandler);
+	signal(SIGUSR2, sighandler);
 #endif
 
 	/* no longer starting */
@@ -287,7 +309,7 @@ int main(int argc, char *argv[])
 	if (chansvs.me != NULL && chansvs.me->me != NULL)
 		quit_sts(chansvs.me->me, "shutting down");
 
-	remove("var/atheme.pid");
+	remove(pidfilename);
 	sendq_flush(curr_uplink->conn);
 	connection_close(curr_uplink->conn);
 
@@ -296,16 +318,17 @@ int main(int argc, char *argv[])
 	/* should we restart? */
 	if (runflags & RF_RESTART)
 	{
-		slog(LG_INFO, "main(): restarting in %d seconds", me.restarttime);
+		slog(LG_INFO, "main(): restarting");
 
 #ifndef _WIN32
 		execve("bin/atheme", argv, environ);
 #endif
 	}
 
-	slog(LG_INFO, "main(): shutting down: io_loop() exited");
+	slog(LG_INFO, "main(): shutting down");
 
-	fclose(log_file);
+	if (log_file != NULL)
+		fclose(log_file);
 
 	return 0;
 }

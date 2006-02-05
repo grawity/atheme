@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService AKICK functions.
  *
- * $Id: akick.c 3789 2005-11-10 23:33:27Z jilles $
+ * $Id: akick.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -15,7 +15,7 @@ static void cs_fcmd_akick(char *origin, char *chan);
 DECLARE_MODULE_V1
 (
 	"chanserv/akick", FALSE, _modinit, _moddeinit,
-	"$Id: akick.c 3789 2005-11-10 23:33:27Z jilles $",
+	"$Id: akick.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -48,7 +48,7 @@ void _moddeinit()
 
 void cs_cmd_akick(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	mychan_t *mc;
 	chanacs_t *ca, *ca2;
@@ -60,14 +60,14 @@ void cs_cmd_akick(char *origin)
 
 	if (!cmd || !chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2AKICK\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKICK");
 		notice(chansvs.nick, origin, "Syntax: AKICK <#channel> ADD|DEL|LIST <nickname|hostmask>");
 		return;
 	}
 
 	if ((strcasecmp("LIST", cmd)) && (!uname))
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2AKICK\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKICK");
 		notice(chansvs.nick, origin, "Syntax: AKICK <#channel> ADD|DEL|LIST <nickname|hostmask>");
 		return;
 	}
@@ -79,7 +79,7 @@ void cs_cmd_akick(char *origin)
 	if (!u->myuser)
 	{
 		/* if they're opers and just want to LIST, they don't have to log in */
-		if (!(is_ircop(u) && !strcasecmp("LIST", cmd)))
+		if (!(has_priv(u, PRIV_CHAN_AUSPEX) && !strcasecmp("LIST", cmd)))
 		{
 			notice(chansvs.nick, origin, "You are not logged in.");
 			return;
@@ -108,7 +108,7 @@ void cs_cmd_akick(char *origin)
 			return;
 		}
 
-		mu = myuser_find(uname);
+		mu = myuser_find_ext(uname);
 		if (!mu)
 		{
 			/* we might be adding a hostmask */
@@ -181,7 +181,7 @@ void cs_cmd_akick(char *origin)
 			return;
 		}
 
-		mu = myuser_find(uname);
+		mu = myuser_find_ext(uname);
 		if (!mu)
 		{
 			/* we might be deleting a hostmask */
@@ -232,7 +232,7 @@ void cs_cmd_akick(char *origin)
 
 		if (!chanacs_user_has_flag(mc, u, CA_ACLVIEW))
 		{
-			if (is_ircop(u))
+			if (has_priv(u, PRIV_CHAN_AUSPEX))
 				operoverride = 1;
 			else
 			{
@@ -270,7 +270,7 @@ void cs_cmd_akick(char *origin)
 /* !akick add *!*@*.aol.com */
 void cs_fcmd_akick(char *origin, char *chan)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	mychan_t *mc;
 	chanacs_t *ca, *ca2;
@@ -280,14 +280,14 @@ void cs_fcmd_akick(char *origin, char *chan)
 
 	if (!cmd || !chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2AKICK\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKICK");
 		notice(chansvs.nick, origin, "Syntax: AKICK <#channel> ADD|DEL|LIST <nickname|hostmask>");
 		return;
 	}
 
 	if ((strcasecmp("LIST", cmd)) && (!uname))
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2!AKICK\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "!AKICK");
 		notice(chansvs.nick, origin, "Syntax: !AKICK ADD|DEL|LIST <nickname|hostmask>");
 		return;
 	}
@@ -318,7 +318,7 @@ void cs_fcmd_akick(char *origin, char *chan)
 			return;
 		}
 
-		mu = myuser_find(uname);
+		mu = myuser_find_ext(uname);
 		if (!mu)
 		{
 			/* we might be adding a hostmask */
@@ -391,7 +391,7 @@ void cs_fcmd_akick(char *origin, char *chan)
 			return;
 		}
 
-		mu = myuser_find(uname);
+		mu = myuser_find_ext(uname);
 		if (!mu)
 		{
 			/* we might be deleting a hostmask */

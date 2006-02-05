@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for bahamut-based ircd.
  *
- * $Id: bahamut.c 3841 2005-11-11 11:49:44Z jilles $
+ * $Id: bahamut.c 4693 2006-01-24 16:43:27Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/bahamut.h"
 
-DECLARE_MODULE_V1("protocol/bahamut", TRUE, _modinit, NULL, "$Id: bahamut.c 3841 2005-11-11 11:49:44Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/bahamut", TRUE, _modinit, NULL, "$Id: bahamut.c 4693 2006-01-24 16:43:27Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t Bahamut = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+",                            /* Mode we set for halfops. */
-	PROTOCOL_BAHAMUT		/* Protocol type */
+	PROTOCOL_BAHAMUT,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"beI",                          /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ bahamut_mode_list[] = {
@@ -49,8 +53,6 @@ struct cmode_ bahamut_mode_list[] = {
 };
 
 struct cmode_ bahamut_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
   { '\0', 0 }
 };
 
@@ -79,7 +81,7 @@ static uint8_t bahamut_server_login(void)
 
 	me.bursting = TRUE;
 
-	sts("CAPAB SSJOIN NOQUIT BURST UNCONNECT ZIP NICKIP TSMODE");
+	sts("CAPAB SSJOIN NOQUIT BURST ZIP NICKIP TSMODE");
 	sts("SERVER %s 1 :%s", me.name, me.desc);
 	sts("SVINFO 5 3 0 :%ld", CURRTIME);
 
@@ -92,6 +94,12 @@ static uint8_t bahamut_server_login(void)
 static void bahamut_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	sts("NICK %s 1 %ld +%s %s %s %s 0 0 :%s", nick, CURRTIME, "io", user, host, me.name, real);
+}
+
+/* invite a user to a channel */
+static void bahamut_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void bahamut_quit_sts(user_t *u, char *reason)
@@ -173,6 +181,11 @@ static void bahamut_notice(char *from, char *target, char *fmt, ...)
 	va_end(ap);
 
 	sts(":%s NOTICE %s :%s", from, target, buf);
+}
+
+static void bahamut_wallchops(user_t *sender, channel_t *channel, char *message)
+{
+	sts(":%s NOTICE @%s :%s", sender->nick, channel->name, message);
 }
 
 static void bahamut_numeric_sts(char *from, int numeric, char *target, char *fmt, ...)
@@ -271,25 +284,26 @@ static void bahamut_on_login(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return;
 
-	/* Can only record identified state if logged in to correct nick,
-	 * sorry -- jilles
+	/* Can only do this for nickserv, and can only record identified
+	 * state if logged in to correct nick, sorry -- jilles
 	 */
-	if (irccasecmp(origin, user))
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
 		return;
 
 	sts(":%s SVSMODE %s +rd %ld", nicksvs.nick, origin, time(NULL));
 }
 
 /* protocol-specific stuff to do on login */
-static void bahamut_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t bahamut_on_logout(char *origin, char *user, char *wantedhost)
 {
 	if (!me.connected)
-		return;
+		return FALSE;
 
-	if (irccasecmp(origin, user))
-		return;
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return FALSE;
 
 	sts(":%s SVSMODE %s -r+d %ld", nicksvs.nick, origin, time(NULL));
+	return FALSE;
 }
 
 static void bahamut_jupe(char *server, char *reason)
@@ -299,6 +313,12 @@ static void bahamut_jupe(char *server, char *reason)
 
 	sts(":%s SQUIT %s :%s", opersvs.nick, server, reason);
 	sts(":%s SERVER %s 2 :%s", me.name, server, reason);
+}
+
+static void bahamut_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
+{
+	sts(":%s SVSNICK %s %s %lu", source->nick, u->nick, newnick,
+			(unsigned long)(CURRTIME - 60));
 }
 
 static void m_topic(char *origin, uint8_t parc, char *parv[])
@@ -498,7 +518,10 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 	server_t *s;
 	user_t *u;
 	kline_t *k;
+	struct in_addr ip;
+	char ipstring[64];
 
+	/* -> NICK jilles 1 1136143909 +oi ~jilles 192.168.1.5 jaguar.test 0 3232235781 :Jilles Tjoelker */
 	if (parc == 10)
 	{
 		s = server_find(parv[6]);
@@ -525,7 +548,11 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 			return;
 		}
 
-		u = user_add(parv[0], parv[4], parv[5], NULL, NULL, NULL, parv[9], s, atoi(parv[2]));
+		ip.s_addr = ntohl(strtoul(parv[8], NULL, 10));
+		ipstring[0] = '\0';
+		if (!inet_ntop(AF_INET, &ip, ipstring, sizeof ipstring))
+			ipstring[0] = '\0';
+		u = user_add(parv[0], parv[4], parv[5], NULL, ipstring, NULL, parv[9], s, atoi(parv[2]));
 
 		user_mode(u, parv[3]);
 
@@ -538,6 +565,8 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		 * via handle_burstlogin(). --nenolod
 		 */
 		/* Changed to just check umode +r for now -- jilles */
+		/* This is ok because this ircd clears +r on nick changes
+		 * -- jilles */
 		if (strchr(parv[3], 'r'))
 			handle_burstlogin(u, parv[0]);
 
@@ -559,7 +588,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
 
 		/* fix up +r if necessary -- jilles */
-		if (u->myuser != NULL && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
+		if (nicksvs.me != NULL && u->myuser != NULL && !(u->myuser->flags & MU_WAITAUTH) && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
 			/* changed nick to registered one, reset +r */
 			sts(":%s SVSMODE %s +rd %ld", nicksvs.nick, parv[0], time(NULL));
 
@@ -594,7 +623,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -646,10 +675,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -677,32 +706,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -749,7 +778,8 @@ void _modinit(module_t * m)
 	join_sts = &bahamut_join_sts;
 	kick = &bahamut_kick;
 	msg = &bahamut_msg;
-	notice = &bahamut_notice;
+	notice_sts = &bahamut_notice;
+	wallchops = &bahamut_wallchops;
 	numeric_sts = &bahamut_numeric_sts;
 	skill = &bahamut_skill;
 	part = &bahamut_part;
@@ -761,6 +791,8 @@ void _modinit(module_t * m)
 	ircd_on_login = &bahamut_on_login;
 	ircd_on_logout = &bahamut_on_logout;
 	jupe = &bahamut_jupe;
+	fnc_sts = &bahamut_fnc_sts;
+	invite_sts = &bahamut_invite_sts;
 
 	mode_list = bahamut_mode_list;
 	ignore_mode_list = bahamut_ignore_mode_list;

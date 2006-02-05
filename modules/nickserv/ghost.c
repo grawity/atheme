@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ GHOST function.
  *
- * $Id: ghost.c 3697 2005-11-09 02:52:30Z nenolod $
+ * $Id: ghost.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/ghost", FALSE, _modinit, _moddeinit,
-	"$Id: ghost.c 3697 2005-11-09 02:52:30Z nenolod $",
+	"$Id: ghost.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -38,7 +38,7 @@ void _moddeinit()
 
 void ns_cmd_ghost(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	char *target = strtok(NULL, " ");
 	char *password = strtok(NULL, " ");
@@ -47,7 +47,7 @@ void ns_cmd_ghost(char *origin)
 
 	if (!target)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters for \2GHOST\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "GHOST");
 		notice(nicksvs.nick, origin, "Syntax: GHOST <target> [password]");
 		return;
 	}
@@ -73,10 +73,8 @@ void ns_cmd_ghost(char *origin)
 
 	if (mu == u->myuser || (password && verify_password(mu, password)))
 	{
-		snoop("GHOST: \2%s\2 by \2%s\2", mu->name, u->nick);
-
 		skill(nicksvs.nick, target, "GHOST command used by %s!%s@%s", u->nick, u->user, u->vhost);
-		user_delete(target);
+		user_delete(target_u);
 
 		logcommand(nicksvs.me, u, CMDLOG_DO, "GHOST %s", target);
 
@@ -87,7 +85,6 @@ void ns_cmd_ghost(char *origin)
 		return;
 	}
 
-	snoop("GHOST:AF: \2%s\2 to \2%s\2", u->nick, mu->name);
 	logcommand(nicksvs.me, u, CMDLOG_DO, "failed GHOST %s (bad password)", target);
 
 	notice(nicksvs.nick, origin, "Invalid password for \2%s\2.", mu->name);

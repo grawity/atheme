@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 3401 2005-11-02 18:52:35Z nenolod $
+# $Id: Makefile.in 4189 2005-12-26 00:02:24Z jilles $
 #
 
 CC		= @CC@
@@ -11,7 +11,16 @@ RM		= @RM@
 MV		= @MV@
 CP		= @CP@
 INSTALL		= @INSTALL@
-PREFIX		= @PREFIX@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+datadir		= @datadir@
+sysconfdir		= @sysconfdir@
+libdir		= @libdir@
+sbindir		= @sbindir@
+DOCDIR		= @DOCDIR@
+MODDIR		= @MODDIR@
+SHAREDIR	= @SHAREDIR@
 BIN		= atheme@EXEEXT@
 
 SHELL=/bin/sh

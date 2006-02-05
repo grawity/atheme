@@ -4,7 +4,7 @@
  *
  * This file contains misc routines.
  *
- * $Id: function.c 4067 2005-12-10 01:28:18Z jilles $
+ * $Id: function.c 4631 2006-01-20 16:38:15Z jilles $
  */
 
 #include "atheme.h"
@@ -77,11 +77,24 @@ void tb2sp(char *line)
 /* opens atheme.log */
 void log_open(void)
 {
+	static time_t lastfail = 0;
+
 	if (log_file)
 		return;
 
-	if (!(log_file = fopen("var/atheme.log", "a")))
-		exit(EXIT_FAILURE);
+	if ((log_file = fopen("var/atheme.log", "a")) == NULL)
+	{
+		/* At most one warning per hour */
+		if (me.connected && lastfail + 3600 < CURRTIME)
+		{
+			wallops("Could not open log file (%s), log entries will be missing!", strerror(errno)); 
+			lastfail = CURRTIME;
+		}
+		return;
+	}
+#ifndef _WIN32
+	fcntl(fileno(log_file), F_SETFD, FD_CLOEXEC);
+#endif
 }
 
 /* logs something to shrike.log */
@@ -529,6 +542,13 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 	if (u == NULL || mu == NULL)
 		return 0;
 
+	if (me.mta == NULL)
+	{
+		if (type != EMAIL_MEMO && !is_internal_client(u))
+			notice(opersvs.me ? opersvs.nick : me.name, u->nick, "Sending email is administratively disabled.");
+		return 0;
+	}
+
 	if (type == EMAIL_SETEMAIL)
 	{
 		/* special case for e-mail change */
@@ -672,7 +692,7 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 		slog(LG_ERROR, "sendemail(): mta failure");
 	return rc;
 #else
-	return 1;
+	return 0;
 #endif
 }
 
@@ -681,13 +701,6 @@ boolean_t is_founder(mychan_t *mychan, myuser_t *myuser)
 {
 	metadata_t *md;
 
-	if (!myuser)
-		return FALSE;
-
-	if ((myuser->flags & MU_ALIAS) && (md = metadata_find(myuser, METADATA_USER, "private:alias:parent")))
-		myuser = myuser_find(md->value);
-
-	/* master account doesn't exist anymore */
 	if (!myuser)
 		return FALSE;
 
@@ -702,13 +715,6 @@ boolean_t is_xop(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 	chanacs_t *ca;
 	metadata_t *md;
 
-	if (!myuser)
-		return FALSE;
-
-	if ((myuser->flags & MU_ALIAS) && (md = metadata_find(myuser, METADATA_USER, "private:alias:parent")))
-		myuser = myuser_find(md->value);
-
-	/* master account doesn't exist anymore */
 	if (!myuser)
 		return FALSE;
 
@@ -756,155 +762,12 @@ boolean_t should_protect(mychan_t *mychan, myuser_t *myuser)
 	return FALSE;
 }
 
-boolean_t should_op(mychan_t *mychan, myuser_t *myuser)
-{
-	chanuser_t *cu;
-
-	if (!myuser)
-		return FALSE;
-
-	if (MC_NOOP & mychan->flags)
-		return FALSE;
-
-	if (MU_NOOP & myuser->flags)
-		return FALSE;
-
-	if (is_xop(mychan, myuser, (CA_AUTOOP)))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t should_op_host(mychan_t *mychan, char *host)
-{
-	char hostbuf[BUFSIZE];
-
-	strlcpy(hostbuf, chansvs.nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, chansvs.user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, chansvs.host, BUFSIZE);
-
-	if (!match(host, hostbuf))
-		return FALSE;
-
-	if (chanacs_find_host(mychan, host, CA_AUTOOP))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t should_kick(mychan_t *mychan, myuser_t *myuser)
-{
-	chanuser_t *cu;
-
-	if (is_xop(mychan, myuser, (CA_AKICK)))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t should_kick_host(mychan_t *mychan, char *host)
-{
-	char hostbuf[BUFSIZE];
-
-	strlcpy(hostbuf, chansvs.nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, chansvs.user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, chansvs.host, BUFSIZE);
-
-	if (!match(host, hostbuf))
-		return FALSE;
-
-	if (chanacs_find_host(mychan, host, CA_AKICK))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t should_halfop(mychan_t *mychan, myuser_t *myuser)
-{
-	chanuser_t *cu;
-
-	if (!myuser)
-		return FALSE;
-
-	if (MC_NOOP & mychan->flags)
-		return FALSE;
-
-	if (MU_NOOP & myuser->flags)
-		return FALSE;
-
-	if (is_xop(mychan, myuser, CA_AUTOHALFOP))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t should_halfop_host(mychan_t *mychan, char *host)
-{
-	char hostbuf[BUFSIZE];
-
-	strlcpy(hostbuf, chansvs.nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, chansvs.user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, chansvs.host, BUFSIZE);
-
-	if (!match(host, hostbuf))
-		return FALSE;
-
-	if (chanacs_find_host(mychan, host, CA_AUTOHALFOP))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t should_voice(mychan_t *mychan, myuser_t *myuser)
-{
-	chanuser_t *cu;
-
-	if (!myuser)
-		return FALSE;
-
-	if (MC_NOOP & mychan->flags)
-		return FALSE;
-
-	if (MU_NOOP & myuser->flags)
-		return FALSE;
-
-	if (is_xop(mychan, myuser, CA_AUTOVOICE))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t should_voice_host(mychan_t *mychan, char *host)
-{
-	char hostbuf[BUFSIZE];
-
-	strlcpy(hostbuf, chansvs.nick, BUFSIZE);
-	strlcat(hostbuf, "!", BUFSIZE);
-	strlcat(hostbuf, chansvs.user, BUFSIZE);
-	strlcat(hostbuf, "@", BUFSIZE);
-	strlcat(hostbuf, chansvs.host, BUFSIZE);
-
-	if (!match(host, hostbuf))
-		return FALSE;
-
-	if (chanacs_find_host(mychan, host, CA_AUTOVOICE))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t is_sra(myuser_t *myuser)
+boolean_t is_soper(myuser_t *myuser)
 {
 	if (!myuser)
 		return FALSE;
 
-	if (myuser->sra)
+	if (myuser->soper)
 		return TRUE;
 
 	return FALSE;

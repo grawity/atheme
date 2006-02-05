@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 3007 2005-10-19 05:01:00Z nenolod $
+# $Id: Makefile.in 4305 2005-12-29 14:12:51Z jilles $
 #
 
 CC		= @CC@
@@ -11,7 +11,16 @@ RM		= @RM@
 MV		= @MV@
 CP		= @CP@
 INSTALL		= @INSTALL@
-PREFIX		= @prefix@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+datadir		= @datadir@
+sysconfdir		= @sysconfdir@
+libdir		= @libdir@
+sbindir		= @sbindir@
+DOCDIR		= @DOCDIR@
+MODDIR		= @MODDIR@
+SHAREDIR	= @SHAREDIR@
 BIN		= atheme@EXEEXT@
 MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include -I../libatheme @PGINC@ @MYINC@
 CFLAGS		= @CFLAGS@ -I../include -I../libatheme @PGINC@ @MYINC@
@@ -33,6 +42,7 @@ BASE_SRCS =		\
 	conf.c		\
 	confparse.c	\
 	crypto.c	\
+	culture.c	\
 	dbhandler.c	\
 	flags.c		\
 	function.c	\
@@ -44,11 +54,13 @@ BASE_SRCS =		\
 	parse.c		\
 	phandler.c	\
 	pmodule.c	\
+	privs.c		\
 	ptasks.c	\
 	services.c	\
 	servtree.c	\
 	send.c		\
 	signal.c	\
+	template.c	\
 	tokenize.c	\
 	ubase64.c	\
 	uid.c		\
@@ -69,36 +81,37 @@ atheme: $(OBJS)
 	$(MV) version.c version.c.last
 
 install: build
-	$(INSTALL) -m 755 -d $(PREFIX)
-	$(INSTALL) -m 755 -d $(PREFIX)/bin
-	$(INSTALL) -m 755 -d $(PREFIX)/etc
-	$(INSTALL) -m 755 -d $(PREFIX)/var
-	$(INSTALL) -m 755 -c $(BIN) $(PREFIX)/bin
-	$(INSTALL) -m 640 -c ../dist/example.conf $(PREFIX)/etc
-	$(INSTALL) -m 640 -c ../dist/example.userserv.conf $(PREFIX)/etc
-	if [ ! -r $(PREFIX)/etc/atheme.db ]; then \
-		$(INSTALL) -m 640 -c ../dist/atheme.db $(PREFIX)/etc ; \
-	fi
-	if [ ! -r $(PREFIX)/etc/atheme.chk ]; then \
-		$(INSTALL) -m 640 -c ../dist/atheme.chk $(PREFIX)/etc ; \
-	fi
-	if [ -e $(PREFIX)/doc ]; then \
-		$(RM) -rf $(PREFIX)/doc ; \
-	fi
-	if [ -e $(PREFIX)/help ]; then \
-		$(RM) -rf $(PREFIX)/help ; \
-	fi
-	$(CP) -R ../doc $(PREFIX)
-	$(CP) -R ../help $(PREFIX)
+	$(INSTALL) -m 755 -d $(prefix)
+	$(INSTALL) -m 755 -d $(prefix)/bin
+	$(INSTALL) -m 755 -d $(prefix)/etc
+	$(INSTALL) -m 755 -d $(prefix)/var
+	$(INSTALL) -m 755 -d $(DOCDIR)
+	$(INSTALL) -m 755 -d $(SHAREDIR)/help
+	$(INSTALL) -m 755 -c $(BIN) $(prefix)/bin
+	$(INSTALL) -m 640 -c ../dist/example.conf $(prefix)/etc
+	$(INSTALL) -m 640 -c ../dist/example.userserv.conf $(prefix)/etc
+	$(INSTALL) -m 640 -c ../dist/atheme.chk $(prefix)/etc/atheme.chk.sample
+	(cd ../doc; for i in *; do install -m 644 $$i $(DOCDIR); done)
+	(cd ../help; for i in *; do \
+		[ -f $$i ] && install -m 644 $$i $(SHAREDIR)/help; \
+		if [ -d $$i ]; then \
+			cd $$i; \
+			install -m 755 -d $(SHAREDIR)/help/$$i; \
+			for j in *; do \
+				[ -f $$j ] && install -m 644 $$j $(SHAREDIR)/help/$$i; \
+			done; \
+			cd ..; \
+		fi; \
+	done)
 
 	@echo "----------------------------------------------------------------"
-	@echo ">>> Remember to cd to ${PREFIX} and edit your config file.";
+	@echo ">>> Remember to cd to ${prefix} and edit your config file.";
 	@echo "----------------------------------------------------------------"
 
-deinstall:
-	if [ -d ${PREFIX} ] ; then \
-		$(RM) -rf ${PREFIX}; \
-	fi
+#deinstall:
+#	if [ -d ${prefix} ] ; then \
+#		$(RM) -rf ${prefix}; \
+#	fi
 
 version.c:
 	/bin/sh ./version.sh $(VERSION)

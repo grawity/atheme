@@ -4,7 +4,7 @@
  *
  * This file contains channel mode tracking routines.
  *
- * $Id: cmode.c 3885 2005-11-11 23:16:22Z jilles $
+ * $Id: cmode.c 4683 2006-01-22 22:40:23Z jilles $
  */
 
 #include "atheme.h"
@@ -77,20 +77,19 @@ void channel_mode(user_t *source, channel_t *chan, uint8_t parc, char *parv[])
 			if (*pos == ignore_mode_list[i].mode)
 			{
 				matched = TRUE;
-				parpos++;
-				break;
-			}
-		}
-
-		if (matched == TRUE)
-			continue;
-
-		for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
-		{
-			if (*pos == ignore_mode_list[i].mode)
-			{
-				matched = TRUE;
-				parpos++;
+				str[0] = whatt == MTYPE_ADD ? '+' : '-';
+				str[1] = *pos;
+				str[2] = '\0';
+				if (whatt == MTYPE_ADD)
+				{
+					if (++parpos >= parc)
+						break;
+					if (source)
+						cmode(source->nick, chan->name, str, parv[parpos]);
+				}
+				else
+					if (source)
+						cmode(source->nick, chan->name, str, ".");
 				break;
 			}
 		}
@@ -147,24 +146,32 @@ void channel_mode(user_t *source, channel_t *chan, uint8_t parc, char *parv[])
 			continue;
 		}
 
-		if (*pos == 'b')
+		if (strchr(ircd->ban_like_modes, *pos))
 		{
+			char mchar[3];
+
 			if (++parpos >= parc)
 				continue;
 			if (whatt == MTYPE_ADD)
 			{
-				chanban_add(chan, parv[parpos]);
+				chanban_add(chan, parv[parpos], *pos);
+				mchar[0] = '+';
+				mchar[1] = *pos;
+				mchar[2] = '\0';
 				if (source)
-					cmode(source->nick, chan->name, "+b", parv[parpos]);
+					cmode(source->nick, chan->name, mchar, parv[parpos]);
 			}
 			else
 			{
 				chanban_t *c;
 
-				c = chanban_find(chan, parv[parpos]);
+				c = chanban_find(chan, parv[parpos], *pos);
 				chanban_delete(c);
+				mchar[0] = '-';
+				mchar[1] = *pos;
+				mchar[2] = '\0';
 				if (source)
-					cmode(source->nick, chan->name, "-b", parv[parpos]);
+					cmode(source->nick, chan->name, mchar, parv[parpos]);
 			}
 			continue;
 		}
@@ -200,28 +207,23 @@ void channel_mode(user_t *source, channel_t *chan, uint8_t parc, char *parv[])
 						cmode(source->nick, chan->name, str, CLIENT_NAME(cu->user));
 
 					/* see if they did something we have to undo */
-					if (source == NULL && (mc = mychan_find(cu->chan->name)))
+					if (source == NULL && cu->user->server != me.me && chansvs.me != NULL && (mc = mychan_find(cu->chan->name)) && mc->flags & MC_SECURE)
 					{
-						myuser_t *mu = cu->user->myuser;
-
-						if ((MC_SECURE & mc->flags) && (status_mode_list[i].mode == 'o'))
+						if (status_mode_list[i].mode == 'o' && !(chanacs_user_flags(mc, cu->user) & (CA_OP | CA_AUTOOP)))
 						{
-							char hostbuf[BUFSIZE];
+							/* they were opped and aren't on the list, deop them */
+							cmode(chansvs.nick, mc->name, "-o", CLIENT_NAME(cu->user));
+							cu->modes &= ~status_mode_list[i].value;
+						}
+						else if (ircd->uses_halfops && status_mode_list[i].mode == ircd->halfops_mchar[1] && !(chanacs_user_flags(mc, cu->user) & (CA_HALFOP | CA_AUTOHALFOP)))
+						{
+							/* same for halfops -- jilles */
+							char mchar[3];
 
-							strlcpy(hostbuf, cu->user->nick, BUFSIZE);
-							strlcat(hostbuf, "!", BUFSIZE);
-							strlcat(hostbuf, cu->user->user, BUFSIZE);
-							strlcat(hostbuf, "@", BUFSIZE);
-							strlcat(hostbuf, cu->user->host, BUFSIZE);
-
-							if ((!is_founder(mc, mu)) && (cu->user != chansvs.me->me) &&
-							    (!is_xop(mc, mu, (CA_OP | CA_AUTOOP))) && (!chanacs_find_host(mc, hostbuf, (CA_OP | CA_AUTOOP))))
-							{
-								/* they were opped and aren't on the list, deop them */
-								if (source == NULL)
-									cmode(chansvs.nick, mc->name, "-o", cu->user->nick);
-								cu->modes &= ~status_mode_list[i].value;
-							}
+							strlcpy(mchar, ircd->halfops_mchar, sizeof mchar);
+							mchar[0] = '-';
+							cmode(chansvs.nick, mc->name, mchar, CLIENT_NAME(cu->user));
+							cu->modes &= ~status_mode_list[i].value;
 						}
 					}
 				}
@@ -229,14 +231,14 @@ void channel_mode(user_t *source, channel_t *chan, uint8_t parc, char *parv[])
 				{
 					if (cu->user->server == me.me && status_mode_list[i].value == CMODE_OP)
 					{
-						if (source == NULL && (cu->user != chansvs.me->me || chanserv_reopped == FALSE))
+						if (source == NULL && (chansvs.me == NULL || cu->user != chansvs.me->me || chanserv_reopped == FALSE))
 						{
 							slog(LG_DEBUG, "channel_mode(): deopped on %s, rejoining", cu->chan->name);
 
 							part(cu->chan->name, cu->user->nick);
 							join(cu->chan->name, cu->user->nick);
 
-							if (cu->user == chansvs.me->me)
+							if (chansvs.me != NULL && cu->user == chansvs.me->me)
 								chanserv_reopped = TRUE;
 						}
 
@@ -261,7 +263,7 @@ void channel_mode(user_t *source, channel_t *chan, uint8_t parc, char *parv[])
 		slog(LG_DEBUG, "channel_mode(): mode %c not matched", *pos);
 	}
 
-	if (source == NULL)
+	if (source == NULL && chansvs.me != NULL)
 		check_modes(mychan_find(chan->name), TRUE);
 }
 
@@ -442,6 +444,7 @@ void cmode(char *sender, ...)
 	int32_t flag;
 	int i;
 	char c, *s;
+	int takesparams; /* 0->no, 1->only when set, 2->always */
 
 	if (!sender)
 	{
@@ -522,58 +525,68 @@ void cmode(char *sender, ...)
 		else if (add < 0)
 			continue;
 
-		switch (c)
+		if (c == 'k' || strchr(ircd->ban_like_modes, c))
+			takesparams = 2;
+		else if (c == 'l')
+			takesparams = 1;
+		else
 		{
-		  case 'l':
-		  case 'k':
-		  case 'o':
-		  case 'h':
-		  case 'v':
-		  case 'b':
-		  case 'q':
-		  case 'a':
-		  case 'u':
-			  if (md->nparams >= MAXMODES || md->paramslen >= MAXPARAMSLEN)
-			  {
-				  flush_cmode(&modedata[which]);
-				  strscpy(md->sender, sender, 32);
-				  strscpy(md->channel, channel, 64);
-				  md->used = CURRTIME;
-			  }
+			takesparams = 0;
+			for (i = 0; status_mode_list[i].mode != '\0'; i++)
+			{
+				if (c == status_mode_list[i].mode)
+					takesparams = 2;
+			}
+			for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
+			{
+				if (c == ignore_mode_list[i].mode)
+					takesparams = 1; /* may not be true */
+			}
+		}
+		if (takesparams)
+		{
+			if (md->nparams >= MAXMODES || md->paramslen >= MAXPARAMSLEN)
+			{
+				flush_cmode(&modedata[which]);
+				strscpy(md->sender, sender, 32);
+				strscpy(md->channel, channel, 64);
+				md->used = CURRTIME;
+			}
 
-			  s = md->opmodes + strlen(md->opmodes);
+			s = md->opmodes + strlen(md->opmodes);
 
-			  if (add != md->last_add)
-			  {
-				  *s++ = add ? '+' : '-';
-				  md->last_add = add;
-			  }
+			if (add != md->last_add)
+			{
+				*s++ = add ? '+' : '-';
+				md->last_add = add;
+			}
 
-			  *s++ = c;
+			*s++ = c;
 
-			  if (!add && c == 'l')
-				  break;
+			if (!add && takesparams == 1)
+				break;
 
-			  s = va_arg(args, char *);
+			s = va_arg(args, char *);
 
-			  md->paramslen += snprintf(md->params + md->paramslen, MAXPARAMSLEN + 1 - md->paramslen, "%s%s", md->paramslen ? " " : "", s);
+			md->paramslen += snprintf(md->params + md->paramslen, MAXPARAMSLEN + 1 - md->paramslen, "%s%s", md->paramslen ? " " : "", s);
 
-			  md->nparams++;
-			  break;
+			md->nparams++;
 
-		  default:
-			  flag = mode_to_flag(c);
+		}
+		else
+		{
+			flag = mode_to_flag(c);
 
-			  if (add)
-			  {
-				  md->binmodes_on |= flag;
-				  md->binmodes_off &= ~flag;
-			  }
-			  else
-			  {
-				  md->binmodes_off |= flag;
-				  md->binmodes_on &= ~flag;
-			  }
+			if (add)
+			{
+				md->binmodes_on |= flag;
+				md->binmodes_off &= ~flag;
+			}
+			else
+			{
+				md->binmodes_off |= flag;
+				md->binmodes_on &= ~flag;
+			}
 		}
 	}
 

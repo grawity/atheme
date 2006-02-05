@@ -4,7 +4,7 @@
  *
  * This header file contains all of the extern's needed.
  *
- * $Id: extern.h 3815 2005-11-11 04:33:03Z nenolod $
+ * $Id: extern.h 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #ifndef EXTERN_H
@@ -24,7 +24,7 @@ E void cmode(char *sender, ...);
 E void check_modes(mychan_t *mychan, boolean_t sendnow);
 
 /* conf.c */
-E void conf_parse(void);
+E void conf_parse(char *);
 E void conf_init(void);
 E boolean_t conf_rehash(void);
 E boolean_t conf_check(void);
@@ -82,15 +82,7 @@ E boolean_t is_founder(mychan_t *mychan, myuser_t *myuser);
 E boolean_t is_xop(mychan_t *mychan, myuser_t *myuser, uint32_t level);
 E boolean_t should_owner(mychan_t *mychan, myuser_t *myuser);
 E boolean_t should_protect(mychan_t *mychan, myuser_t *myuser);
-E boolean_t should_op(mychan_t *mychan, myuser_t *myuser);
-E boolean_t should_op_host(mychan_t *mychan, char *host);
-E boolean_t should_halfop(mychan_t *mychan, myuser_t *myuser);
-E boolean_t should_halfop_host(mychan_t *mychan, char *host);
-E boolean_t should_voice(mychan_t *mychan, myuser_t *myuser);
-E boolean_t should_voice_host(mychan_t *mychan, char *host);
-E boolean_t should_kick(mychan_t *mychan, myuser_t *myuser);
-E boolean_t should_kick_host(mychan_t *mychan, char *host);
-E boolean_t is_sra(myuser_t *myuser);
+E boolean_t is_soper(myuser_t *myuser);
 E boolean_t is_ircop(user_t *user);
 E boolean_t is_admin(user_t *user);
 E boolean_t is_internal_client(user_t *user);
@@ -151,7 +143,8 @@ E int match(char *, char *);
 E char *collapse(char *);
 
 /* node.c */
-E list_t sralist;
+E list_t soperlist;
+E list_t svs_ignore_list;
 E list_t tldlist;
 E list_t klnlist;
 E list_t servlist[HASHSIZE];
@@ -162,19 +155,30 @@ E list_t mclist[HASHSIZE];
 
 E void init_ircpacket(void);
 E void init_nodes(void);
+/* The following currently only do uplinks -- jilles */
+E void mark_all_illegal(void);
+E void unmark_all_illegal(void);
+E void remove_illegals(void);
 
-E sra_t *sra_add(char *name);
-E void sra_delete(myuser_t *myuser);
-E sra_t *sra_find(myuser_t *myuser);
-E sra_t *sra_find_named(char *name);
+E operclass_t *operclass_add(char *name, char *privs);
+E void operclass_delete(operclass_t *operclass);
+E operclass_t *operclass_find(char *name);
+
+E soper_t *soper_add(char *name, operclass_t *operclass);
+E void soper_delete(soper_t *soper);
+E soper_t *soper_find(myuser_t *myuser);
+E soper_t *soper_find_named(char *name);
+
+E svsignore_t *svsignore_find(user_t *user);
+E svsignore_t *svsignore_add(char *mask, char *reason);
 
 E tld_t *tld_add(char *name);
 E void tld_delete(char *name);
 E tld_t *tld_find(char *name);
 
-E chanban_t *chanban_add(channel_t *chan, char *mask);
+E chanban_t *chanban_add(channel_t *chan, char *mask, int type);
 E void chanban_delete(chanban_t *c);
-E chanban_t *chanban_find(channel_t *chan, char *mask);
+E chanban_t *chanban_find(channel_t *chan, char *mask, int type);
 E void chanban_clear(channel_t *chan);
 
 E server_t *server_add(char *name, uint8_t hops, char *uplink, char *id, char *desc);
@@ -182,7 +186,7 @@ E void server_delete(char *name);
 E server_t *server_find(char *name);
 
 E user_t *user_add(char *nick, char *user, char *host, char *vhost, char *ip, char *uid, char *gecos, server_t *server, uint32_t ts);
-E void user_delete(char *nick);
+E void user_delete(user_t *u);
 E user_t *user_find(char *nick);
 E user_t *user_find_named(char *nick);
 E void user_changeuid(user_t *u, char *uid);
@@ -195,6 +199,7 @@ E chanuser_t *chanuser_add(channel_t *chan, char *user);
 E void chanuser_delete(channel_t *chan, user_t *user);
 E chanuser_t *chanuser_find(channel_t *chan, user_t *user);
 
+
 E kline_t *kline_add(char *user, char *host, char *reason, long duration);
 E void kline_delete(char *user, char *host);
 E kline_t *kline_find(char *user, char *host);
@@ -202,8 +207,9 @@ E kline_t *kline_find_num(uint32_t number);
 E void kline_expire(void *arg);
 
 E myuser_t *myuser_add(char *name, char *pass, char *email, uint32_t flags);
-E void myuser_delete(char *name);
+E void myuser_delete(myuser_t *mu);
 E myuser_t *myuser_find(char *name);
+E myuser_t *myuser_find_ext(char *name);
 E void myuser_notice(char *from, myuser_t *target, char *fmt, ...);
 
 E mychan_t *mychan_add(char *name);
@@ -227,9 +233,12 @@ E boolean_t chanacs_change(mychan_t *mychan, myuser_t *mu, char *hostmask, uint3
 E boolean_t chanacs_change_simple(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_t addflags, uint32_t removeflags, uint32_t restrictflags);
 
 E void expire_check(void *arg);
+/* Check the database for (version) problems common to all backends */
+E void db_check(void);
 
 /* services.c */
-E void ban(char *sender, char *channel, user_t *user);
+E int ban(char *sender, char *channel, user_t *user);
+E int remove_ban_exceptions(user_t *source, channel_t *chan, user_t *target);
 E void join(char *chan, char *nick);
 E void initialize_services(void);
 E void joinall(char *name);
@@ -242,10 +251,7 @@ E void cservice(char *origin, uint8_t parc, char *parv[]);
 E void gservice(char *origin, uint8_t parc, char *parv[]);
 E void oservice(char *origin, uint8_t parc, char *parv[]);
 E void nickserv(char *origin, uint8_t parc, char *parv[]);
-
-E struct command_ commands[];
-E struct command_ *cmd_find(char *svs, char *origin, char *command,
-			    struct command_ table[]);
+E void notice(char *from, char *to, char *msg, ...);
 
 /* atheme.c */
 E char *config_file;
@@ -279,6 +285,7 @@ E const char *infotext[];
 
 /* ubase64.c */
 E const char* uinttobase64(char* buf, uint64_t v, int64_t count);
+E uint32_t base64touint(char* buf);
 
 /* protocol stuff */
 E void handle_nickchange(user_t *u);
@@ -290,18 +297,19 @@ E void protocol_init(void);
 E void sighandler(int signum);
 
 /* ptasks.c */
-E void handle_version(char *);
-E void handle_admin(char *);
-E void handle_info(char *);
-E void handle_stats(char *, char);
-E void handle_whois(char *, char *);
-E void handle_trace(char *, char *, char *);
+E void handle_version(user_t *);
+E void handle_admin(user_t *);
+E void handle_info(user_t *);
+E void handle_stats(user_t *, char);
+E void handle_whois(user_t *, char *);
+E void handle_trace(user_t *, char *, char *);
 E void handle_message(char *, char *, boolean_t, char *);
 E void handle_topic(channel_t *, char *, time_t, char *);
 E void handle_kill(char *, char *, char *);
 E int floodcheck(user_t *, user_t *);
 
 /* help.c */
+E void help_display(char *svsnick, char *svsdisp, char *origin, char *command, list_t *list);
 E void help_addentry(list_t *list, char *topic, char *fname,
 	void (*func)(char *origin));
 E void help_delentry(list_t *list, char *name);
@@ -309,5 +317,7 @@ E void help_delentry(list_t *list, char *name);
 /* pmodule.c */
 E BlockHeap *pcommand_heap;
 E BlockHeap *messagetree_heap;
+
+E void verbose_wallops(char *, ...);
 
 #endif /* EXTERN_H */

@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ REGISTER function.
  *
- * $Id: register.c 3777 2005-11-10 20:36:06Z pfish $
+ * $Id: register.c 4625 2006-01-20 02:43:59Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/register", FALSE, _modinit, _moddeinit,
-	"$Id: register.c 3777 2005-11-10 20:36:06Z pfish $",
+	"$Id: register.c 4625 2006-01-20 02:43:59Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -38,7 +38,7 @@ void _moddeinit()
 
 static void ns_cmd_register(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu, *tmu;
 	node_t *n;
 	char *pass = strtok(NULL, " ");
@@ -54,14 +54,14 @@ static void ns_cmd_register(char *origin)
 
 	if (!pass || !email)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters specified for \2REGISTER\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "REGISTER");
 		notice(nicksvs.nick, origin, "Syntax: REGISTER <password> <email>");
 		return;
 	}
 
 	if ((strlen(pass) > 32) || (strlen(email) >= EMAILLEN))
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters specified for \2REGISTER\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "REGISTER");
 		return;
 	}
 
@@ -89,12 +89,7 @@ static void ns_cmd_register(char *origin)
 	mu = myuser_find(origin);
 	if (mu != NULL)
 	{
-		/* should we reveal the e-mail address? (from ns_info.c) */
-		if (!(mu->flags & MU_HIDEMAIL)
-			|| (is_sra(u->myuser) || is_ircop(u) || u->myuser == mu))
-			notice(nicksvs.nick, origin, "\2%s\2 is already registered to \2%s\2.", mu->name, mu->email);
-		else
-			notice(nicksvs.nick, origin, "\2%s\2 is already registered.", mu->name);
+		notice(nicksvs.nick, origin, "\2%s\2 is already registered.", mu->name);
 
 		return;
 	}
@@ -132,7 +127,7 @@ static void ns_cmd_register(char *origin)
 		if (!sendemail(u, EMAIL_REGISTER, mu, key))
 		{
 			notice(nicksvs.nick, origin, "Sending email failed, sorry! Registration aborted.");
-			myuser_delete(mu->name);
+			myuser_delete(mu);
 			free(key);
 			return;
 		}
@@ -153,6 +148,11 @@ static void ns_cmd_register(char *origin)
 
 	snoop("REGISTER: \2%s\2 to \2%s\2", origin, email);
 	logcommand(nicksvs.me, u, CMDLOG_REGISTER, "REGISTER to %s", email);
+	if (is_soper(mu))
+	{
+		wallops("%s registered the nick \2%s\2 and gained services operator privileges.", u->nick, mu->name);
+		snoop("SOPER: \2%s\2 as \2%s\2", u->nick, mu->name);
+	}
 
 	notice(nicksvs.nick, origin, "\2%s\2 is now registered to \2%s\2.", mu->name, mu->email);
 	notice(nicksvs.nick, origin, "The password is \2%s\2. Please write this down for future reference.", pass);

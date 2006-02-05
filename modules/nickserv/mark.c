@@ -4,7 +4,7 @@
  *
  * Marking for nicknames.
  *
- * $Id: mark.c 3583 2005-11-06 21:48:28Z jilles $
+ * $Id: mark.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/mark", FALSE, _modinit, _moddeinit,
-	"$Id: mark.c 3583 2005-11-06 21:48:28Z jilles $",
+	"$Id: mark.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_mark(char *origin);
 
 command_t ns_mark = { "MARK", "Adds a note to a user.",
-			AC_IRCOP, ns_cmd_mark };
+			PRIV_MARK, ns_cmd_mark };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -39,7 +39,7 @@ void _moddeinit()
 
 static void ns_cmd_mark(char *origin)
 {
-	user_t *source = user_find(origin);
+	user_t *source = user_find_named(origin);
 	char *target = strtok(NULL, " ");
 	char *action = strtok(NULL, " ");
 	char *info = strtok(NULL, "");
@@ -50,12 +50,12 @@ static void ns_cmd_mark(char *origin)
 
 	if (!target || !action)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters for \2MARK\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MARK");
 		notice(nicksvs.nick, origin, "Usage: MARK <target> <ON|OFF> [note]");
 		return;
 	}
 
-	if (!(mu = myuser_find(target)))
+	if (!(mu = myuser_find_ext(target)))
 	{
 		notice(nicksvs.nick, origin, "\2%s\2 is not registered.", target);
 		return;
@@ -65,7 +65,7 @@ static void ns_cmd_mark(char *origin)
 	{
 		if (!info)
 		{
-			notice(nicksvs.nick, origin, "Insufficient parameters for \2MARK\2.");
+			notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MARK");
 			notice(nicksvs.nick, origin, "Usage: MARK <target> ON <note>");
 			return;
 		}
@@ -102,7 +102,7 @@ static void ns_cmd_mark(char *origin)
 	}
 	else
 	{
-		notice(nicksvs.nick, origin, "Invalid parameters for \2MARK\2.");
+		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "MARK");
 		notice(nicksvs.nick, origin, "Usage: MARK <target> <ON|OFF> [note]");
 	}
 }

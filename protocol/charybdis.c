@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for charybdis-based ircd.
  *
- * $Id: charybdis.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: charybdis.c 4649 2006-01-21 23:10:43Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/charybdis.h"
 
-DECLARE_MODULE_V1("protocol/charybdis", TRUE, _modinit, NULL, "$Id: charybdis.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/charybdis", TRUE, _modinit, NULL, "$Id: charybdis.c 4649 2006-01-21 23:10:43Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t Charybdis = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+",                            /* Mode we set for halfops. */
-	PROTOCOL_CHARYBDIS		/* Protocol type */
+	PROTOCOL_CHARYBDIS,		/* Protocol type */
+	CMODE_PERM,                     /* Permanent cmodes */
+	"beIq",                         /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ charybdis_mode_list[] = {
@@ -53,9 +57,8 @@ struct cmode_ charybdis_mode_list[] = {
 };
 
 struct cmode_ charybdis_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
-  { 'q', CMODE_QUIET  },
+  { 'f', 0 },
+  { 'j', 0 },
   { '\0', 0 }
 };
 
@@ -104,7 +107,7 @@ static uint8_t charybdis_server_login(void)
 
 	me.bursting = TRUE;
 
-	sts("CAPAB :QS KLN UNKLN ENCAP TB SERVICES");
+	sts("CAPAB :QS EX IE KLN UNKLN ENCAP TB SERVICES");
 	sts("SERVER %s 1 :%s", me.name, me.desc);
 	sts("SVINFO %d 3 0 :%ld", ircd->uses_uid ? 6 : 5, CURRTIME);
 
@@ -115,9 +118,15 @@ static uint8_t charybdis_server_login(void)
 static void charybdis_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	if (ircd->uses_uid)
-		sts(":%s UID %s 1 %ld +%sS %s %s 0 %s :%s", me.numeric, nick, CURRTIME, "io", user, host, uid, real);
+		sts(":%s UID %s 1 %ld +%s%sS %s %s 0 %s :%s", me.numeric, nick, CURRTIME, "io", chansvs.fantasy ? "" : "D", user, host, uid, real);
 	else
-		sts("NICK %s 1 %ld +%sS %s %s %s :%s", nick, CURRTIME, "io", user, host, me.name, real);
+		sts("NICK %s 1 %ld +%s%sS %s %s %s :%s", nick, CURRTIME, "io", chansvs.fantasy ? "" : "D", user, host, me.name, real);
+}
+
+/* invite a user to a channel */
+static void charybdis_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", CLIENT_NAME(sender), CLIENT_NAME(target), channel->name);
 }
 
 static void charybdis_quit_sts(user_t *u, char *reason)
@@ -217,6 +226,15 @@ static void charybdis_notice(char *from, char *target, char *fmt, ...)
 		sts(":%s NOTICE %s :%s", u ? CLIENT_NAME(u) : ME, t ? CLIENT_NAME(t) : target, buf);
 	else
 		sts(":%s NOTICE %s :%s: %s", ME, target, u->nick, buf);
+}
+
+static void charybdis_wallchops(user_t *sender, channel_t *channel, char *message)
+{
+	if (chanuser_find(channel, sender))
+		sts(":%s NOTICE @%s :%s", CLIENT_NAME(sender), channel->name,
+				message);
+	else /* do not join for this, everyone would see -- jilles */
+		generic_wallchops(sender, channel, message);
 }
 
 /* numeric wrapper */
@@ -347,14 +365,15 @@ static void charybdis_on_login(char *origin, char *user, char *wantedhost)
 }
 
 /* protocol-specific stuff to do on login */
-static void charybdis_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t charybdis_on_logout(char *origin, char *user, char *wantedhost)
 {
 	user_t *u = user_find(origin);
 
 	if (!me.connected || !use_rserv_support || !u)
-		return;
+		return FALSE;
 
 	sts(":%s ENCAP * SU %s", ME, CLIENT_NAME(u));
+	return FALSE;
 }
 
 /* XXX we don't have an appropriate API for this, what about making JUPE
@@ -379,6 +398,16 @@ static void charybdis_sethost_sts(char *source, char *target, char *host)
 
 	sts(":%s ENCAP * CHGHOST %s :%s", ME, tu->nick,
 		host);
+}
+
+static void charybdis_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
+{
+	/* XXX assumes the server will accept this -- jilles */
+	sts(":%s ENCAP %s RSFNC %s %s %lu %lu", ME,
+			u->server->name,
+			CLIENT_NAME(u), newnick,
+			(unsigned long)(CURRTIME - 60),
+			(unsigned long)u->ts);
 }
 
 static void m_topic(char *origin, uint8_t parc, char *parv[])
@@ -639,6 +668,7 @@ static void m_bmask(char *origin, uint8_t parc, char *parv[])
 	uint8_t ac, i;
 	char *av[256];
 	channel_t *c = channel_find(parv[1]);
+	int type;
 
 	/* :1JJ BMASK 1127474361 #services b :*!*@*evil* *!*eviluser1@* */
 	if (!c)
@@ -646,15 +676,18 @@ static void m_bmask(char *origin, uint8_t parc, char *parv[])
 		slog(LG_DEBUG, "m_bmask(): got bmask for unknown channel");
 		return;
 	}
-
-	/* if it isn't a ban, we don't care. */
-	if (*parv[2] != 'b')
+	
+	type = *parv[2];
+	if (!strchr(ircd->ban_like_modes, type))
+	{
+		slog(LG_DEBUG, "m_bmask(): got unknown type '%c'", type);
 		return;
+	}
 
 	ac = sjtoken(parv[parc - 1], ' ', av);
 
 	for (i = 0; i < ac; i++)
-		chanban_add(c, av[i]);
+		chanban_add(c, av[i], type);
 }
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
@@ -809,7 +842,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -881,10 +914,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]) || !irccasecmp(chansvs.me->me->uid, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -936,32 +969,32 @@ static void m_sid(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_pass(char *origin, uint8_t parc, char *parv[])
@@ -1017,6 +1050,16 @@ static void m_encap(char *origin, uint8_t parc, char *parv[])
 		}
 		handle_burstlogin(u, parv[2]);
 	}
+	else if (!irccasecmp(parv[1], "REALHOST"))
+	{
+		/* :1JJAAAAAC ENCAP * REALHOST localhost.stack.nl */
+		if (parc < 3)
+			return;
+		u = user_find(origin);
+		if (u == NULL)
+			return;
+		strlcpy(u->host, parv[2], HOSTLEN);
+	}
 }
 
 static void m_capab(char *origin, uint8_t parc, char *parv[])
@@ -1067,7 +1110,8 @@ void _modinit(module_t * m)
 	join_sts = &charybdis_join_sts;
 	kick = &charybdis_kick;
 	msg = &charybdis_msg;
-	notice = &charybdis_notice;
+	notice_sts = &charybdis_notice;
+	wallchops = &charybdis_wallchops;
 	numeric_sts = &charybdis_numeric_sts;
 	skill = &charybdis_skill;
 	part = &charybdis_part;
@@ -1080,6 +1124,8 @@ void _modinit(module_t * m)
 	ircd_on_logout = &charybdis_on_logout;
 	jupe = &charybdis_jupe;
 	sethost_sts = &charybdis_sethost_sts;
+	fnc_sts = &charybdis_fnc_sts;
+	invite_sts = &charybdis_invite_sts;
 
 	mode_list = charybdis_mode_list;
 	ignore_mode_list = charybdis_ignore_mode_list;

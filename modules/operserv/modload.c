@@ -4,7 +4,7 @@
  *
  * Loads a new module in.
  *
- * $Id: modload.c 3671 2005-11-08 18:17:40Z alambert $
+ * $Id: modload.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,26 +12,30 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modload", FALSE, _modinit, _moddeinit,
-	"$Id: modload.c 3671 2005-11-08 18:17:40Z alambert $",
+	"$Id: modload.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_modload(char *origin);
 
 command_t os_modload = { "MODLOAD", "Loads a module.",
-			 AC_SRA, os_cmd_modload };
+			 PRIV_ADMIN, os_cmd_modload };
 
 list_t *os_cmdtree;
+list_t *os_helptree;
 
 void _modinit(module_t *m)
 {
 	os_cmdtree = module_locate_symbol("operserv/main", "os_cmdtree");	
+	os_helptree = module_locate_symbol("operserv/main", "os_helptree");	
 	command_add(&os_modload, os_cmdtree);
+	help_addentry(os_helptree, "MODLOAD", "help/oservice/modload", NULL);
 }
 
 void _moddeinit()
 {
 	command_delete(&os_modload, os_cmdtree);
+	help_delentry(os_helptree, "MODLOAD");
 }
 
 static void os_cmd_modload(char *origin)
@@ -49,10 +53,10 @@ static void os_cmd_modload(char *origin)
                 return;
        		}
 
-		logcommand(opersvs.me, user_find(origin), CMDLOG_ADMIN, "MODLOAD %s", module);
+		logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "MODLOAD %s", module);
 		if (*module != '/')
 		{
-			snprintf(pbuf, BUFSIZE, "%s/%s", PREFIX "/modules",
+			snprintf(pbuf, BUFSIZE, "%s/%s", MODDIR "/modules",
 				 module);
 			m = module_load(pbuf);
 		}

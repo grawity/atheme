@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 2995 2005-10-19 04:01:49Z nenolod $
+# $Id: Makefile.in 4189 2005-12-26 00:02:24Z jilles $
 #
 
 CC		= @CC@
@@ -11,7 +11,16 @@ RM		= @RM@
 MV		= @MV@
 CP		= @CP@
 INSTALL		= @INSTALL@
-PREFIX		= @prefix@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+datadir		= @datadir@
+sysconfdir		= @sysconfdir@
+libdir		= @libdir@
+sbindir		= @sbindir@
+DOCDIR		= @DOCDIR@
+MODDIR		= @MODDIR@
+SHAREDIR	= @SHAREDIR@
 BIN		= atheme@EXEEXT@
 MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../../include @PGINC@ @MYINC@
 PICFLAGS	= @PICFLAGS@
@@ -45,8 +54,8 @@ all: modules
 build: all
 
 install: build
-	${INSTALL} -d ${PREFIX}/modules/memoserv
-	${INSTALL} -m 755 *.so ${PREFIX}/modules/memoserv
+	${INSTALL} -d ${MODDIR}/modules/memoserv
+	${INSTALL} -m 755 *.so ${MODDIR}/modules/memoserv
 
 modules: $(OBJS)
 

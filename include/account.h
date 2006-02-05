@@ -4,22 +4,40 @@
  *
  * Data structures for account information.
  *
- * $Id: account.h 4015 2005-12-07 14:40:57Z jilles $
+ * $Id: account.h 4519 2006-01-06 11:12:49Z pfish $
  */
 
 #ifndef ACCOUNT_H
 #define ACCOUNT_H
 
-typedef struct sra_ sra_t;
+typedef struct operclass_ operclass_t;
+typedef struct soper_ soper_t;
+typedef struct svsignore_ svsignore_t;
 typedef struct myuser_ myuser_t;
 typedef struct mychan_ mychan_t;
 typedef struct chanacs_ chanacs_t;
 typedef struct mymemo_ mymemo_t;
 
-/* sra list struct */
-struct sra_ {
+struct operclass_ {
+  char *name;
+  char *privs; /* priv1 priv2 priv3... */
+};
+
+/* soper list struct */
+struct soper_ {
   myuser_t *myuser;
   char *name;
+  operclass_t *operclass;
+};
+
+/* services ignore struct */
+struct svsignore_ {
+  svsignore_t *svsignore;
+
+  char *mask;
+  time_t settime;
+  char *setby;
+  char *reason;
 };
 
 struct myuser_
@@ -33,7 +51,7 @@ struct myuser_
   time_t lastlogin;
 
   list_t chanacs;
-  sra_t *sra;
+  soper_t *soper;
 
   list_t metadata;
 
@@ -52,13 +70,10 @@ struct myuser_
 #define MU_NOOP        0x00000004
 #define MU_WAITAUTH    0x00000008
 #define MU_HIDEMAIL    0x00000010
-#define MU_ALIAS       0x00000020
+#define MU_OLD_ALIAS   0x00000020 /* obsolete */
 #define MU_NOMEMO      0x00000040
 #define MU_EMAILMEMOS  0x00000080
 #define MU_CRYPTPASS   0x00000100
-
-#define MU_IRCOP       0x00001000
-#define MU_SRA         0x00002000
 
 /* memoserv rate limiting parameters */
 #define MEMO_MAX_NUM   5
@@ -92,6 +107,10 @@ struct mychan_
 #define MC_VERBOSE     0x00000010
 #define MC_STAFFONLY   0x00000020
 #define MC_KEEPTOPIC   0x00000040
+#define MC_VERBOSE_OPS 0x00000080
+
+/* The following is a temporary state */
+#define MC_INHABIT     0x80000000 /* we're on channel to enforce akick/staffonly/close */
 
 /* struct for channel access list */
 struct chanacs_
@@ -120,12 +139,13 @@ struct chanacs_
 
 #define CA_AKICK         0x80000000 /* Automatic kick */
 
-/* compatibility shims for current shrike code. */
 #define CA_NONE          0x0
-#define CA_VOP           (CA_VOICE | CA_AUTOVOICE | CA_ACLVIEW)
-#define CA_HOP		 (CA_VOICE | CA_HALFOP | CA_AUTOHALFOP | CA_TOPIC | CA_ACLVIEW)
-#define CA_AOP           (CA_VOICE | CA_HALFOP | CA_OP | CA_AUTOOP | CA_TOPIC | CA_ACLVIEW)
-#define CA_SOP           (CA_AOP | CA_SET | CA_REMOVE | CA_INVITE)
+
+/* xOP defaults, compatible with Atheme 0.3 */
+#define CA_VOP_DEF       (CA_VOICE | CA_AUTOVOICE | CA_ACLVIEW)
+#define CA_HOP_DEF	 (CA_VOICE | CA_HALFOP | CA_AUTOHALFOP | CA_TOPIC | CA_ACLVIEW)
+#define CA_AOP_DEF       (CA_VOICE | CA_HALFOP | CA_OP | CA_AUTOOP | CA_TOPIC | CA_ACLVIEW)
+#define CA_SOP_DEF       (CA_AOP_DEF | CA_SET | CA_REMOVE | CA_INVITE)
 
 /* special values for founder/successor -- jilles */
 /* used in shrike flatfile conversion: */

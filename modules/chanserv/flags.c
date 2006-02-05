@@ -4,15 +4,16 @@
  *
  * This file contains code for the CService FLAGS functions.
  *
- * $Id: flags.c 3869 2005-11-11 13:47:12Z jilles $
+ * $Id: flags.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
+#include "template.h"
 
 DECLARE_MODULE_V1
 (
 	"chanserv/flags", FALSE, _modinit, _moddeinit,
-	"$Id: flags.c 3869 2005-11-11 13:47:12Z jilles $",
+	"$Id: flags.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -48,7 +49,7 @@ void _moddeinit()
 /* FLAGS <channel> [user] [flags] */
 static void cs_cmd_flags(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	metadata_t *md;
 	chanacs_t *ca;
 	node_t *n;
@@ -59,7 +60,7 @@ static void cs_cmd_flags(char *origin)
 
 	if (!channel)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters for \2FLAGS\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FLAGS");
 		notice(chansvs.nick, origin, "Syntax: FLAGS <channel> [target] [flags]");
 		return;
 	}
@@ -77,7 +78,7 @@ static void cs_cmd_flags(char *origin)
 
 		if (!chanacs_user_has_flag(mc, u, CA_ACLVIEW))
 		{
-			if (is_ircop(u))
+			if (has_priv(u, PRIV_CHAN_AUSPEX))
 				operoverride = 1;
 			else
 			{
@@ -86,7 +87,7 @@ static void cs_cmd_flags(char *origin)
 			}
 		}
 		
-		if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer") && !is_ircop(u))
+		if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer") && !has_priv(u, PRIV_CHAN_AUSPEX))
 		{
 			notice(chansvs.nick, origin, "\2%s\2 is closed.", channel);
 			return;
@@ -126,22 +127,6 @@ static void cs_cmd_flags(char *origin)
 			notice(chansvs.nick, origin, "\2%s\2 is not registered.", channel);
 			return;
 		}
-
-		/* founder may always set flags -- jilles */
-		if (is_founder(mc, u->myuser))
-			restrictflags = CA_ALL;
-		else
-		{
-			restrictflags = chanacs_user_flags(mc, u);
-			if (!(restrictflags & CA_FLAGS))
-			{
-				/* XXX may want to allow a user to
-				 * remove their own access even without +f */
-				notice(chansvs.nick, origin, "You are not authorized to execute this command.");
-				return;
-			}
-			restrictflags = allow_flags(restrictflags);
-		}
 		
 		if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 		{
@@ -155,34 +140,69 @@ static void cs_cmd_flags(char *origin)
 			return;
 		}
 
-		flags_make_bitmasks(flagstr, chanacs_flags, &addflags, &removeflags);
-		if (addflags == 0 && removeflags == 0)
+		/* founder may always set flags -- jilles */
+		if (is_founder(mc, u->myuser))
+			restrictflags = CA_ALL;
+		else
 		{
-			notice(chansvs.nick, origin, "No valid flags given, use /%s%s HELP FLAGS for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp);
-			return;
+			restrictflags = chanacs_user_flags(mc, u);
+			if (!(restrictflags & CA_FLAGS))
+			{
+				/* allow a user to remove their own access
+				 * even without +f */
+				if (restrictflags & CA_AKICK ||
+						u->myuser == NULL ||
+						irccmp(target, u->myuser->name) ||
+						strcmp(flagstr, "-*"))
+				{
+					notice(chansvs.nick, origin, "You are not authorized to execute this command.");
+					return;
+				}
+			}
+			restrictflags = allow_flags(restrictflags);
+		}
+
+		if (*flagstr == '+' || *flagstr == '-' || *flagstr == '=')
+		{
+			flags_make_bitmasks(flagstr, chanacs_flags, &addflags, &removeflags);
+			if (addflags == 0 && removeflags == 0)
+			{
+				notice(chansvs.nick, origin, "No valid flags given, use /%s%s HELP FLAGS for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp);
+				return;
+			}
+		}
+		else
+		{
+			addflags = get_template_flags(mc, flagstr);
+			if (addflags == 0)
+			{
+				notice(chansvs.nick, origin, "Invalid template name given, use /%s%s TEMPLATE %s for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp, mc->name);
+				return;
+			}
+			removeflags = CA_ALL & ~addflags;
 		}
 
 		if (!validhostmask(target))
 		{
-			if (!(tmu = myuser_find(target)))
+			if (!(tmu = myuser_find_ext(target)))
 			{
 				notice(chansvs.nick, origin, "The nickname \2%s\2 is not registered.", target);
 				return;
 			}
 
-		        if ((tmu->flags & MU_ALIAS) && (md = metadata_find(tmu, METADATA_USER, "private:alias:parent")))
-		        {
-		                /* This shouldn't ever happen, but just in case it does... */
-		                if (!(tmu = myuser_find(md->value)))
-		                        return;
-
-		                notice(chansvs.nick, origin, "\2%s\2 is an alias for \2%s\2. Editing entry under \2%s\2.", target, md->value, tmu->name);
-				target = tmu->name;
-		        }
-
 			if (tmu == mc->founder && removeflags & CA_FLAGS)
 			{
 				notice(chansvs.nick, origin, "You may not remove the founder's +f access.");
+				return;
+			}
+
+			/* If NEVEROP is set, don't allow adding new entries
+			 * except sole +b. Adding flags if the current level
+			 * is +b counts as adding an entry.
+			 * -- jilles */
+			if (MU_NEVEROP & tmu->flags && addflags != CA_AKICK && addflags != 0 && ((ca = chanacs_find(mc, tmu, 0)) == NULL || ca->level == CA_AKICK))
+			{
+				notice(chansvs.nick, origin, "\2%s\2 does not wish to be added to access lists (NEVEROP set).", tmu->name);
 				return;
 			}
 
@@ -209,14 +229,14 @@ static void cs_cmd_flags(char *origin)
 		flagstr = bitmask_to_flags2(addflags, removeflags, chanacs_flags);
 		notice(chansvs.nick, origin, "Flags \2%s\2 were set on \2%s\2 in \2%s\2.", flagstr, target, channel);
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s FLAGS %s %s", mc->name, target, flagstr);
-		verbose(mc, "Flags \2%s\2 were set on \2%s\2 in \2%s\2.", flagstr, target, channel);
+		verbose(mc, "\2%s\2 set flags \2%s\2 on \2%s\2 in \2%s\2.", origin, flagstr, target, channel);
 	}
 }
 
 /* FLAGS <channel> [user] [flags] */
 static void cs_fcmd_flags(char *origin, char *channel)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	chanacs_t *ca;
 	mychan_t *mc = mychan_find(channel);
 	myuser_t *tmu;
@@ -227,7 +247,7 @@ static void cs_fcmd_flags(char *origin, char *channel)
 
 	if (!target || !flagstr)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters for \2FLAGS\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "FLAGS");
 		notice(chansvs.nick, origin, "Syntax: .flags <target> <flags>");
 		return;
 	}
@@ -246,10 +266,16 @@ static void cs_fcmd_flags(char *origin, char *channel)
 		restrictflags = chanacs_user_flags(mc, u);
 		if (!(restrictflags & CA_FLAGS))
 		{
-			/* XXX may want to allow a user to
-			 * remove their own access even without +f */
-			notice(chansvs.nick, origin, "You are not authorized to execute this command.");
-			return;
+			/* allow a user to remove their own access
+			 * even without +f */
+			if (restrictflags & CA_AKICK ||
+					u->myuser == NULL ||
+					irccmp(target, u->myuser->name) ||
+					strcmp(flagstr, "-*"))
+			{
+				notice(chansvs.nick, origin, "You are not authorized to execute this command.");
+				return;
+			}
 		}
 		restrictflags = allow_flags(restrictflags);
 	}
@@ -260,34 +286,47 @@ static void cs_fcmd_flags(char *origin, char *channel)
 		return;
 	}
 
-	flags_make_bitmasks(flagstr, chanacs_flags, &addflags, &removeflags);
-	if (addflags == 0 && removeflags == 0)
+	if (*flagstr == '+' || *flagstr == '-' || *flagstr == '=')
 	{
-		notice(chansvs.nick, origin, "No valid flags given, use /%s%s HELP FLAGS for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp);
-		return;
+		flags_make_bitmasks(flagstr, chanacs_flags, &addflags, &removeflags);
+		if (addflags == 0 && removeflags == 0)
+		{
+			notice(chansvs.nick, origin, "No valid flags given, use /%s%s HELP FLAGS for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp);
+			return;
+		}
+	}
+	else
+	{
+		addflags = get_template_flags(mc, flagstr);
+		if (addflags == 0)
+		{
+			notice(chansvs.nick, origin, "Invalid template name given, use /%s%s TEMPLATE %s for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp, mc->name);
+			return;
+		}
+		removeflags = CA_ALL & ~addflags;
 	}
 
 	if (!validhostmask(target))
 	{
-		if (!(tmu = myuser_find(target)))
+		if (!(tmu = myuser_find_ext(target)))
 		{
 			notice(chansvs.nick, origin, "The nickname \2%s\2 is not registered.", target);
 			return;
 		}
 
-		if ((tmu->flags & MU_ALIAS) && (md = metadata_find(tmu, METADATA_USER, "private:alias:parent")))
-		{
-			/* This shouldn't ever happen, but just in case it does... */
-			if (!(tmu = myuser_find(md->value)))
-				return;
-
-			notice(chansvs.nick, origin, "\2%s\2 is an alias for \2%s\2. Editing entry under \2%s\2.", target, md->value, tmu->name);
-			target = tmu->name;
-		}
-
 		if (tmu == mc->founder && removeflags & CA_FLAGS)
 		{
 			notice(chansvs.nick, origin, "You may not remove the founder's +f access.");
+			return;
+		}
+
+		/* If NEVEROP is set, don't allow adding new entries
+		 * except sole +b. Adding flags if the current level
+		 * is +b counts as adding an entry.
+		 * -- jilles */
+		if (MU_NEVEROP & tmu->flags && addflags != CA_AKICK && addflags != 0 && ((ca = chanacs_find(mc, tmu, 0)) == NULL || ca->level == CA_AKICK))
+		{
+			notice(chansvs.nick, origin, "\2%s\2 does not wish to be added to access lists (NEVEROP set).", tmu->name);
 			return;
 		}
 
@@ -312,7 +351,6 @@ static void cs_fcmd_flags(char *origin, char *channel)
 		return;
 	}
 	flagstr = bitmask_to_flags2(addflags, removeflags, chanacs_flags);
-	notice(chansvs.nick, origin, "Flags \2%s\2 were set on \2%s\2 in \2%s\2.", flagstr, target, channel);
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s FLAGS %s %s", mc->name, target, flagstr);
-	notice(chansvs.nick, channel, "Flags \2%s\2 were set on \2%s\2 in \2%s\2.", flagstr, target, channel);
+	notice(chansvs.nick, channel, "\2%s\2 set flags \2%s\2 on \2%s\2 in \2%s\2.", origin, flagstr, target, channel);
 }

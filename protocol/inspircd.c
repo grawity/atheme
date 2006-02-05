@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for spanning-tree inspircd, b6 or later.
  *
- * $Id: inspircd.c 4069 2005-12-10 20:00:30Z nenolod $
+ * $Id: inspircd.c 4705 2006-01-24 17:55:17Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/inspircd.h"
 
-DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd.c 4069 2005-12-10 20:00:30Z nenolod $", "InspIRCd Core Team <http://www.inspircd.org/>");
+DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd.c 4705 2006-01-24 17:55:17Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t InspIRCd = {
         "+q",                           /* Mode we set for owner. */
         "+a",                           /* Mode we set for protect. */
         "+h",                           /* Mode we set for halfops. */
-	PROTOCOL_INSPIRCD		/* Protocol type */
+	PROTOCOL_INSPIRCD,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"beIg",                         /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ inspircd_mode_list[] = {
@@ -54,9 +58,9 @@ struct cmode_ inspircd_mode_list[] = {
 };
 
 struct cmode_ inspircd_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
-  { 'g', CMODE_CENSOR },
+  { 'f', 0 },
+  { 'j', 0 },
+  { 'L', 0 },
   { '\0', 0 }
 };
 
@@ -86,13 +90,11 @@ static uint8_t inspircd_server_login(void)
 {
 	int8_t ret;
 
-	ret = sts("PASS %s", curr_uplink->pass);
+	ret = sts("SERVER %s %s 0 :%s", me.name, curr_uplink->pass, me.desc);
 	if (ret == 1)
 		return 1;
 
 	me.bursting = TRUE;
-
-	sts("SERVER %s %s 0 :%s", me.name, curr_uplink->pass, me.desc);
 	sts("BURST");
 	/* XXX: Being able to get this data as a char* would be nice - Brain */
         sts(":%s VERSION :atheme-%s. %s %s%s%s%s%s%s%s%s%s",me.name, version, me.name, (match_mapping) ? "A" : "",
@@ -267,7 +269,12 @@ static void inspircd_topic_sts(char *channel, char *setter, time_t ts, char *top
 	if (!me.connected)
 		return;
 
-	sts(":%s FTOPIC %s %ld %s :%s", me.name, channel, ts, setter, topic);
+	if (ts < CURRTIME)
+		/* Restoring an old topic, can set proper setter/ts -- jilles */
+		sts(":%s FTOPIC %s %ld %s :%s", me.name, channel, ts, setter, topic);
+	else
+		/* FTOPIC would require us to set an older topicts */
+		sts(":%s TOPIC %s :%s", chansvs.nick, channel, topic);
 }
 
 /* mode wrapper */
@@ -285,7 +292,7 @@ static void inspircd_ping_sts(void)
 	if (!me.connected)
 		return;
 
-	sts(":%s PING :%s", me.name, me.name);
+	sts(":%s PING :%s", me.name, curr_uplink->name);
 }
 
 /* protocol-specific stuff to do on login */
@@ -305,15 +312,16 @@ static void inspircd_on_login(char *origin, char *user, char *wantedhost)
 }
 
 /* protocol-specific stuff to do on logout */
-static void inspircd_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t inspircd_on_logout(char *origin, char *user, char *wantedhost)
 {
 	if (!me.connected)
-		return;
+		return FALSE;
 
 	if (nicksvs.me == NULL || irccasecmp(origin, user))
-		return;
+		return FALSE;
 
 	sts(":%s SVSMODE %s -r", nicksvs.nick, origin);
+	return FALSE;
 }
 
 static void inspircd_jupe(char *server, char *reason)
@@ -330,6 +338,12 @@ static void inspircd_sethost_sts(char *source, char *target, char *host)
 		return;
 
 	sts(":%s CHGHOST %s %s", source, target, host);
+}
+
+/* invite a user to a channel */
+static void inspircd_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void m_topic(char *origin, uint8_t parc, char *parv[])
@@ -355,13 +369,13 @@ static void m_ftopic(char *origin, uint8_t parc, char *parv[])
 static void m_ping(char *origin, uint8_t parc, char *parv[])
 {
 	/* reply to PING's */
-	sts(":%s PONG %s %s", me.name, me.name, parv[0]);
+	sts(":%s PONG %s", me.name, parv[0]);
 }
 
 static void m_pong(char *origin, uint8_t parc, char *parv[])
 {
 	/* someone replied to our PING */
-	if ((!parv[0]) || (strcasecmp(me.actual, parv[0])))
+	if (origin != NULL && strcasecmp(me.actual, origin))
 		return;
 
 	me.uplinkpong = CURRTIME;
@@ -504,7 +518,8 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		user_mode(u, parv[5]);
 
-		if (strchr(parv[7], 'r'))
+		/* Assumes ircd clears +r on nick changes (r2882 or newer) */
+		if (strchr(parv[5], 'r'))
 			handle_burstlogin(u, parv[0]);
 
 		handle_nickchange(u);
@@ -525,7 +540,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
 
 		/* fix up +r if necessary -- jilles */
-		if (nicksvs.me != NULL && u->myuser != NULL && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
+		if (nicksvs.me != NULL && u->myuser != NULL && !(u->myuser->flags & MU_WAITAUTH) && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
 			/* changed nick to registered one, reset +r */
 			sts(":%s SVSMODE %s +r", nicksvs.nick, parv[0]);
 
@@ -559,7 +574,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -611,10 +626,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -706,6 +721,16 @@ static void m_idle(char* origin, uint8_t parc, char *parv[])
 	}
 }
 
+static void m_opertype(char* origin, uint8_t parc, char *parv[])
+{
+	/*
+	 * Hope this works.. InspIRCd OPERTYPE means user is an oper, mark them so
+	 * Later, we may want to look at saving their OPERTYPE for informational
+	 * purposes, or not. --w00t
+	 */
+	user_mode(user_find(origin), "+o");
+}
+
 static void m_fhost(char *origin, uint8_t parc, char *parv[])
 {
 	user_t *u = user_find(origin);
@@ -724,7 +749,7 @@ void _modinit(module_t * m)
 	join_sts = &inspircd_join_sts;
 	kick = &inspircd_kick;
 	msg = &inspircd_msg;
-	notice = &inspircd_notice;
+	notice_sts = &inspircd_notice;
 	numeric_sts = &inspircd_numeric_sts;
 	skill = &inspircd_skill;
 	part = &inspircd_part;
@@ -737,6 +762,7 @@ void _modinit(module_t * m)
 	ircd_on_logout = &inspircd_on_logout;
 	jupe = &inspircd_jupe;
 	sethost_sts = &inspircd_sethost_sts;
+	invite_sts = &inspircd_invite_sts;
 
 	mode_list = inspircd_mode_list;
 	ignore_mode_list = inspircd_ignore_mode_list;
@@ -763,13 +789,13 @@ void _modinit(module_t * m)
 	pcommand_add("KILL", m_kill);
 	pcommand_add("SQUIT", m_squit);
 	pcommand_add("SERVER", m_server);
-	pcommand_add("FJOIN", m_fjoin);
 	pcommand_add("FTOPIC", m_ftopic);
 	pcommand_add("JOIN", m_join);
 	pcommand_add("ERROR", m_error);
 	pcommand_add("TOPIC", m_topic);
 	pcommand_add("FHOST", m_fhost);
 	pcommand_add("IDLE", m_idle);
+	pcommand_add("OPERTYPE", m_opertype);
 
 	m->mflags = MODTYPE_CORE;
 

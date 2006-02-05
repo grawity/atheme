@@ -1,4 +1,4 @@
-$Id: IRCD 3227 2005-10-28 10:11:56Z jilles $
+$Id: IRCD 4777 2006-02-04 23:11:00Z jilles $
 
 IRCD-specific notes
 -------------------
@@ -10,11 +10,29 @@ You need U:lines for services on all servers on the network.
 
 You must enable join_chans as P10 is designed for services to work that way.
 
+P10 does not support logout, so users are killed (from the services server)
+when they log out. It is suggested that the logout module is not loaded.
+Users dropping their account will be killed; this cannot be avoided.
+Furthermore, Atheme assumes it is the only entity on the network sending
+ACCOUNT messages.
+
+Asuka's +N (no notices/wallchops) mode is turned off whenever a
+notice/wallchops is to be sent to a channel (it should not block notices from
+remotes or wallchops, really). If you want a channel to be +N always, leave
+verbose disabled.
+
+For host hiding (umode +x, <account>.<suffix>) to work, the hosthidesuffix
+in serverinfo{} must be correct (same value as F:HIDDEN_HOST in ircd.conf).
+
+SETHOST (umode +h [ident@]host) is supported. When changing the ident via +h,
+atheme will not restore the ident on -h. This can be worked around by never
+changing ident with +h, never doing -h or doing a +h with the original ident@
+before -h.
+
 bahamut
 -------
 
 You need U:lines/super{} entries for services on all servers on the network.
-NICKIP is not yet supported.
 
 Bahamut is designed for services not joining channels, not having the ability
 to prevent services being kicked/deopped and the like. If you want to use
@@ -27,6 +45,23 @@ bircd
 You need U:lines for services on all servers on the network.
 
 You must enable join_chans as P10 is designed for services to work that way.
+
+P10 does not support logout, so users are killed (from the services server)
+when they log out. It is suggested that the logout module is not loaded.
+Users dropping their account will be killed; this cannot be avoided.
+Furthermore, Atheme assumes it is the only entity on the network sending
+ACCOUNT messages.
+
+For host hiding (umode +x, <account>.<suffix>) to work, the hosthidesuffix
+in serverinfo{} must be correct.
+
+charybdis
+---------
+
+You will need a service{} block on all servers.
+
+If you want to use operserv kline, you need shared{} blocks or U:lines for
+services on all servers on the network.
 
 dreamforge
 ----------
@@ -43,19 +78,13 @@ The channel modes +dDfJ are not supported and will be ignored. Bans with
 forward channels will also not be recognized properly. This may lead to
 problems like users still being banned after a chanserv unban command.
 
-Atheme gives privilege to opers by virtue of their umode +o, which is not
-consistent with hyperion's tendency to remove as much privilege as possible
-from umode +o.
-
 There are two methods to allow services to remember users after a netsplit or
 restart and to enable things like channels only accessible for registered
 users. The traditional dancer method is umode +e; it only works if the user is
 logged in to the nick they are currently using. The new hyperion method using
 SVSLOGIN and SIGNON does not have this restriction. It also allows changing
 nick/ident/host at the same time, but Atheme does not use that yet.
-Consequently, NOIDPREFIX is not supported in a useful way. In either case the
-recognition is based on the login name only, so beware of dropping and
-recreating accounts during netsplits.
+Consequently, NOIDPREFIX is not supported in a useful way.
 
 Atheme will always set +e appropriately; if SVSLOGIN support is available, it
 will be used (this assumes the whole network has it). SVSLOGIN support can
@@ -66,10 +95,17 @@ The wallops option will report via +s server notices.
 inspircd
 --------
 
-At present, this module supports the meshing protocol support only. We are
-aware that the InspIRCd team is in progress of implementing acyclic
-(tree-based) linking, and when that is completed, we will add support for
-that protocol format.
+This module supports inspircd beta6 or newer (tree linking) only.
+
+Several of the modes supported by Atheme are in optional modules. It should
+usually not be a problem if those modules are not loaded.
+
+Inspircd prior to r2882 does not clear umode +r on nick changes; this can be
+abused by changing to a registered nick during a netsplit or while services
+are down.
+
+The inspircd support was developed in cooperation with the inspircd
+developers.
 
 ircnet
 ------
@@ -87,7 +123,8 @@ Atheme is directly linked to.
 
 It is recommended to enable join_chans, otherwise many things will be sent
 from the server (possibly generating nasty server notices) or chanserv will
-join and part to do the action.
+join and part to do the action. Alternatively, disable it and avoid commands
+that cause Atheme to kick as much as possible.
 
 Jupes will use SIDs numerically following services's SID, make sure to
 leave plenty of space.
@@ -95,11 +132,25 @@ leave plenty of space.
 monkey
 ------
 
+You need U:lines/super{} entries for services on all servers on the network.
+
+MonkeyIRCd is designed for services not joining channels, not having the ability
+to prevent services being kicked/deopped and the like. If you want to use
+fantasy commands, you will have to enable join_chans anyway; beware of bots
+fighting with chanserv.
+
 plexus
 ------
 
+If you want to use operserv kline, you need shared{} blocks or U:lines
+for services on all servers on the network. Note that only plexus 2.0.x
+supports remote unkline, although it may appear to sort of work in
+earlier versions.
+
 ptlink
 ------
+
+You will need U:lines for services on all services on the network.
 
 ratbox
 ------
@@ -112,18 +163,21 @@ work in hybrid 7.0.
 If you use ratbox 2.1.x or newer, it is recommended to compile with
 ratbox-services support as this will allow remembering logged-in state
 across netsplits and services restarts, prevent deopping/kicking chanserv,
-etc. You will need a service{} block on all servers. Logged-in state is
-based on name only, so beware of dropping and recreating accounts during
-netsplits.
+etc. You will need a service{} block on all servers.
 
 Hybrid 6.x or csircd should also work but they are not recommended; you
 must leave join_chans enabled for full functionality.
 
-scylla
-------
-
 shadowircd
 ----------
+
+Atheme does not support the "modern" ShadowIRCd protocol,
+revisions 3400 and 4000. You will need to use compatibility mode
+with Atheme. Proper care has been taken to ensure that Atheme
+complies with all requirements necessary for compatibility mode.
+
+Note that only ShadowIRCd 3.2 and later properly support the removal
+of AKILLs, although it may appear to sort of work in earlier versions.
 
 sorcery
 -------
@@ -141,6 +195,20 @@ undernet
 You need U:lines for services on all servers on the network.
 
 You must enable join_chans as P10 is designed for services to work that way.
+
+P10 does not support logout, so users are killed (from the services server)
+when they log out. It is suggested that the logout module is not loaded.
+Users dropping their account will be killed; this cannot be avoided.
+Furthermore, Atheme assumes it is the only entity on the network sending
+ACCOUNT messages.
+
+For host hiding (umode +x, <account>.<suffix>) to work, the hosthidesuffix
+in serverinfo{} must be correct (same value as F:HIDDEN_HOST in ircd.conf).
+
+Atheme does not support IPv6 (neither IPv6 connections nor IPv6 IPs in P10
+protocol).
+
+Atheme does not support oplevels; they should be disabled.
 
 unreal
 ------

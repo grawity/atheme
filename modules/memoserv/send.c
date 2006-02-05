@@ -4,7 +4,7 @@
  *
  * This file contains code for the Memoserv SEND function
  *
- * $Id: send.c 3919 2005-11-15 03:30:22Z alambert $
+ * $Id: send.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/send", FALSE, _modinit, _moddeinit,
-	"$Id: send.c 3919 2005-11-15 03:30:22Z alambert $",
+	"$Id: send.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ms_cmd_send(char *origin);
 
-command_t ms_send = { "SEND", "Sends a memo to a user",
+command_t ms_send = { "SEND", "Sends a memo to a user.",
                         AC_NONE, ms_cmd_send };
 
 list_t *ms_cmdtree;
@@ -42,7 +42,7 @@ void _moddeinit()
 static void ms_cmd_send(char *origin)
 {
 	/* misc structs etc */
-	user_t *u = user_find(origin), *tu;
+	user_t *u = user_find_named(origin), *tu;
 	myuser_t *tmu, *mu = u->myuser;
 	node_t *n;
 	mymemo_t *memo;
@@ -55,7 +55,7 @@ static void ms_cmd_send(char *origin)
 	if (!target || !m)
 	{
 		notice(memosvs.nick, origin, 
-			"Insufficient parameters specified for \2SEND\2.");
+			STR_INSUFFICIENT_PARAMS, "SEND");
 		
 		notice(memosvs.nick, origin, 
 			"Syntax: SEND <user> <memo>");
@@ -77,7 +77,7 @@ static void ms_cmd_send(char *origin)
 	}
 	
 	/* See if target is valid */
-	if (!(tmu = myuser_find(target))) 
+	if (!(tmu = myuser_find_ext(target))) 
 	{
 		notice(memosvs.nick, origin, 
 			"\2%s\2 is not registered.", target);

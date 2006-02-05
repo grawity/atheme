@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 4015 2005-12-07 14:40:57Z jilles $
+ * $Id: main.c 4769 2006-02-04 21:01:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 4015 2005-12-07 14:40:57Z jilles $",
+	"$Id: main.c 4769 2006-02-04 21:01:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -21,6 +21,7 @@ static void cs_part(chanuser_t *cu);
 static void cs_register(mychan_t *mc);
 static void cs_keeptopic_newchan(channel_t *c);
 static void cs_keeptopic_topicset(channel_t *c);
+static void cs_leave_empty(void *unused);
 
 list_t cs_cmdtree;
 list_t cs_fcmdtree;
@@ -30,8 +31,7 @@ E list_t mychan;
 
 static void join_registered(boolean_t all)
 {
-	node_t *n;
-	uint32_t i;
+	node_t *n;	uint32_t i;
 
 	for (i = 0; i < HASHSIZE; i++)
 	{
@@ -41,12 +41,12 @@ static void join_registered(boolean_t all)
 
 			if (all == TRUE)
 			{
-				join(chansvs.nick, mc->name);
+				join(mc->name, chansvs.nick);
 				continue;
 			}
 			else if (mc->chan != NULL && mc->chan->members.count != 0)
 			{
-				join(chansvs.nick, mc->name);
+				join(mc->name, chansvs.nick);
 				continue;
 			}
 		}
@@ -56,6 +56,7 @@ static void join_registered(boolean_t all)
 /* main services client routine */
 static void chanserv(char *origin, uint8_t parc, char *parv[])
 {
+	mychan_t *mc;
 	char *cmd, *s;
 	char orig[BUFSIZE];
 	boolean_t is_fcommand = FALSE;
@@ -75,10 +76,33 @@ static void chanserv(char *origin, uint8_t parc, char *parv[])
 	}
 
 	/* is this a fantasy command? */
-	if (parv[parc - 2][0] == '#' && chansvs.fantasy == TRUE)
+	if (parv[parc - 2][0] == '#')
+	{
+		metadata_t *md;
+
+		if (chansvs.fantasy == FALSE)
+		{
+			/* *all* fantasy disabled */
+			return;
+		}
+
+		mc = mychan_find(parv[parc - 2]);
+		if (!mc)
+		{
+			/* unregistered, NFI how we got this message, but let's leave it alone! */
+			return;
+		}
+
+		md = metadata_find(mc, METADATA_CHANNEL, "disable_fantasy");
+		if (md)
+		{
+			/* fantasy disabled on this channel. don't message them, just bail. */
+			return;
+		}
+
+		/* we're ok to go */
 		is_fcommand = TRUE;
-	else if (parv[parc - 2][0] == '#')
-		return;
+	}
 
 	/* make a copy of the original for debugging */
 	strlcpy(orig, parv[parc - 1], BUFSIZE);
@@ -109,8 +133,7 @@ static void chanserv(char *origin, uint8_t parc, char *parv[])
 		       (me.auth) ? "e" : "",
 		       (config_options.flood_msgs) ? "F" : "",
 		       (config_options.leave_chans) ? "l" : "",
-		       (config_options.join_chans) ? "j" : "",
-		       (config_options.leave_chans) ? "l" : "", (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
+		       (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
 
 		return;
 	}
@@ -130,7 +153,7 @@ static void chanserv(char *origin, uint8_t parc, char *parv[])
 		command_exec(chansvs.me, origin, cmd, &cs_cmdtree);
 	else
 	{
-		fcommand_exec(chansvs.me, parv[parc - 2], origin, cmd, &cs_fcmdtree);
+		fcommand_exec_floodcheck(chansvs.me, parv[parc - 2], origin, cmd, &cs_fcmdtree);
 
 		cdata.c = channel_find(parv[parc - 2]);
 		cdata.msg = parv[parc - 1];
@@ -179,18 +202,23 @@ void _modinit(module_t *m)
 	hook_add_hook("channel_register", (void (*)(void *)) cs_register);
 	hook_add_hook("channel_add", (void (*)(void *)) cs_keeptopic_newchan);
 	hook_add_hook("channel_topic", (void (*)(void *)) cs_keeptopic_topicset);
+	event_add("cs_leave_empty", cs_leave_empty, NULL, 300);
 }
 
 void _moddeinit(void)
 {
 	if (chansvs.me)
+	{
 		del_service(chansvs.me);
+		chansvs.me = NULL;
+	}
 
 	hook_del_hook("channel_join", (void (*)(void *)) cs_join);
 	hook_del_hook("channel_part", (void (*)(void *)) cs_part);
 	hook_del_hook("channel_register", (void (*)(void *)) cs_register);
 	hook_del_hook("channel_add", (void (*)(void *)) cs_keeptopic_newchan);
 	hook_del_hook("channel_topic", (void (*)(void *)) cs_keeptopic_topicset);
+	event_delete(cs_leave_empty, NULL);
 }
 
 static void cs_join(chanuser_t *cu)
@@ -198,47 +226,98 @@ static void cs_join(chanuser_t *cu)
 	user_t *u = cu->user;
 	channel_t *chan = cu->chan;
 	mychan_t *mc;
-	char hostbuf[BUFSIZE];
 	uint32_t flags;
-
-	/* This crap is all moved in from chanuser_add(). It's better having
-	 * it here than in node.c. It still needs a massive cleanup. Use the
-	 * utility function chanacs_user_has_flag().              --alambert
-	 */
+	metadata_t *md;
+	boolean_t noop;
+	chanacs_t *ca2;
+	boolean_t secure = FALSE;
 
 	if (is_internal_client(cu->user))
 		return;
 
-	if ((chan->nummembers == 1) && (irccasecmp(config_options.chan, chan->name)))
-	{
-		if ((mc = mychan_find(chan->name)) && (config_options.join_chans))
-			join(chan->name, chansvs.nick);
-	}
+	/* first check if this is a registered channel at all */
+	mc = mychan_find(chan->name);
+	if (mc == NULL)
+		return;
+
+	/* attempt to deop people recreating channels, XXX this doesn't
+	 * really work properly */
+	if (mc->flags & MC_SECURE || (chan->nummembers == 1 && chan->ts > CURRTIME - 300))
+		secure = TRUE;
+
+	if (chan->nummembers == 1 && config_options.join_chans)
+		join(chan->name, chansvs.nick);
+
+	flags = chanacs_user_flags(mc, u);
+	noop = mc->flags & MC_NOOP || (u->myuser != NULL &&
+			u->myuser->flags & MU_NOOP);
 
 	/* auto stuff */
-	if (((mc = mychan_find(chan->name))) && (u->myuser))
+	if ((mc->flags & MC_STAFFONLY) && !has_priv(u, PRIV_JOIN_STAFFONLY))
 	{
-		if ((mc->flags & MC_STAFFONLY) && !is_ircop(u) && !is_sra(u->myuser))
+		/* Stay on channel if this would empty it -- jilles */
+		if (chan->nummembers <= (config_options.join_chans ? 2 : 1))
 		{
-			ban(chansvs.nick, chan->name, u);
-			kick(chansvs.nick, chan->name, u->nick, "You are not authorized to be on this channel");
+			mc->flags |= MC_INHABIT;
+			if (!config_options.join_chans)
+				join(chan->name, chansvs.nick);
 		}
+		ban(chansvs.nick, chan->name, u);
+		remove_ban_exceptions(chansvs.me->me, chan, u);
+		kick(chansvs.nick, chan->name, u->nick, "You are not authorized to be on this channel");
+		return;
+	}
 
-		if (should_kick(mc, u->myuser))
+	if (flags & CA_AKICK && !(flags & CA_REMOVE))
+	{
+		/* Stay on channel if this would empty it -- jilles */
+		if (chan->nummembers <= (config_options.join_chans ? 2 : 1))
 		{
-			ban(chansvs.nick, chan->name, u);
-			kick(chansvs.nick, chan->name, u->nick, "User is banned from this channel");
+			mc->flags |= MC_INHABIT;
+			if (!config_options.join_chans)
+				join(chan->name, chansvs.nick);
 		}
-
-		if (should_owner(mc, u->myuser))
+		/* use a user-given ban mask if possible -- jilles */
+		ca2 = chanacs_find_host_by_user(mc, u, CA_AKICK);
+		if (ca2 != NULL)
 		{
-			if (ircd->uses_owner && !(cu->modes & ircd->owner_mode))
+			if (chanban_find(chan, ca2->host, 'b') == NULL)
+			{
+				char str[512];
+
+				chanban_add(chan, ca2->host, 'b');
+				snprintf(str, sizeof str, "+b %s", ca2->host);
+				/* ban immediately */
+				mode_sts(chansvs.nick, chan->name, str);
+			}
+		}
+		else
+			ban(chansvs.nick, chan->name, u);
+		remove_ban_exceptions(chansvs.me->me, chan, u);
+		kick(chansvs.nick, chan->name, u->nick, "User is banned from this channel");
+		return;
+	}
+
+	/* A user joined and was not kicked; we do not need
+	 * to stay on the channel artificially. */
+	if (mc->flags & MC_INHABIT)
+	{
+		mc->flags &= ~MC_INHABIT;
+		if (!config_options.join_chans && chanuser_find(chan, chansvs.me->me))
+			part(chan->name, chansvs.nick);
+	}
+
+	if (ircd->uses_owner)
+	{
+		if (u->myuser != NULL && is_founder(mc, u->myuser))
+		{
+			if (!(noop || cu->modes & ircd->owner_mode))
 			{
 				cmode(chansvs.nick, chan->name, ircd->owner_mchar, CLIENT_NAME(u));
 				cu->modes |= ircd->owner_mode;
 			}
 		}
-		else if ((mc->flags & MC_SECURE) && (cu->modes & ircd->owner_mode) && ircd->uses_owner)
+		else if (secure == TRUE && (cu->modes & ircd->owner_mode))
 		{
 			char *mbuf = sstrdup(ircd->owner_mchar);
 			*mbuf = '-';
@@ -248,16 +327,20 @@ static void cs_join(chanuser_t *cu)
 
 			free(mbuf);
 		}
+	}
 
+	/* XXX still uses should_protect() */
+	if (ircd->uses_protect && u->myuser != NULL)
+	{
 		if (should_protect(mc, u->myuser))
 		{
-			if (ircd->uses_protect && !(cu->modes & ircd->protect_mode))
+			if (!(noop || cu->modes & ircd->protect_mode))
 			{
 				cmode(chansvs.nick, chan->name, ircd->protect_mchar, CLIENT_NAME(u));
 				cu->modes |= ircd->protect_mode;
 			}
 		}
-		else if ((mc->flags & MC_SECURE) && (cu->modes & ircd->protect_mode) && ircd->uses_protect)
+		else if (secure == TRUE && (cu->modes & ircd->protect_mode))
 		{
 			char *mbuf = sstrdup(ircd->protect_mchar);
 			*mbuf = '-';
@@ -267,154 +350,79 @@ static void cs_join(chanuser_t *cu)
 
 			free(mbuf);
 		}
+	}
 
-		if (should_op(mc, u->myuser))
+	if (flags & CA_AUTOOP)
+	{
+		if (!(noop || cu->modes & CMODE_OP))
 		{
-			if (!(cu->modes & CMODE_OP))
-			{
-				cmode(chansvs.nick, chan->name, "+o", CLIENT_NAME(u));
-				cu->modes |= CMODE_OP;
-			}
+			cmode(chansvs.nick, chan->name, "+o", CLIENT_NAME(u));
+			cu->modes |= CMODE_OP;
 		}
-		else if ((mc->flags & MC_SECURE) && (cu->modes & CMODE_OP))
-		{
-			cmode(chansvs.nick, chan->name, "-o", CLIENT_NAME(u));
-			cu->modes &= ~CMODE_OP;
-		}
+	}
+	else if (secure == TRUE && (cu->modes & CMODE_OP) && !(flags & CA_OP))
+	{
+		cmode(chansvs.nick, chan->name, "-o", CLIENT_NAME(u));
+		cu->modes &= ~CMODE_OP;
+	}
 
-		if (should_halfop(mc, u->myuser))
+	if (ircd->uses_halfops)
+	{
+		if (flags & CA_AUTOHALFOP)
 		{
-			if (ircd->uses_halfops && !(cu->modes & ircd->halfops_mode))
+			if (!(noop || cu->modes & (CMODE_OP | ircd->halfops_mode)))
 			{
 				cmode(chansvs.nick, chan->name, "+h", CLIENT_NAME(u));
 				cu->modes |= ircd->halfops_mode;
 			}
 		}
-		else if ((mc->flags & MC_SECURE) && (cu->modes & ircd->halfops_mode) && ircd->uses_halfops)
+		else if (secure == TRUE && (cu->modes & ircd->halfops_mode) && !(flags & CA_HALFOP))
 		{
 			cmode(chansvs.nick, chan->name, "-h", CLIENT_NAME(u));
 			cu->modes &= ~ircd->halfops_mode;
 		}
+	}
 
-		if (should_voice(mc, u->myuser) && !(cu->modes & CMODE_VOICE))
+	if (flags & CA_AUTOVOICE)
+	{
+		if (!(noop || cu->modes & (CMODE_OP | ircd->halfops_mode | CMODE_VOICE)))
 		{
 			cmode(chansvs.nick, chan->name, "+v", CLIENT_NAME(u));
 			cu->modes |= CMODE_VOICE;
 		}
 	}
 
-	if (mc)
-	{
-		hostbuf[0] = '\0';
+	if ((md = metadata_find(mc, METADATA_CHANNEL, "private:entrymsg")))
+		notice(chansvs.nick, cu->user->nick, "[%s] %s", mc->name, md->value);
 
-		strlcat(hostbuf, u->nick, BUFSIZE);
-		strlcat(hostbuf, "!", BUFSIZE);
-		strlcat(hostbuf, u->user, BUFSIZE);
-		strlcat(hostbuf, "@", BUFSIZE);
-		strlcat(hostbuf, u->host, BUFSIZE);
+	if ((md = metadata_find(mc, METADATA_CHANNEL, "url")))
+		numeric_sts(me.name, 328, cu->user->nick, "%s :%s", mc->name, md->value);
 
-		/* the case u->myuser != NULL was treated above */
-		if ((mc->flags & MC_STAFFONLY) && !is_ircop(u) && u->myuser == NULL)
-		{
-			ban(chansvs.nick, chan->name, u);
-			kick(chansvs.nick, chan->name, u->nick, "You are not authorized to be on this channel");
-		}
-
-
-		if (should_kick_host(mc, hostbuf))
-		{
-			ban(chansvs.nick, chan->name, u);
-			kick(chansvs.nick, chan->name, u->nick, "User is banned from this channel");
-		}
-
-		if (!should_owner(mc, u->myuser) && (cu->modes & ircd->owner_mode))
-		{
-			char *mbuf = sstrdup(ircd->owner_mchar);
-			*mbuf = '-';
-
-			cmode(chansvs.nick, chan->name, mbuf, CLIENT_NAME(u));
-			cu->modes &= ~ircd->owner_mode;
-
-			free(mbuf);
-		}
-
-		if (!should_protect(mc, u->myuser) && (cu->modes & ircd->protect_mode))
-		{
-			char *mbuf = sstrdup(ircd->protect_mchar);
-			*mbuf = '-';
-
-			cmode(chansvs.nick, chan->name, mbuf, CLIENT_NAME(u));
-			cu->modes &= ~ircd->protect_mode;
-
-			free(mbuf);
-		}
-
-		if (should_op_host(mc, hostbuf))
-		{
-			if (!(cu->modes & CMODE_OP))
-			{
-				cmode(chansvs.nick, chan->name, "+o", CLIENT_NAME(u));
-				cu->modes |= CMODE_OP;
-			}
-		}
-		else if ((mc->flags & MC_SECURE) && !should_op(mc, u->myuser) && (cu->modes & CMODE_OP))
-		{
-			cmode(chansvs.nick, chan->name, "-o", CLIENT_NAME(u));
-			cu->modes &= ~CMODE_OP;
-		}
-
-		if (should_halfop_host(mc, hostbuf))
-		{
-			if (ircd->uses_halfops && !(cu->modes & ircd->halfops_mode))
-			{
-				cmode(chansvs.nick, chan->name, "+h", CLIENT_NAME(u));
-				cu->modes |= ircd->halfops_mode;
-			}
-		}
-		else if ((mc->flags & MC_SECURE) && ircd->uses_halfops && !should_halfop(mc, u->myuser) && (cu->modes & ircd->halfops_mode))
-		{
-			cmode(chansvs.nick, chan->name, "-h", CLIENT_NAME(u));
-			cu->modes &= ~ircd->halfops_mode;
-		}
-
-		if (should_voice_host(mc, hostbuf))
-		{
-			if (!(cu->modes & CMODE_VOICE))
-			{
-				cmode(chansvs.nick, chan->name, "+v", CLIENT_NAME(u));
-				cu->modes |= CMODE_VOICE;
-			}
-		}
-	}
-
-	if (mc)
-	{
-		metadata_t *md;
-
-		if ((md = metadata_find(mc, METADATA_CHANNEL, "private:entrymsg")))
-			notice(chansvs.nick, cu->user->nick, "[%s] %s", mc->name, md->value);
-
-		if ((md = metadata_find(mc, METADATA_CHANNEL, "url")))
-			numeric_sts(me.name, 328, cu->user->nick, "%s :%s", mc->name, md->value);
-
-		check_modes(mc, TRUE);
+	check_modes(mc, TRUE);
 	
-		flags = chanacs_user_flags(mc, u);
-		if (flags & CA_USEDUPDATE)
-			mc->used = CURRTIME;
-	}
+	if (flags & CA_USEDUPDATE)
+		mc->used = CURRTIME;
 }
 
 static void cs_part(chanuser_t *cu)
 {
+	mychan_t *mc;
+
+	mc = mychan_find(cu->chan->name);
+	if (mc == NULL)
+		return;
 	/*
 	 * When channel_part is fired, we haven't yet removed the
 	 * user from the room. So, the channel will have two members
 	 * if ChanServ is joining channels: the triggering user and
 	 * itself.
+	 *
+	 * Do not part if we're enforcing an akick/close in an otherwise
+	 * empty channel (MC_INHABIT). -- jilles
 	 */
 	if (config_options.join_chans
 		&& config_options.leave_chans
+		&& !(mc->flags & MC_INHABIT)
 		&& (cu->chan->nummembers <= 2)
 		&& !is_internal_client(cu->user))
 		part(cu->chan->name, chansvs.nick);
@@ -436,7 +444,6 @@ static void cs_keeptopic_topicset(channel_t *c)
 {
 	mychan_t *mc;
 	metadata_t *md;
-	char *text;
 
 	mc = mychan_find(c->name);
 
@@ -479,7 +486,9 @@ static void cs_keeptopic_newchan(channel_t *c)
 	metadata_t *md;
 	char *setter;
 	char *text;
+#if 0
 	time_t channelts;
+#endif
 	time_t topicts;
 
 
@@ -523,4 +532,32 @@ static void cs_keeptopic_newchan(channel_t *c)
 
 	handle_topic(c, setter, topicts, text);
 	topic_sts(c->name, setter, topicts, text);
+}
+
+static void cs_leave_empty(void *unused)
+{
+	int i;
+	node_t *n;
+	mychan_t *mc;
+
+	(void)unused;
+	for (i = 0; i < HASHSIZE; i++)
+	{
+		LIST_FOREACH(n, mclist[i].head)
+		{
+			mc = n->data;
+			if (!(mc->flags & MC_INHABIT))
+				continue;
+			mc->flags &= ~MC_INHABIT;
+			if (mc->chan != NULL &&
+					(!config_options.join_chans ||
+					 (config_options.leave_chans && mc->chan->nummembers == 1) ||
+					 metadata_find(mc, METADATA_CHANNEL, "private:close:closer")) &&
+					chanuser_find(mc->chan, chansvs.me->me))
+			{
+				slog(LG_DEBUG, "cs_leave_empty(): leaving %s", mc->chan->name);
+				part(mc->chan->name, chansvs.nick);
+			}
+		}
+	}
 }

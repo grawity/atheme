@@ -4,7 +4,7 @@
  *
  * Controls noexpire options for accounts.
  *
- * $Id: hold.c 3653 2005-11-08 00:49:36Z jilles $
+ * $Id: hold.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"userserv/hold", FALSE, _modinit, _moddeinit,
-	"$Id: hold.c 3653 2005-11-08 00:49:36Z jilles $",
+	"$Id: hold.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void us_cmd_hold(char *origin);
 
 command_t us_hold = { "HOLD", "Prevents a account from expiring.",
-			AC_SRA, us_cmd_hold };
+			PRIV_HOLD, us_cmd_hold };
 
 list_t *us_cmdtree, *us_helptree;
 
@@ -42,19 +42,19 @@ static void us_cmd_hold(char *origin)
 	char *target = strtok(NULL, " ");
 	char *action = strtok(NULL, " ");
 	myuser_t *mu;
-	user_t *source = user_find(origin);
+	user_t *source = user_find_named(origin);
 
 	if (source == NULL)
 		return;
 
 	if (!target || !action)
 	{
-		notice(usersvs.nick, origin, "Insufficient parameters for \2HOLD\2.");
+		notice(usersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "HOLD");
 		notice(usersvs.nick, origin, "Usage: HOLD <account> <ON|OFF>");
 		return;
 	}
 
-	if (!(mu = myuser_find(target)))
+	if (!(mu = myuser_find_ext(target)))
 	{
 		notice(usersvs.nick, origin, "\2%s\2 is not registered.", target);
 		return;
@@ -90,7 +90,7 @@ static void us_cmd_hold(char *origin)
 	}
 	else
 	{
-		notice(usersvs.nick, origin, "Invalid parameters for \2HOLD\2.");
+		notice(usersvs.nick, origin, STR_INVALID_PARAMS, "HOLD");
 		notice(usersvs.nick, origin, "Usage: HOLD <account> <ON|OFF>");
 	}
 }

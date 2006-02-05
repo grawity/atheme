@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ LISTMAIL function.
  *
- * $Id: listmail.c 3583 2005-11-06 21:48:28Z jilles $
+ * $Id: listmail.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/listmail", FALSE, _modinit, _moddeinit,
-	"$Id: listmail.c 3583 2005-11-06 21:48:28Z jilles $",
+	"$Id: listmail.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_listmail(char *origin);
 
-command_t ns_listmail = { "LISTMAIL", "Lists nicknames registered to an e-mail address.", AC_IRCOP, ns_cmd_listmail };
+command_t ns_listmail = { "LISTMAIL", "Lists nicknames registered to an e-mail address.", PRIV_USER_AUSPEX, ns_cmd_listmail };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -38,7 +38,7 @@ void _moddeinit()
 
 static void ns_cmd_listmail(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	node_t *n;
 	char *email = strtok(NULL, " ");
@@ -50,7 +50,7 @@ static void ns_cmd_listmail(char *origin)
 
 	if (!email)
 	{
-		notice(nicksvs.nick, origin, "Insufficient parameters specified for \2LISTMAIL\2.");
+		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "LISTMAIL");
 		notice(nicksvs.nick, origin, "Syntax: LISTMAIL <email>");
 		return;
 	}

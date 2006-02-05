@@ -4,7 +4,7 @@
  *
  * Implements USERSERV RETURN.
  *
- * $Id: return.c 3685 2005-11-09 01:07:04Z alambert $
+ * $Id: return.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"userserv/return", FALSE, _modinit, _moddeinit,
-	"$Id: return.c 3685 2005-11-09 01:07:04Z alambert $",
+	"$Id: return.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void us_cmd_return(char *origin);
 
 command_t us_return = { "RETURN", "Returns an account to its owner.",
-			AC_IRCOP, us_cmd_return };
+			PRIV_USER_ADMIN, us_cmd_return };
 
 list_t *us_cmdtree, *us_helptree;
 
@@ -39,7 +39,7 @@ void _moddeinit()
 
 static void us_cmd_return(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	char *target = strtok(NULL, " ");
 	char *newmail = strtok(NULL, " ");
 	char *newpass;
@@ -51,7 +51,7 @@ static void us_cmd_return(char *origin)
 
 	if (!target || !newmail)
 	{
-		notice(usersvs.nick, origin, "Insufficient parameters for \2RETURN\2.");
+		notice(usersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "RETURN");
 		notice(usersvs.nick, origin, "Usage: RETURN <account> <e-mail address>");
 		return;
 	}
@@ -62,10 +62,10 @@ static void us_cmd_return(char *origin)
 		return;
 	}
 
-	if (is_sra(mu))
+	if (is_soper(mu))
 	{
-		logcommand(usersvs.me, u, CMDLOG_ADMIN, "failed RETURN %s to %s (is SRA)", target, newmail);
-		notice(usersvs.nick, origin, "\2%s\2 belongs to a services root administrator; it cannot be returned.", target);
+		logcommand(usersvs.me, u, CMDLOG_ADMIN, "failed RETURN %s to %s (is SOPER)", target, newmail);
+		notice(usersvs.nick, origin, "\2%s\2 belongs to a services operator; it cannot be returned.", target);
 		return;
 	}
 

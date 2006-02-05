@@ -4,7 +4,7 @@
  *
  * This file contains code for the ChanServ LIST function.
  *
- * $Id: list.c 3735 2005-11-09 12:23:51Z jilles $
+ * $Id: list.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/list", FALSE, _modinit, _moddeinit,
-	"$Id: list.c 3735 2005-11-09 12:23:51Z jilles $",
+	"$Id: list.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_list(char *origin);
 
-command_t cs_list = { "LIST", "Lists channels registered matching a given pattern.", AC_IRCOP, cs_cmd_list };
+command_t cs_list = { "LIST", "Lists channels registered matching a given pattern.", PRIV_CHAN_AUSPEX, cs_cmd_list };
 
 list_t *cs_cmdtree;
 list_t *cs_helptree;
@@ -49,7 +49,7 @@ static void cs_cmd_list(char *origin)
 
 	if (!chanpattern)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2LIST\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "LIST");
 		notice(chansvs.nick, origin, "Syntax: LIST <channel pattern>");
 		return;
 	}
@@ -84,7 +84,7 @@ static void cs_cmd_list(char *origin)
 		}
 	}
 
-	logcommand(chansvs.me, user_find(origin), CMDLOG_ADMIN, "LIST %s (%d matches)", chanpattern, matches);
+	logcommand(chansvs.me, user_find_named(origin), CMDLOG_ADMIN, "LIST %s (%d matches)", chanpattern, matches);
 	if (matches == 0)
 		notice(chansvs.nick, origin, "No channel matched pattern \2%s\2", chanpattern);
 	else

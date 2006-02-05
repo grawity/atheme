@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService COUNT functions.
  *
- * $Id: cs_count.c 3313 2005-10-31 00:55:58Z jilles $
+ * $Id: cs_count.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/count", FALSE, _modinit, _moddeinit,
-	"$Id: cs_count.c 3313 2005-10-31 00:55:58Z jilles $",
+	"$Id: cs_count.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -43,13 +43,13 @@ static void cs_cmd_count(char *origin)
 	char *chan = strtok(NULL, " ");
 	chanacs_t *ca;
 	mychan_t *mc = mychan_find(chan);
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	uint8_t vopcnt = 0, aopcnt = 0, hopcnt = 0, sopcnt = 0, akickcnt = 0;
 	node_t *n;
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2COUNT\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "COUNT");
 		notice(chansvs.nick, origin, "Syntax: COUNT <#channel>");
 		return;
 	}
@@ -76,24 +76,16 @@ static void cs_cmd_count(char *origin)
 	{
 		ca = (chanacs_t *)n->data;
 
-		switch (ca->level)
-		{
-			case CA_VOP:
-				vopcnt++;
-				break;
-			case CA_HOP:
-				hopcnt++;
-				break;
-			case CA_AOP:
-				aopcnt++;
-				break;
-			case CA_SOP:
-				aopcnt++;
-				break;
-			case CA_AKICK:
-				akickcnt++;
-				break;
-		}
+		if (ca->level == chansvs.ca_vop)
+			vopcnt++;
+		else if (ca->level == chansvs.ca_hop)
+			hopcnt++;
+		else if (ca->level == chansvs.ca_aop)
+			aopcnt++;
+		else if (ca->level == chansvs.ca_sop)
+			sopcnt++;
+		else if (ca->level == CA_AKICK)
+			akickcnt++;
 	}
 	notice(chansvs.nick, origin, "%s: VOp: %d, HOp: %d, AOp: %d, SOp: %d, AKick: %d",
 			chan, vopcnt, hopcnt, aopcnt, sopcnt, akickcnt);

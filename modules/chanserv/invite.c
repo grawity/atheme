@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService INVITE functions.
  *
- * $Id: invite.c 3731 2005-11-09 11:27:14Z jilles $
+ * $Id: invite.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/invite", FALSE, _modinit, _moddeinit,
-	"$Id: invite.c 3731 2005-11-09 11:27:14Z jilles $",
+	"$Id: invite.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -43,11 +43,11 @@ static void cs_cmd_invite(char *origin)
 {
 	char *chan = strtok(NULL, " ");
 	mychan_t *mc;
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2INVITE\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "INVITE");
 		notice(chansvs.nick, origin, "Syntax: INVITE <#channel>");
 		return;
 	}
@@ -77,7 +77,13 @@ static void cs_cmd_invite(char *origin)
 		return;
 	}
 
-	sts(":%s INVITE %s :%s", chansvs.nick, u->nick, chan);
+	if (!mc->chan)
+	{
+		notice(chansvs.nick, origin, "\2%s\2 is currently empty.", mc->name);
+		return;
+	}
+
+	invite_sts(chansvs.me->me, u, mc->chan);
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s INVITE", mc->name);
 	notice(chansvs.nick, origin, "You have been invited to \2%s\2.", mc->name);
 }

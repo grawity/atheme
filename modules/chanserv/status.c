@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService STATUS function.
  *
- * $Id: status.c 3735 2005-11-09 12:23:51Z jilles $
+ * $Id: status.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/status", FALSE, _modinit, _moddeinit,
-	"$Id: status.c 3735 2005-11-09 12:23:51Z jilles $",
+	"$Id: status.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -41,7 +41,7 @@ void _moddeinit()
 
 static void cs_cmd_status(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	char *chan = strtok(NULL, " ");
 
 	if (!u->myuser)
@@ -53,11 +53,11 @@ static void cs_cmd_status(char *origin)
 	if (chan)
 	{
 		mychan_t *mc = mychan_find(chan);
-		chanacs_t *ca;
+		uint32_t flags;
 
 		if (*chan != '#')
 		{
-			notice(chansvs.nick, origin, "Invalid parameters specified for \2STATUS\2.");
+			notice(chansvs.nick, origin, STR_INVALID_PARAMS, "STATUS");
 			return;
 		}
 
@@ -76,36 +76,17 @@ static void cs_cmd_status(char *origin)
 		}
 
 		if (is_founder(mc, u->myuser))
-		{
 			notice(chansvs.nick, origin, "You are founder on \2%s\2.", mc->name);
-			return;
-		}
 
-		if (is_xop(mc, u->myuser, CA_VOP))
+		flags = chanacs_user_flags(mc, u);
+		if (flags & CA_AKICK)
+			notice(chansvs.nick, origin, "You are banned from \2%s\2.", mc->name);
+		else if (flags != 0)
 		{
-			notice(chansvs.nick, origin, "You are VOP on \2%s\2.", mc->name);
-			return;
+			notice(chansvs.nick, origin, "You have access flags \2%s\2 on \2%s\2.", bitmask_to_flags(flags, chanacs_flags), mc->name);
 		}
-
-		if (is_xop(mc, u->myuser, CA_AOP))
-		{
-			notice(chansvs.nick, origin, "You are AOP on \2%s\2.", mc->name);
-			return;
-		}
-
-		if (is_xop(mc, u->myuser, CA_SOP))
-		{
-			notice(chansvs.nick, origin, "You are SOP on \2%s\2.", mc->name);
-			return;
-		}
-
-		if ((ca = chanacs_find(mc, u->myuser, 0x0)))
-		{
-			notice(chansvs.nick, origin, "You have access flags \2%s\2 on \2%s\2.", bitmask_to_flags(ca->level, chanacs_flags), mc->name);
-			return;
-		}
-
-		notice(chansvs.nick, origin, "You are a normal user on \2%s\2.", mc->name);
+		else
+			notice(chansvs.nick, origin, "You are a normal user on \2%s\2.", mc->name);
 
 		return;
 	}
@@ -113,8 +94,16 @@ static void cs_cmd_status(char *origin)
 	logcommand(chansvs.me, u, CMDLOG_GET, "STATUS");
 	notice(chansvs.nick, origin, "You are logged in as \2%s\2.", u->myuser->name);
 
-	if (is_sra(u->myuser))
-		notice(chansvs.nick, origin, "You are a services root administrator.");
+	if (is_soper(u->myuser))
+	{
+		operclass_t *operclass;
+
+		operclass = u->myuser->soper->operclass;
+		if (operclass == NULL)
+			notice(chansvs.nick, origin, "You are a services root administrator.");
+		else
+			notice(chansvs.nick, origin, "You are a services operator of class %s.", operclass->name);
+	}
 
 	if (is_admin(u))
 		notice(chansvs.nick, origin, "You are a server administrator.");

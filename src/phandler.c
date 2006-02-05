@@ -4,7 +4,7 @@
  *
  * Generic protocol event handlers.
  *
- * $Id: phandler.c 3171 2005-10-23 21:55:39Z jilles $
+ * $Id: phandler.c 4585 2006-01-19 16:25:49Z jilles $
  */
 
 #include "atheme.h"
@@ -15,7 +15,8 @@ void (*wallops) (char *fmt, ...) = generic_wallops;
 void (*join_sts) (channel_t *c, user_t *u, boolean_t isnew, char *modes) = generic_join_sts;
 void (*kick) (char *from, char *channel, char *to, char *reason) = generic_kick;
 void (*msg) (char *from, char *target, char *fmt, ...) = generic_msg;
-void (*notice) (char *from, char *target, char *fmt, ...) = generic_notice;
+void (*notice_sts) (char *from, char *target, char *fmt, ...) = generic_notice;
+void (*wallchops)(user_t *source, channel_t *target, char *message) = generic_wallchops;
 void (*numeric_sts) (char *from, int numeric, char *target, char *fmt, ...) = generic_numeric_sts;
 void (*skill) (char *from, char *nick, char *fmt, ...) = generic_skill;
 void (*part) (char *chan, char *nick) = generic_part;
@@ -26,9 +27,11 @@ void (*mode_sts) (char *sender, char *target, char *modes) = generic_mode_sts;
 void (*ping_sts) (void) = generic_ping_sts;
 void (*quit_sts) (user_t *u, char *reason) = generic_quit_sts;
 void (*ircd_on_login) (char *origin, char *user, char *wantedhost) = generic_on_login;
-void (*ircd_on_logout) (char *origin, char *user, char *wantedhost) = generic_on_logout;
+boolean_t (*ircd_on_logout) (char *origin, char *user, char *wantedhost) = generic_on_logout;
 void (*jupe) (char *server, char *reason) = generic_jupe;
 void (*sethost_sts) (char *source, char *target, char *host) = generic_sethost_sts;
+void (*fnc_sts) (user_t *source, user_t *u, char *newnick, int type) = generic_fnc_sts;
+void (*invite_sts) (user_t *source, user_t *target, channel_t *channel) = generic_invite_sts;
 
 uint8_t generic_server_login(void)
 {
@@ -90,6 +93,20 @@ void generic_notice(char *from, char *target, char *fmt, ...)
 	slog(LG_INFO, "Cannot send notice to %s (%s): don't know how. Load a protocol module perhaps?", target, buf);
 }
 
+void generic_wallchops(user_t *sender, channel_t *channel, char *message)	
+{
+	/* ugly, but always works -- jilles */
+	node_t *n;
+	chanuser_t *cu;
+
+	LIST_FOREACH(n, channel->members.head)
+	{
+		cu = (chanuser_t *)n->data;
+		if (cu->user->server != me.me && cu->modes & CMODE_OP)
+			notice(sender->nick, cu->user->nick, "[@%s] %s", channel->name, message);
+	}
+}
+
 void generic_numeric_sts(char *from, int numeric, char *target, char *fmt, ...)
 {
 	/* cant do anything here. bail. */
@@ -140,9 +157,10 @@ void generic_on_login(char *origin, char *user, char *wantedhost)
 	/* nothing to do here. */
 }
 
-void generic_on_logout(char *origin, char *user, char *wantedhost)
+boolean_t generic_on_logout(char *origin, char *user, char *wantedhost)
 {
 	/* nothing to do here. */
+	return FALSE;
 }
 
 void generic_jupe(char *server, char *reason)
@@ -153,4 +171,15 @@ void generic_jupe(char *server, char *reason)
 void generic_sethost_sts(char *source, char *target, char *host)
 {
 	/* nothing to do here. */
+}
+
+void generic_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
+{
+	if (type == FNC_FORCE)
+		skill(source->nick, u->nick, "Nickname enforcement (%s)", u->nick);
+}
+
+void generic_invite_sts(user_t *source, user_t *target, channel_t *channel)
+{
+	/* nothing to do here. */	
 }

@@ -4,7 +4,7 @@
  *
  * Jupiters a server.
  *
- * $Id: jupe.c 3601 2005-11-06 23:36:34Z jilles $
+ * $Id: jupe.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,25 +12,29 @@
 DECLARE_MODULE_V1
 (
 	"operserv/jupe", FALSE, _modinit, _moddeinit,
-	"$Id: jupe.c 3601 2005-11-06 23:36:34Z jilles $",
+	"$Id: jupe.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_jupe(char *origin);
 
-command_t os_jupe = { "JUPE", "Jupiters a server.", AC_IRCOP, os_cmd_jupe };
+command_t os_jupe = { "JUPE", "Jupiters a server.", PRIV_JUPE, os_cmd_jupe };
 
 list_t *os_cmdtree;
+list_t *os_helptree;
 
 void _modinit(module_t *m)
 {
 	os_cmdtree = module_locate_symbol("operserv/main", "os_cmdtree");
+	os_helptree = module_locate_symbol("operserv/main", "os_helptree");
 	command_add(&os_jupe, os_cmdtree);
+	help_addentry(os_helptree, "JUPE", "help/oservice/jupe", NULL);
 }
 
 void _moddeinit()
 {
 	command_delete(&os_jupe, os_cmdtree);
+	help_delentry(os_helptree, "JUPE");
 }
 
 static void os_cmd_jupe(char *origin)
@@ -40,7 +44,7 @@ static void os_cmd_jupe(char *origin)
 
 	if (!server || !reason)
 	{
-		notice(opersvs.nick, origin, "Insufficient parameters for JUPE.");
+		notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "JUPE");
 		notice(opersvs.nick, origin, "Usage: JUPE <server> <reason>");
 		return;
 	}
@@ -63,7 +67,7 @@ static void os_cmd_jupe(char *origin)
 		return;
 	}
 
-	logcommand(opersvs.me, user_find(origin), CMDLOG_SET, "JUPE %s %s", server, reason);
+	logcommand(opersvs.me, user_find_named(origin), CMDLOG_SET, "JUPE %s %s", server, reason);
 
 	server_delete(server);
 	jupe(server, reason);

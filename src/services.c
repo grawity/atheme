@@ -4,7 +4,7 @@
  *
  * This file contains client interaction routines.
  *
- * $Id: services.c 3289 2005-10-30 20:37:14Z jilles $
+ * $Id: services.c 4699 2006-01-24 17:22:41Z nenolod $
  */
 
 #include "atheme.h"
@@ -13,8 +13,8 @@ extern list_t services[HASHSIZE];
 
 #define MAX_BUF 256
 
-/* ban wrapper for cmode */
-void ban(char *sender, char *channel, user_t *user)
+/* ban wrapper for cmode, returns number of bans added (0 or 1) */
+int ban(char *sender, char *channel, user_t *user)
 {
 	char mask[MAX_BUF];
 	char modemask[MAX_BUF];
@@ -22,7 +22,7 @@ void ban(char *sender, char *channel, user_t *user)
 	chanban_t *cb;
 
 	if (!c)
-		return;
+		return 0;
 
 	snprintf(mask, MAX_BUF, "*!*@%s", user->vhost);
 	mask[MAX_BUF - 1] = '\0';
@@ -30,14 +30,53 @@ void ban(char *sender, char *channel, user_t *user)
 	snprintf(modemask, MAX_BUF, "+b %s", mask);
 	modemask[MAX_BUF - 1] = '\0';
 
-	cb = chanban_find(c, mask);
+	cb = chanban_find(c, mask, 'b');
 
 	if (cb != NULL)
-		return;
+		return 0;
 
-	chanban_add(c, mask);
+	chanban_add(c, mask, 'b');
 
 	mode_sts(sender, channel, modemask);
+	return 1;
+}
+
+/* returns number of exceptions removed -- jilles */
+int remove_ban_exceptions(user_t *source, channel_t *chan, user_t *target)
+{
+	char change[MAX_BUF];
+	char e;
+	char hostbuf[BUFSIZE], hostbuf2[BUFSIZE], hostbuf3[BUFSIZE];
+	int count = 0;
+	node_t *n, *tn;
+
+	e = ircd->except_mchar;
+	if (e == '\0')
+		return 0;
+	if (source == NULL || chan == NULL || target == NULL)
+		return 0;
+
+	snprintf(hostbuf, BUFSIZE, "%s!%s@%s", target->nick, target->user, target->host);
+	snprintf(hostbuf2, BUFSIZE, "%s!%s@%s", target->nick, target->user, target->vhost);
+	/* will be nick!user@ if ip unknown, doesn't matter */
+	snprintf(hostbuf3, BUFSIZE, "%s!%s@%s", target->nick, target->user, target->ip);
+	LIST_FOREACH_SAFE(n, tn, chan->bans.head)
+	{
+		chanban_t *cb = n->data;
+
+		if (cb->type != e)
+			continue;
+
+		/* XXX doesn't do CIDR bans */
+		if (!match(cb->mask, hostbuf) || !match(cb->mask, hostbuf2) || !match(cb->mask, hostbuf3))
+		{
+			snprintf(change, sizeof change, "-%c %s", e, cb->mask);
+			mode_sts(source->nick, chan->name, change);
+			chanban_delete(cb);
+			count++;
+		}
+	}
+	return count;
 }
 
 /* join a channel, creating it if necessary */
@@ -49,7 +88,7 @@ void join(char *chan, char *nick)
 	boolean_t isnew = FALSE;
 	mychan_t *mc;
 
-	u = user_find(nick);
+	u = user_find_named(nick);
 	if (!u)
 		return;
 	c = channel_find(chan);
@@ -67,7 +106,7 @@ void join(char *chan, char *nick)
 		slog(LG_DEBUG, "join(): i'm already in `%s'", c->name);
 		return;
 	}
-	cu = chanuser_add(c, nick);
+	cu = chanuser_add(c, CLIENT_NAME(u));
 	cu->modes |= CMODE_OP;
 	join_sts(c, u, isnew, channel_modes(c, TRUE));
 }
@@ -183,7 +222,9 @@ void verbose(mychan_t *mychan, char *fmt, ...)
 	va_end(ap);
 
 	if (MC_VERBOSE & mychan->flags)
-		notice(chansvs.nick, mychan->name, buf);
+		notice(chansvs.nick, mychan->name, "%s", buf);
+	else if (MC_VERBOSE_OPS & mychan->flags)
+		wallchops(chansvs.me->me, mychan->chan, buf);
 }
 
 void snoop(char *fmt, ...)
@@ -214,7 +255,11 @@ void handle_nickchange(user_t *u)
 	metadata_t *md;
 
 	if (me.loglevel & LG_DEBUG && runflags & RF_LIVE)
-		notice(globsvs.nick, u->nick, "Services are presently running in debug mode, attached to a console. " "You should take extra caution when utilizing your services passwords.");
+		notice(globsvs.nick, u->nick, "Services are presently running in debug mode, attached to a console. You should take extra caution when utilizing your services passwords.");
+
+	/* Only do the following checks for nickserv, not userserv -- jilles */
+	if (nicksvs.me == NULL)
+		return;
 
 	/* They're logged in, don't send them spam -- jilles */
 	if (u->myuser)
@@ -238,9 +283,6 @@ void handle_nickchange(user_t *u)
 	}
 
 	if (u->myuser == mu)
-		return;
-
-	if ((mu->flags & MU_ALIAS) && (md = metadata_find(mu, METADATA_USER, "private:alias:parent")) && u->myuser == myuser_find(md->value))
 		return;
 
 	notice(nicksvs.nick, u->nick, "This nickname is registered. Please choose a different nickname, or identify via \2/%s%s identify <password>\2.",
@@ -279,38 +321,34 @@ void handle_burstlogin(user_t *u, char *login)
 	slog(LG_DEBUG, "handle_burstlogin(): automatically identified %s as %s", u->nick, login);
 }
 
-struct command_ *cmd_find(char *svs, char *origin, char *command, struct command_ table[])
+/* this could be done with more finesse, but hey! */
+void notice(char *from, char *to, char *fmt, ...)
 {
-	user_t *u = user_find(origin);
-	struct command_ *c;
+	va_list args;
+	char buf[BUFSIZE];
+	char *str = translation_get(fmt);
 
-	for (c = table; c->name; c++)
-	{
-		if (!strcasecmp(command, c->name))
-		{
-			/* no special access required, so go ahead... */
-			if (c->access == AC_NONE)
-				return c;
+	va_start(args, fmt);
+	vsnprintf(buf, BUFSIZE, str, args);
+	va_end(args);
 
-			/* sra? */
-			if ((c->access == AC_SRA) && (is_sra(u->myuser)))
-				return c;
+	if (config_options.use_privmsg)
+		msg(from, to, "%s", buf);
+	else
+		notice_sts(from, to, "%s", buf);
+}
 
-			/* ircop? */
-			if ((c->access == AC_IRCOP) && (is_sra(u->myuser) || (is_ircop(u))))
-				return c;
+void verbose_wallops(char *fmt, ...)
+{
+	va_list args;
+	char buf[BUFSIZE];
 
-			/* otherwise... */
-			else
-			{
-				notice(svs, origin, "You are not authorized to perform this operation.");
-				snoop("DENIED CMD: \2%s\2 used %s", origin, command);
-				return NULL;
-			}
-		}
-	}
+	if (config_options.verbose_wallops != TRUE)
+		return;
 
-	/* it's a command we don't understand */
-	notice(svs, origin, "Invalid command. Please use \2HELP\2 for help.");
-	return NULL;
+	va_start(args, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, args);
+	va_end(args);
+
+	wallops("%s", buf);
 }

@@ -1,13 +1,10 @@
-Syntax - LINK <nickname> [password]
+Syntax - LINK
 
-Adds the target nickname as a child nickname of your
-primary account. If the nickname is already registered,
-you will need to provide the password, please note that 
-linking an already linked nickname will result in the
-obliteration of any channel access or settings for that
-nickname. Therefore, you should be very careful before
-linking an already registered nickname.
+Adds your current nickname as a child nickname of your
+primary account. The new nickname must not be
+registered yet.
 
-Examples:
-    /msg &nick& LINK moogle
-    /msg &nick& LINK l33tnick S0m3El1t3P4S5H3R3
+Example:
+    /msg &nick& IDENTIFY OldNick sesame
+    /nick NewNick
+    /msg &nick& LINK

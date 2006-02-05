@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 2995 2005-10-19 04:01:49Z nenolod $
+# $Id: Makefile.in 4469 2006-01-04 10:29:31Z pfish $
 #
 
 CC		= @CC@
@@ -11,7 +11,16 @@ RM		= @RM@
 MV		= @MV@
 CP		= @CP@
 INSTALL		= @INSTALL@
-PREFIX		= @prefix@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+datadir		= @datadir@
+sysconfdir		= @sysconfdir@
+libdir		= @libdir@
+sbindir		= @sbindir@
+DOCDIR		= @DOCDIR@
+MODDIR		= @MODDIR@
+SHAREDIR	= @SHAREDIR@
 BIN		= atheme@EXEEXT@
 MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../../include @PGINC@ @MYINC@
 PICFLAGS	= @PICFLAGS@
@@ -29,6 +38,7 @@ BASE_SRCS = 		\
 	main.c		\
 	akill.c		\
 	help.c		\
+	ignore.c	\
 	inject.c	\
 	jupe.c		\
 	mode.c		\
@@ -42,6 +52,7 @@ BASE_SRCS = 		\
 	rehash.c	\
 	restart.c	\
 	shutdown.c	\
+	specs.c		\
 	uptime.c	\
 	update.c
 	
@@ -54,8 +65,8 @@ all: modules
 build: all
 
 install: build
-	${INSTALL} -d ${PREFIX}/modules/operserv
-	${INSTALL} -m 755 *.so ${PREFIX}/modules/operserv
+	${INSTALL} -d ${MODDIR}/modules/operserv
+	${INSTALL} -m 755 *.so ${MODDIR}/modules/operserv
 
 modules: $(OBJS)
 

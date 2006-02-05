@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for shadowircd-based ircd.
  *
- * $Id: shadowircd.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: shadowircd.c 4639 2006-01-21 22:06:41Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/shadowircd.h"
 
-DECLARE_MODULE_V1("protocol/shadowircd", TRUE, _modinit, NULL, "$Id: shadowircd.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/shadowircd", TRUE, _modinit, NULL, "$Id: shadowircd.c 4639 2006-01-21 22:06:41Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t ShadowIRCd = {
         "+u",                           /* Mode we set for owner. */
         "+u",                           /* Mode we set for protect. */
         "+h",                           /* Mode we set for halfops. */
-	PROTOCOL_SHADOWIRCD		/* Protocol type */
+	PROTOCOL_SHADOWIRCD,		/* Protocol type */
+	CMODE_PERM,                     /* Permanent cmodes */
+	"beIqd",                        /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ shadowircd_mode_list[] = {
@@ -54,10 +58,6 @@ struct cmode_ shadowircd_mode_list[] = {
 };
 
 struct cmode_ shadowircd_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
-  { 'd', CMODE_DENY   },
-  { 'q', CMODE_QUIET  },
   { '\0', 0 }
 };
 
@@ -90,7 +90,7 @@ static uint8_t shadowircd_server_login(void)
 
 	me.bursting = TRUE;
 
-	sts("CAPAB :QS KLN UNKLN ENCAP SERVICES");
+	sts("CAPAB :QS EX IE KLN UNKLN ENCAP SERVICES");
 	sts("SERVER %s 1 :%s", me.name, me.desc);
 	sts("SVINFO 5 3 0 :%ld", CURRTIME);
 
@@ -101,6 +101,12 @@ static uint8_t shadowircd_server_login(void)
 static void shadowircd_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	sts("NICK %s 1 %ld +%sS %s %s %s :%s", nick, CURRTIME, "io", user, host, me.name, real);
+}
+
+/* invite a user to a channel */
+static void shadowircd_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void shadowircd_quit_sts(user_t *u, char *reason)
@@ -176,6 +182,15 @@ static void shadowircd_notice(char *from, char *target, char *fmt, ...)
 	va_end(ap);
 
 	sts(":%s NOTICE %s :%s", from, target, buf);
+}
+
+static void shadowircd_wallchops(user_t *sender, channel_t *channel, char *message)
+{
+	if (chanuser_find(channel, sender))
+		sts(":%s NOTICE @%s :%s", CLIENT_NAME(sender), channel->name,
+				message);
+	else /* do not join for this, everyone would see -- jilles */
+		generic_wallchops(sender, channel, message);
 }
 
 /* numeric wrapper */
@@ -270,13 +285,29 @@ static void shadowircd_ping_sts(void)
 /* protocol-specific stuff to do on login */
 static void shadowircd_on_login(char *origin, char *user, char *wantedhost)
 {
+	if (!me.connected)
+		return;
+
+	/* Can only do this for nickserv, and can only record identified
+	 * state if logged in to correct nick, sorry -- jilles
+	 */
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return;
+
 	sts(":%s MODE %s +e", me.name, origin);
 }
 
 /* protocol-specific stuff to do on login */
-static void shadowircd_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t shadowircd_on_logout(char *origin, char *user, char *wantedhost)
 {
+	if (!me.connected)
+		return FALSE;
+
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return FALSE;
+
 	sts(":%s MODE %s -e", me.name, origin);
+	return FALSE;
 }
 
 static void shadowircd_jupe(char *server, char *reason)
@@ -507,7 +538,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -559,10 +590,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -590,32 +621,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -678,7 +709,8 @@ void _modinit(module_t * m)
 	join_sts = &shadowircd_join_sts;
 	kick = &shadowircd_kick;
 	msg = &shadowircd_msg;
-	notice = &shadowircd_notice;
+	notice_sts = &shadowircd_notice;
+	wallchops = &shadowircd_wallchops;
 	numeric_sts = &shadowircd_numeric_sts;
 	skill = &shadowircd_skill;
 	part = &shadowircd_part;
@@ -690,6 +722,7 @@ void _modinit(module_t * m)
 	ircd_on_login = &shadowircd_on_login;
 	ircd_on_logout = &shadowircd_on_logout;
 	jupe = &shadowircd_jupe;
+	invite_sts = &shadowircd_invite_sts;
 
 	mode_list = shadowircd_mode_list;
 	ignore_mode_list = shadowircd_ignore_mode_list;

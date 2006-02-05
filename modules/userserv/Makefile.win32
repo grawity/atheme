@@ -33,7 +33,7 @@ BASE_SRCS = 		\
 	hold.c		\
 	info.c		\
 	list.c		\
-	listchans.c	\	
+	listchans.c	\
 	listmail.c	\
 	login.c		\
 	logout.c	\
@@ -47,7 +47,7 @@ BASE_SRCS = 		\
 	taxonomy.c	\
 	verify.c	\
 	vhost.c
-
+	
 SRCS = ${BASE_SRCS}
 
 OBJS = ${SRCS:.c=.dll}

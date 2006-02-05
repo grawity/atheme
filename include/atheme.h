@@ -4,7 +4,7 @@
  *
  * This is the main header file, usually the only one #include'd
  *
- * $Id: atheme.h 3571 2005-11-06 19:54:01Z jilles $
+ * $Id: atheme.h 4709 2006-01-24 23:02:59Z jilles $
  */
 
 #ifndef ATHEME_H
@@ -53,6 +53,12 @@ typedef struct {
         char *msg;
 } hook_cmessage_data_t;
 
+typedef struct {
+	user_t *u;
+	void *mc; /* XXX this should be mychan_t * but we can't use that here
+		   * -- jilles */
+} hook_channel_req_t;
+
 typedef struct tld_ tld_t;
 typedef struct kline_ kline_t;
 
@@ -65,14 +71,14 @@ struct me
   char *desc;                   /* server's description               */
   char *uplink;                 /* the server we connect to           */
   char *actual;                 /* the reported name of the uplink    */
-  uint16_t port;                /* port we connect to our uplink on   */
   char *vhost;                  /* IP we bind outgoing stuff to       */
   uint16_t recontime;           /* time between reconnection attempts */
   uint16_t restarttime;         /* time before restarting             */
   char *netname;                /* IRC network name                   */
+  char *hidehostsuffix;         /* host suffix for P10 +x etc         */
   char *adminname;              /* SRA's name (for ADMIN)             */
   char *adminemail;             /* SRA's email (for ADMIN             */
-  char *mta;                    /* path to mta program           */
+  char *mta;                    /* path to mta program                */
   char *numeric;		/* server numeric		      */
 
   uint8_t loglevel;             /* logging level                      */
@@ -94,6 +100,9 @@ struct me
   time_t uplinkpong;            /* when the uplink last sent a PONG   */
 
   char *execname;		/* executable name                    */
+
+  char *language_name;		/* language file name		      */
+  char *language_translator;	/* translator name		      */
 };
 
 E me_t me;
@@ -122,6 +131,10 @@ struct ConfOption
   boolean_t raw;                /* enable raw/inject?         */
 
   char *global;                 /* nick for global noticer    */
+  char *languagefile;		/* path to language file (if any) */
+
+  boolean_t verbose_wallops;	/* verbose wallops? :)        */
+  boolean_t use_privmsg;        /* use privmsg instead of notice */
 } config_options;
 
 struct Database
@@ -139,7 +152,8 @@ typedef struct cnt cnt_t;
 struct cnt
 {
   uint32_t event;
-  uint32_t sra;
+  uint32_t soper;
+  uint32_t svsignore;
   uint32_t tld;
   uint32_t kline;
   uint32_t server;
@@ -153,6 +167,7 @@ struct cnt
   uint32_t bin;
   uint32_t bout;
   uint32_t uplink;
+  uint32_t operclass;
 };
 
 E cnt_t cnt;
@@ -205,7 +220,7 @@ struct message_
 struct command_
 {
   const char *name;
-  uint8_t access;
+  const char *access;
   void (*func) (char *nick);
 };
 
@@ -213,7 +228,7 @@ struct command_
 struct set_command_
 {
   const char *name;
-  uint8_t access;
+  const char *access;
   void (*func) (char *origin, char *name, char *params);
 };
 
@@ -223,15 +238,10 @@ typedef struct help_command_ helpentry_t;
 struct help_command_
 {
   char *name;
-  uint8_t access;
+  const char *access;
   char *file;
   void (*func) (char *origin);
 };
-
-/* access levels for commands */
-#define AC_NONE  0
-#define AC_IRCOP 1
-#define AC_SRA   2
 
 /* email types (meaning of param argument) */
 #define EMAIL_REGISTER 1 /* register an account/nick (verification code) */
@@ -240,17 +250,25 @@ struct help_command_
 #define EMAIL_MEMO     4 /* emailed memos (memo text) */
 
 /* command log levels */
-#define CMDLOG_ADMIN    1 /* oper/sra only commands */
+#define CMDLOG_ADMIN    1 /* oper-only commands */
 #define CMDLOG_REGISTER 2 /* register/drop */
 #define CMDLOG_SET      3 /* change properties of static data */
 #define CMDLOG_DO       4 /* change properties of dynamic data */
 #define CMDLOG_LOGIN    5 /* login/logout */
 #define CMDLOG_GET      6 /* query information */
 
+/* forced nick change types */
+#define FNC_REGAIN 0 /* give a registered user their nick back */
+#define FNC_FORCE  1 /* force a user off their nick (kill if unsupported) */
+
 /* bursting timer */
 #if HAVE_GETTIMEOFDAY
 struct timeval burstime;
 #endif
+
+/* help us keep consistent messages */
+#define STR_INSUFFICIENT_PARAMS "Insufficient parameters for \2%s\2."
+#define STR_INVALID_PARAMS "Invalid parameters for \2%s\2."
 
 /* *INDENT-OFF* */
 
@@ -266,6 +284,7 @@ struct timeval burstime;
 #include "commandtree.h"
 #include "users.h"
 #include "authcookie.h"
+#include "privs.h"
 
 /* *INDENT-ON* */
 

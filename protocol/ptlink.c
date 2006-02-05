@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for ptlink-based ircd.
  *
- * $Id: ptlink.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: ptlink.c 4695 2006-01-24 16:56:22Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/ptlink.h"
 
-DECLARE_MODULE_V1("protocol/ptlink", TRUE, _modinit, NULL, "$Id: ptlink.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ptlink", TRUE, _modinit, NULL, "$Id: ptlink.c 4695 2006-01-24 16:56:22Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t PTLink = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+",                            /* Mode we set for halfops. */
-	PROTOCOL_PTLINK			/* Protocol type */
+	PROTOCOL_PTLINK,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"beI",                          /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ ptlink_mode_list[] = {
@@ -54,8 +58,6 @@ struct cmode_ ptlink_mode_list[] = {
 };
 
 struct cmode_ ptlink_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
   { 'f', CMODE_FLOOD  },
   { '\0', 0 }
 };
@@ -98,6 +100,12 @@ static uint8_t ptlink_server_login(void)
 static void ptlink_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	sts("NICK %s 1 %ld +%s %s %s %s :%s", nick, CURRTIME, "io", user, host, me.name, real);
+}
+
+/* invite a user to a channel */
+static void ptlink_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void ptlink_quit_sts(user_t *u, char *reason)
@@ -270,16 +278,26 @@ static void ptlink_on_login(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return;
 
+	/* Can only do this for nickserv, and can only record identified
+	 * state if logged in to correct nick, sorry -- jilles
+	 */
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return;
+
 	sts(":%s SVSMODE %s +rd %ld", me.name, origin, CURRTIME);
 }
 
 /* protocol-specific stuff to do on login */
-static void ptlink_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t ptlink_on_logout(char *origin, char *user, char *wantedhost)
 {
 	if (!me.connected)
-		return;
+		return FALSE;
+
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return FALSE;
 
 	sts(":%s SVSMODE %s -r+d %ld", me.name, origin, CURRTIME);
+	return FALSE;
 }
 
 static void ptlink_jupe(char *server, char *reason)
@@ -471,11 +489,21 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		user_mode(u, parv[3]);
 
-		/* If server is not yet EOB we will do this later.
-		 * This avoids useless "please identify" -- jilles
+		/* Ok, we have the user ready to go.
+		 * Here's the deal -- if the user's SVID is before
+		 * the start time, and not 0, then check to see
+		 * if it's a registered account or not.
+		 *
+		 * If it IS registered, deal with that accordingly,
+		 * via handle_burstlogin(). --nenolod
 		 */
-		if (s->flags & SF_EOB)
-			handle_nickchange(u);
+		/* Changed to just check umode +r for now -- jilles */
+		/* This is ok because this ircd clears +r on nick changes
+		 * -- jilles */
+		if (strchr(parv[3], 'r'))
+			handle_burstlogin(u, parv[0]);
+
+		handle_nickchange(u);
 	}
 
 	/* if it's only 2 then it's a nickname change */
@@ -492,6 +520,11 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
 
+		/* fix up +r if necessary -- jilles */
+		if (nicksvs.me != NULL && u->myuser != NULL && !(u->myuser->flags & MU_WAITAUTH) && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
+			/* changed nick to registered one, reset +r */
+			sts(":%s SVSMODE %s +rd %ld", me.name, parv[0], time(NULL));
+
 		/* remove the current one from the list */
 		n = node_find(u, &userlist[u->hash]);
 		node_del(n, &userlist[u->hash]);
@@ -506,11 +539,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		u->hash = UHASH((unsigned char *)u->nick);
 		node_add(u, n, &userlist[u->hash]);
 
-		/* It could happen that our PING arrived late and the
-		 * server didn't acknowledge EOB yet even though it is
-		 * EOB; don't send double notices in that case -- jilles */
-		if (u->server->flags & SF_EOB)
-			handle_nickchange(u);
+		handle_nickchange(u);
 	}
 	else
 	{
@@ -527,7 +556,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -579,10 +608,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -606,43 +635,36 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
-	else
-	{
-		/* elicit PONG for EOB detection; pinging uplink is
-		 * already done elsewhere -- jilles
-		 */
-		sts(":%s PING %s %s", me.name, me.name, parv[0]);
-	}
 }
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -689,7 +711,7 @@ void _modinit(module_t * m)
 	join_sts = &ptlink_join_sts;
 	kick = &ptlink_kick;
 	msg = &ptlink_msg;
-	notice = &ptlink_notice;
+	notice_sts = &ptlink_notice;
 	numeric_sts = &ptlink_numeric_sts;
 	skill = &ptlink_skill;
 	part = &ptlink_part;
@@ -701,6 +723,7 @@ void _modinit(module_t * m)
 	ircd_on_login = &ptlink_on_login;
 	ircd_on_logout = &ptlink_on_logout;
 	jupe = &ptlink_jupe;
+	invite_sts = &ptlink_invite_sts;
 
 	mode_list = ptlink_mode_list;
 	ignore_mode_list = ptlink_ignore_mode_list;

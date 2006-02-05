@@ -4,7 +4,7 @@
  *
  * This file contains code for the ChanServ CLEAR USERS function.
  *
- * $Id: clear_users.c 3663 2005-11-08 02:10:26Z jilles $
+ * $Id: clear_users.c 4745 2006-01-31 02:26:19Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/clear_users", FALSE, _modinit, _moddeinit,
-	"$Id: clear_users.c 3663 2005-11-08 02:10:26Z jilles $",
+	"$Id: clear_users.c 4745 2006-01-31 02:26:19Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -21,28 +21,34 @@ static void cs_cmd_clear_users(char *origin, char *channel);
 fcommand_t cs_clear_users = { "USERS", AC_NONE, cs_cmd_clear_users };
 
 list_t *cs_clear_cmds;
+list_t *cs_helptree;
 
 void _modinit(module_t *m)
 {
 	cs_clear_cmds = module_locate_symbol("chanserv/clear", "cs_clear_cmds");
+	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
 	fcommand_add(&cs_clear_users, cs_clear_cmds);
+
+	help_addentry(cs_helptree, "CLEAR USERS", "help/cservice/clear_users", NULL);
 }
 
 void _moddeinit()
 {
 	fcommand_delete(&cs_clear_users, cs_clear_cmds);
+
+	help_delentry(cs_helptree, "CLEAR USERS");
 }
 
 static void cs_cmd_clear_users(char *origin, char *channel)
 {
 	char *reason = strtok(NULL, "");
 	char fullreason[200];
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	channel_t *c;
 	mychan_t *mc = mychan_find(channel);
-	chanacs_t *ca;
 	chanuser_t *cu;
 	node_t *n, *tn;
+	int oldlimit;
 
 	if (!(c = channel_find(channel)))
 	{
@@ -74,26 +80,48 @@ static void cs_cmd_clear_users(char *origin, char *channel)
 	}
 
 	/* stop a race condition where users can rejoin */
-	mode_sts(chansvs.nick, c->name, "+b *!*@*");
+	oldlimit = c->limit;
+	if (oldlimit != 1)
+		mode_sts(chansvs.nick, c->name, "+l 1");
 
 	LIST_FOREACH_SAFE(n, tn, c->members.head)
 	{
 		cu = n->data;
 
 		/* don't kick the user who requested the masskick */
-
-		if (!irccasecmp(cu->user->nick, origin) || is_internal_client(cu->user))
+		if (cu->user == u || is_internal_client(cu->user))
 			continue;
 
 		kick(chansvs.nick, c->name, cu->user->nick, fullreason);
 		chanuser_delete(c, cu->user);
 	}
 
+	/* the channel may be empty now, so our pointer may be bogus! */
+	c = channel_find(channel);
+	if (c != NULL)
+	{
+		if (config_options.join_chans && !config_options.leave_chans
+				&& c != NULL && !chanuser_find(c, u))
+		{
+			/* Always cycle it if the requester is not on channel
+			 * -- jilles */
+			part(channel, chansvs.nick);
+		}
+		/* could be permanent channel, blah */
+		c = channel_find(channel);
+		if (c != NULL)
+		{
+			if (oldlimit == 0)
+				cmode(chansvs.nick, c->name, "-l");
+			else if (oldlimit != 1)
+			{
+				snprintf(fullreason, sizeof fullreason, "%d", oldlimit);
+				cmode(chansvs.nick, c->name, "+l", fullreason);
+			}
+		}
+	}
+
 	logcommand(chansvs.me, u, CMDLOG_DO, "%s CLEAR USERS", mc->name);
 
 	notice(chansvs.nick, origin, "Cleared users from \2%s\2.", channel);
-
-	/* the channel may be empty now, so our pointer may be bogus! */
-	if ((c = channel_find(channel)))
-		cmode(chansvs.nick, c->name, "-b", "*!*@*");
 }

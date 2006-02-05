@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService KICK functions.
  *
- * $Id: kick.c 3735 2005-11-09 12:23:51Z jilles $
+ * $Id: kick.c 4653 2006-01-22 15:06:48Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/kick", FALSE, _modinit, _moddeinit,
-	"$Id: kick.c 3735 2005-11-09 12:23:51Z jilles $",
+	"$Id: kick.c 4653 2006-01-22 15:06:48Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -68,13 +68,13 @@ static void cs_cmd_kick(char *origin)
 	char *nick = strtok(NULL, " ");
 	char *reason = strtok(NULL, "");
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
 	char reasonbuf[BUFSIZE];
 
 	if (!chan || !nick)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2KICK\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "KICK");
 		notice(chansvs.nick, origin, "Syntax: KICK <#channel> <nickname> [reason]");
 		return;
 	}
@@ -86,7 +86,7 @@ static void cs_cmd_kick(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 
 	if (!chanacs_user_has_flag(mc, u, CA_REMOVE))
 	{
@@ -101,27 +101,28 @@ static void cs_cmd_kick(char *origin)
 	}
 
 	/* figure out who we're going to kick */
-	if (!(u = user_find_named(nick)))
+	if (!(tu = user_find_named(nick)))
 	{
 		notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
 		return;
 	}
 
 	/* if target is a service, bail. --nenolod */
-	if (is_internal_client(u))
+	if (is_internal_client(tu))
 		return;
 
-	cu = chanuser_find(mc->chan, u);
+	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
 	snprintf(reasonbuf, BUFSIZE, "%s (%s)", reason ? reason : "No reason given", origin);
-	kick(chansvs.nick, chan, u->nick, reasonbuf);
-	logcommand(chansvs.me, user_find(origin), CMDLOG_SET, "%s KICK %s!%s@%s", mc->name, u->nick, u->user, u->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been kicked from \2%s\2.", u->nick, mc->name);
+	kick(chansvs.nick, chan, tu->nick, reasonbuf);
+	logcommand(chansvs.me, u, CMDLOG_SET, "%s KICK %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
+	if (u != tu && !chanuser_find(mc->chan, u))
+		notice(chansvs.nick, origin, "\2%s\2 has been kicked from \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_cmd_kickban(char *origin)
@@ -130,13 +131,14 @@ static void cs_cmd_kickban(char *origin)
 	char *nick = strtok(NULL, " ");
 	char *reason = strtok(NULL, "");
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
 	char reasonbuf[BUFSIZE];
+	int n;
 
 	if (!chan || !nick)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2KICKBAN\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "KICKBAN");
 		notice(chansvs.nick, origin, "Syntax: KICKBAN <#channel> <nickname> [reason]");
 		return;
 	}
@@ -148,7 +150,7 @@ static void cs_cmd_kickban(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 
 	if (!chanacs_user_has_flag(mc, u, CA_REMOVE))
 	{
@@ -157,28 +159,32 @@ static void cs_cmd_kickban(char *origin)
 	}
 
 	/* figure out who we're going to kick */
-	if (!(u = user_find_named(nick)))
+	if (!(tu = user_find_named(nick)))
 	{
 		notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
 		return;
 	}
 
         /* if target is a service, bail. --nenolod */
-	if (is_internal_client(u))
+	if (is_internal_client(tu))
 		return;
 
-	cu = chanuser_find(mc->chan, u);
+	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
 	snprintf(reasonbuf, BUFSIZE, "%s (%s)", reason ? reason : "No reason given", origin);
-	ban(chansvs.nick, chan, u);
-	kick(chansvs.nick, chan, u->nick, reasonbuf);
-	logcommand(chansvs.me, user_find(origin), CMDLOG_SET, "%s KICKBAN %s!%s@%s", mc->name, u->nick, u->user, u->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been kickbanned from \2%s\2.", u->nick, mc->name);
+	ban(chansvs.nick, chan, tu);
+	n = remove_ban_exceptions(chansvs.me->me, mc->chan, tu);
+	if (n > 0)
+		notice(chansvs.nick, origin, "To avoid rejoin, %d ban exception(s) matching \2%s\2 have been removed from \2%s\2.", n, tu->nick, mc->name);
+	kick(chansvs.nick, chan, tu->nick, reasonbuf);
+	logcommand(chansvs.me, user_find_named(origin), CMDLOG_SET, "%s KICKBAN %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
+	if (u != tu && !chanuser_find(mc->chan, u))
+		notice(chansvs.nick, origin, "\2%s\2 has been kickbanned from \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_fcmd_kick(char *origin, char *chan)
@@ -186,13 +192,13 @@ static void cs_fcmd_kick(char *origin, char *chan)
 	char *nick = strtok(NULL, " ");
 	char *reason = strtok(NULL, "");
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
 	char reasonbuf[BUFSIZE];
 
 	if (!chan || !nick)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2KICK\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "KICK");
 		notice(chansvs.nick, origin, "Syntax: KICK <#channel> <nickname> [reason]");
 		return;
 	}
@@ -204,7 +210,7 @@ static void cs_fcmd_kick(char *origin, char *chan)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 
 	if (!chanacs_user_has_flag(mc, u, CA_REMOVE))
 	{
@@ -213,27 +219,26 @@ static void cs_fcmd_kick(char *origin, char *chan)
 	}
 
 	/* figure out who we're going to kick */
-	if (!(u = user_find_named(nick)))
+	if (!(tu = user_find_named(nick)))
 	{
 		notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
 		return;
 	}
 
         /* if target is a service, bail. --nenolod */
-	if (is_internal_client(u))
+	if (is_internal_client(tu))
                 return;
 
-	cu = chanuser_find(mc->chan, u);
+	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
 	snprintf(reasonbuf, BUFSIZE, "%s (%s)", reason ? reason : "No reason given", origin);
-	kick(chansvs.nick, chan, u->nick, reasonbuf);
-	logcommand(chansvs.me, user_find(origin), CMDLOG_SET, "%s KICK %s!%s@%s", mc->name, u->nick, u->user, u->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been kicked from \2%s\2.", u->nick, mc->name);
+	kick(chansvs.nick, chan, tu->nick, reasonbuf);
+	logcommand(chansvs.me, u, CMDLOG_SET, "%s KICK %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
 }
 
 static void cs_fcmd_kickban(char *origin, char *chan)
@@ -241,13 +246,14 @@ static void cs_fcmd_kickban(char *origin, char *chan)
 	char *nick = strtok(NULL, " ");
 	char *reason = strtok(NULL, "");
 	mychan_t *mc;
-	user_t *u;
+	user_t *u, *tu;
 	chanuser_t *cu;
 	char reasonbuf[BUFSIZE];
+	int n;
 
 	if (!chan || !nick)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2KICKBAN\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "KICKBAN");
 		notice(chansvs.nick, origin, "Syntax: KICKBAN <#channel> <nickname> [reason]");
 		return;
 	}
@@ -259,7 +265,7 @@ static void cs_fcmd_kickban(char *origin, char *chan)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 
 	if (!chanacs_user_has_flag(mc, u, CA_REMOVE))
 	{
@@ -268,27 +274,29 @@ static void cs_fcmd_kickban(char *origin, char *chan)
 	}
 
 	/* figure out who we're going to kick */
-	if (!(u = user_find_named(nick)))
+	if (!(tu = user_find_named(nick)))
 	{
 		notice(chansvs.nick, origin, "\2%s\2 is not online.", nick);
 		return;
 	}
 
         /* if target is a service, bail. --nenolod */
-        if (is_internal_client(u))
+        if (is_internal_client(tu))
                 return;
 
-	cu = chanuser_find(mc->chan, u);
+	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", u->nick, mc->name);
+		notice(chansvs.nick, origin, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
 		return;
 	}
 
 	snprintf(reasonbuf, BUFSIZE, "%s (%s)", reason ? reason : "No reason given", origin);
-	ban(chansvs.nick, chan, u);
-	kick(chansvs.nick, chan, u->nick, reasonbuf);
-	logcommand(chansvs.me, user_find(origin), CMDLOG_SET, "%s KICKBAN %s!%s@%s", mc->name, u->nick, u->user, u->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been kickbanned from \2%s\2.", u->nick, mc->name);
+	ban(chansvs.nick, chan, tu);
+	n = remove_ban_exceptions(chansvs.me->me, mc->chan, tu);
+	if (n > 0)
+		notice(chansvs.nick, origin, "To avoid rejoin, %d ban exception(s) matching \2%s\2 have been removed from \2%s\2.", n, tu->nick, mc->name);
+	kick(chansvs.nick, chan, tu->nick, reasonbuf);
+	logcommand(chansvs.me, user_find_named(origin), CMDLOG_SET, "%s KICKBAN %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
 }
 

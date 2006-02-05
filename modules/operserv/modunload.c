@@ -4,7 +4,7 @@
  *
  * Loads a new module in.
  *
- * $Id: modunload.c 3673 2005-11-08 18:19:46Z alambert $
+ * $Id: modunload.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,27 +12,31 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modunload", FALSE, _modinit, _moddeinit,
-	"$Id: modunload.c 3673 2005-11-08 18:19:46Z alambert $",
+	"$Id: modunload.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_modunload(char *origin);
 
 command_t os_modunload = { "MODUNLOAD", "Unloads a module.",
-			 AC_SRA, os_cmd_modunload };
+			 PRIV_ADMIN, os_cmd_modunload };
 
 list_t *os_cmdtree;
+list_t *os_helptree;
 extern list_t modules;
 
 void _modinit(module_t *m)
 {
 	os_cmdtree = module_locate_symbol("operserv/main", "os_cmdtree");	
+	os_helptree = module_locate_symbol("operserv/main", "os_helptree");	
 	command_add(&os_modunload, os_cmdtree);
+	help_addentry(os_helptree, "MODUNLOAD", "help/oservice/modunload", NULL);
 }
 
 void _moddeinit()
 {
 	command_delete(&os_modunload, os_cmdtree);
+	help_delentry(os_helptree, "MODUNLOAD");
 }
 
 static void os_cmd_modunload(char *origin)
@@ -61,7 +65,7 @@ static void os_cmd_modunload(char *origin)
 
 		module_unload(m);
 
-		logcommand(opersvs.me, user_find(origin), CMDLOG_ADMIN, "MODUNLOAD %s", module);
+		logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "MODUNLOAD %s", module);
 		notice(opersvs.nick, origin, "Module \2%s\2 unloaded.", module);
 	}
 }

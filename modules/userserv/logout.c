@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService LOGOUT functions.
  *
- * $Id: logout.c 3741 2005-11-09 13:02:50Z jilles $
+ * $Id: logout.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"userserv/logout", FALSE, _modinit, _moddeinit,
-	"$Id: logout.c 3741 2005-11-09 13:02:50Z jilles $",
+	"$Id: logout.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -39,7 +39,7 @@ void _moddeinit()
 
 static void us_cmd_logout(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	user_t *source = u;
 	node_t *n, *tn;
 	char *user = strtok(NULL, " ");
@@ -78,10 +78,8 @@ static void us_cmd_logout(char *origin)
 		return;
 	}
 
-	if (is_sra(u->myuser))
-		snoop("DESRA: \2%s\2 as \2%s\2", u->nick, u->myuser->name);
-
-	/*snoop("LOGOUT: \2%s\2 from \2%s\2", u->nick, u->myuser->name);*/
+	if (is_soper(u->myuser))
+		snoop("DESOPER: \2%s\2 as \2%s\2", u->nick, u->myuser->name);
 
 	if (irccasecmp(origin, u->nick))
 	{
@@ -94,17 +92,18 @@ static void us_cmd_logout(char *origin)
 		notice(usersvs.nick, origin, "You have been logged out.");
 	}
 
-	ircd_on_logout(u->nick, u->myuser->name, NULL);
-
 	u->myuser->lastlogin = CURRTIME;
-	LIST_FOREACH_SAFE(n, tn, u->myuser->logins.head)
+	if (!ircd_on_logout(u->nick, u->myuser->name, NULL))
 	{
-		if (n->data == u)
+		LIST_FOREACH_SAFE(n, tn, u->myuser->logins.head)
 		{
-			node_del(n, &u->myuser->logins);
-			node_free(n);
-			break;
+			if (n->data == u)
+			{
+				node_del(n, &u->myuser->logins);
+				node_free(n);
+				break;
+			}
 		}
+		u->myuser = NULL;
 	}
-	u->myuser = NULL;
 }

@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService VOICE functions.
  *
- * $Id: voice.c 3735 2005-11-09 12:23:51Z jilles $
+ * $Id: voice.c 4745 2006-01-31 02:26:19Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/voice", FALSE, _modinit, _moddeinit,
-	"$Id: voice.c 3735 2005-11-09 12:23:51Z jilles $",
+	"$Id: voice.c 4745 2006-01-31 02:26:19Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -69,7 +69,7 @@ static void cs_cmd_voice(char *origin)
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2VOICE\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "VOICE");
 		notice(chansvs.nick, origin, "Syntax: VOICE <#channel> [nickname]");
 		return;
 	}
@@ -87,7 +87,7 @@ static void cs_cmd_voice(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_VOICE))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -116,16 +116,16 @@ static void cs_cmd_voice(char *origin)
 		return;
 	}
 
-	if (CMODE_VOICE & cu->modes)
-	{
-		notice(chansvs.nick, origin, "\2%s\2 is already voiced on \2%s\2.", tu->nick, mc->name);
-		return;
-	}
-
 	cmode(chansvs.nick, chan, "+v", CLIENT_NAME(tu));
 	cu->modes |= CMODE_VOICE;
+
+	/* TODO: Add which username had access to perform the command */
+	if (tu != u)
+		notice(chansvs.nick, tu->nick, "You have been voiced on %s by %s", mc->name, origin);
+
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s VOICE %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been voiced on \2%s\2.", tu->nick, mc->name);
+	if (!chanuser_find(mc->chan, u))
+		notice(chansvs.nick, origin, "\2%s\2 has been voiced on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_cmd_devoice(char *origin)
@@ -138,7 +138,7 @@ static void cs_cmd_devoice(char *origin)
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2DEVOICE\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "DEVOICE");
 		notice(chansvs.nick, origin, "Syntax: DEVOICE <#channel> [nickname]");
 		return;
 	}
@@ -150,7 +150,7 @@ static void cs_cmd_devoice(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_VOICE))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -179,16 +179,16 @@ static void cs_cmd_devoice(char *origin)
 		return;
 	}
 
-	if (!(CMODE_VOICE & cu->modes))
-	{
-		notice(chansvs.nick, origin, "\2%s\2 is not voiced on \2%s\2.", tu->nick, mc->name);
-		return;
-	}
-
 	cmode(chansvs.nick, chan, "-v", CLIENT_NAME(tu));
 	cu->modes &= ~CMODE_VOICE;
+
+	/* TODO: Add which username had access to perform the command */
+	if (tu != u)
+		notice(chansvs.nick, tu->nick, "You have been devoiced on %s by %s", mc->name, origin);
+
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s DEVOICE %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been devoiced on \2%s\2.", tu->nick, mc->name);
+	if (!chanuser_find(mc->chan, u))
+		notice(chansvs.nick, origin, "\2%s\2 has been devoiced on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_fcmd_voice(char *origin, char *chan)
@@ -205,7 +205,7 @@ static void cs_fcmd_voice(char *origin, char *chan)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_VOICE))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -237,16 +237,10 @@ static void cs_fcmd_voice(char *origin, char *chan)
 			continue;
 		}
 
-		if (CMODE_VOICE & cu->modes)
-		{
-			notice(chansvs.nick, origin, "\2%s\2 is already voiced on \2%s\2.", tu->nick, mc->name);
-			continue;
-		}
-
 		cmode(chansvs.nick, chan, "+v", CLIENT_NAME(tu));
 		cu->modes |= CMODE_VOICE;
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s VOICE %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	} while (nick = strtok(NULL, " "));
+	} while ((nick = strtok(NULL, " ")) != NULL);
 
 }
 
@@ -264,7 +258,7 @@ static void cs_fcmd_devoice(char *origin, char *chan)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_VOICE))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -296,15 +290,9 @@ static void cs_fcmd_devoice(char *origin, char *chan)
 			continue;
 		}
 
-		if (!(CMODE_VOICE & cu->modes))
-		{
-			notice(chansvs.nick, origin, "\2%s\2 is not voiced on \2%s\2.", tu->nick, mc->name);
-			continue;
-		}
-
 		cmode(chansvs.nick, chan, "-v", CLIENT_NAME(tu));
 		cu->modes &= ~CMODE_VOICE;
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s DEVOICE %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	} while (nick = strtok(NULL, " "));
+	} while ((nick = strtok(NULL, " ")) != NULL);
 }
 

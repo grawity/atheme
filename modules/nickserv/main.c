@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 3433 2005-11-03 22:17:00Z jilles $
+ * $Id: main.c 4559 2006-01-10 12:04:41Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 3433 2005-11-03 22:17:00Z jilles $",
+	"$Id: main.c 4559 2006-01-10 12:04:41Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -66,8 +66,6 @@ void nickserv(char *origin, uint8_t parc, char *parv[])
 		       (me.loglevel & LG_DEBUG) ? "d" : "",
 		       (me.auth) ? "e" : "",
 		       (config_options.flood_msgs) ? "F" : "",
-		       (config_options.leave_chans) ? "l" : "",
-		       (config_options.join_chans) ? "j" : "",
 		       (config_options.leave_chans) ? "l" : "", (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
 
 		return;
@@ -96,6 +94,13 @@ static void nickserv_config_ready(void *unused)
                                  nicksvs.host, nicksvs.real, nickserv);
         nicksvs.disp = nicksvs.me->disp;
 
+	if (usersvs.nick)
+	{
+		slog(LG_ERROR, "idiotic conf detected: nickserv enabled but userserv{} block present, ignoring userserv");
+		free(usersvs.nick);
+		usersvs.nick = NULL;
+	}
+
         hook_del_hook("config_ready", nickserv_config_ready);
 }
 
@@ -115,5 +120,8 @@ void _modinit(module_t *m)
 void _moddeinit(void)
 {
         if (nicksvs.me)
+	{
                 del_service(nicksvs.me);
+		nicksvs.me = NULL;
+	}
 }

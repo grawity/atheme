@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService HELP command.
  *
- * $Id: help.c 3809 2005-11-11 02:13:22Z jilles $
+ * $Id: help.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/help", FALSE, _modinit, _moddeinit,
-	"$Id: help.c 3809 2005-11-11 02:13:22Z jilles $",
+	"$Id: help.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -62,7 +62,7 @@ static void fc_cmd_help(char *origin, char *chan)
 		strlcat(buf, c->name, BUFSIZE);
 		strlcat(buf, delim, BUFSIZE);
 
-		if (c->access == AC_IRCOP)
+		if (c->access != NULL)
 			continue;
 
 		if (i==6)
@@ -89,11 +89,8 @@ static void fc_cmd_help(char *origin, char *chan)
 /* HELP <command> [params] */
 static void cs_cmd_help(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	char *command = strtok(NULL, "");
-	char buf[BUFSIZE];
-	struct help_command_ *c;
-	FILE *help_file;
 
 	if (!command)
 	{
@@ -140,7 +137,7 @@ static void cs_cmd_help(char *origin)
 		notice(chansvs.nick, origin, "\2PROPERTY\2      Manipulates channel metadata.");
 		notice(chansvs.nick, origin, " ");
 
-		if (is_sra(u->myuser) || is_ircop(u))
+		if (has_any_privs(u))
 		{
 			notice(chansvs.nick, origin, "The following IRCop commands are available.");
 			notice(chansvs.nick, origin, "\2STAFFONLY\2     Sets the channel as staff-only. (Non staff-members are kickbanned.)");
@@ -153,40 +150,5 @@ static void cs_cmd_help(char *origin)
 		return;
 	}
 
-	/* take the command through the hash table */
-	if ((c = help_cmd_find(chansvs.nick, origin, command, cs_helptree)))
-	{
-		if (c->file)
-		{
-			help_file = fopen(c->file, "r");
-
-			if (!help_file)
-			{
-				notice(chansvs.nick, origin, "No help available for \2%s\2.", command);
-				return;
-			}
-
-			notice(chansvs.nick, origin, "***** \2%s Help\2 *****", chansvs.nick);
-
-			while (fgets(buf, BUFSIZE, help_file))
-			{
-				strip(buf);
-
-				replace(buf, sizeof(buf), "&nick&", chansvs.disp);
-
-				if (buf[0])
-					notice(chansvs.nick, origin, "%s", buf);
-				else
-					notice(chansvs.nick, origin, " ");
-			}
-
-			fclose(help_file);
-
-			notice(chansvs.nick, origin, "***** \2End of Help\2 *****");
-		}
-		else if (c->func)
-			c->func(origin);
-		else
-			notice(chansvs.nick, origin, "No help available for \2%s\2.", command);
-	}
+	help_display(chansvs.nick, chansvs.disp, origin, command, cs_helptree);
 }

@@ -4,7 +4,7 @@
  *
  * This file contains code for the Memoserv READ function
  *
- * $Id: read.c 3335 2005-10-31 03:48:14Z nenolod $
+ * $Id: read.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/read", FALSE, _modinit, _moddeinit,
-	"$Id: read.c 3335 2005-10-31 03:48:14Z nenolod $",
+	"$Id: read.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ms_cmd_read(char *origin);
 
-command_t ms_read = { "READ", "Reads a memo",
+command_t ms_read = { "READ", "Reads a memo.",
                         AC_NONE, ms_cmd_read };
 
 list_t *ms_cmdtree;
@@ -42,7 +42,7 @@ void _moddeinit()
 static void ms_cmd_read(char *origin)
 {
 	/* Misc structs etc */
-	user_t *u = user_find(origin), *tu;
+	user_t *u = user_find_named(origin), *tu;
 	myuser_t *mu = u->myuser, *tmu;
 	mymemo_t *memo, *receipt;
 	node_t *n;
@@ -57,7 +57,7 @@ static void ms_cmd_read(char *origin)
 	if (!arg1)
 	{
 		notice(memosvs.nick, origin, 
-			"Insufficient parameters specified for \2READ\2.");
+			STR_INSUFFICIENT_PARAMS, "READ");
 		
 		notice(memosvs.nick, origin, "Syntax: READ <memo number>");
 		return;

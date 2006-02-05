@@ -4,7 +4,7 @@
  *
  * OperServ NOOP command.
  *
- * $Id: noop.c 3601 2005-11-06 23:36:34Z jilles $
+ * $Id: noop.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/noop", TRUE, _modinit, _moddeinit,
-	"$Id: noop.c 3601 2005-11-06 23:36:34Z jilles $",
+	"$Id: noop.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -31,15 +31,18 @@ static void os_cmd_noop(char *origin);
 static void check_user(user_t *u);
 static BlockHeap *noop_heap;
 
-command_t os_noop = { "NOOP", "Handles NOOP lists.", AC_SRA,
+command_t os_noop = { "NOOP", "Restricts IRCop access.", PRIV_NOOP,
 			os_cmd_noop };
 
 list_t *os_cmdtree;
+list_t *os_helptree;
 
 void _modinit(module_t *m)
 {
 	os_cmdtree = module_locate_symbol("operserv/main", "os_cmdtree");
+	os_helptree = module_locate_symbol("operserv/main", "os_helptree");
 	command_add(&os_noop, os_cmdtree);
+	help_addentry(os_helptree, "NOOP", "help/oservice/noop", NULL);
 	hook_add_event("user_oper");
 	hook_add_hook("user_oper", (void (*)(void *)) check_user);
 
@@ -55,8 +58,8 @@ void _modinit(module_t *m)
 void _moddeinit()
 {
 	command_delete(&os_noop, os_cmdtree);
+	help_delentry(os_helptree, "NOOP");
 	hook_del_hook("user_oper", (void (*)(void *)) check_user);
-	hook_del_event("user_oper");
 }
 
 static void check_user(user_t *u)
@@ -74,7 +77,7 @@ static void check_user(user_t *u)
 		{
 			skill(opersvs.nick, u->nick, "Operator access denied to hostmask: %s [%s] <%s@%s>",
 				np->target, np->reason, np->added_by, opersvs.nick);
-			user_delete(u->nick);
+			user_delete(u);
 			return;
 		}
 	}
@@ -87,7 +90,7 @@ static void check_user(user_t *u)
 		{
 			skill(opersvs.nick, u->nick, "Operator access denied to server: %s [%s] <%s@%s>",
 				np->target, np->reason, np->added_by, opersvs.nick);
-			user_delete(u->nick);
+			user_delete(u);
 			return;
 		}
 	}
@@ -120,7 +123,7 @@ static void os_cmd_noop(char *origin)
 
 	if (!action || !type)
 	{
-		notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+		notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "NOOP");
 		notice(opersvs.nick, origin, "Syntax: NOOP <ADD|DEL|LIST> <HOSTMASK|SERVER> <mask> [reason]");
 		return;
 	}
@@ -131,7 +134,7 @@ static void os_cmd_noop(char *origin)
 		{
 			if (!mask)
                         {
-				notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+				notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "NOOP");
 				notice(opersvs.nick, origin, "Syntax: NOOP <ADD|DEL|LIST> <HOSTMASK|SERVER> <mask> [reason]");
 				return;
 			}
@@ -154,7 +157,7 @@ static void os_cmd_noop(char *origin)
 			n = node_create();
 			node_add(np, n, &noop_hostmask_list);
 
-			logcommand(opersvs.me, user_find(origin), CMDLOG_ADMIN, "NOOP ADD HOSTMASK %s %s", np->target, np->reason);
+			logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "NOOP ADD HOSTMASK %s %s", np->target, np->reason);
 			notice(opersvs.nick, origin, "Added \2%s\2 to the hostmask NOOP list.", mask);
 
 			return;
@@ -163,7 +166,7 @@ static void os_cmd_noop(char *origin)
 		{
 			if (!mask)
 			{
-				notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+				notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "NOOP");
 				notice(opersvs.nick, origin, "Syntax: NOOP <ADD|DEL|LIST> <HOSTMASK|SERVER> <mask> [reason]");
 				return;
 			}
@@ -186,14 +189,14 @@ static void os_cmd_noop(char *origin)
 			n = node_create();
 			node_add(np, n, &noop_server_list);
 
-			logcommand(opersvs.me, user_find(origin), CMDLOG_ADMIN, "NOOP ADD SERVER %s %s", np->target, np->reason);
+			logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "NOOP ADD SERVER %s %s", np->target, np->reason);
 			notice(opersvs.nick, origin, "Added \2%s\2 to the server NOOP list.", mask);
 
 			return;
 		}
 		else
 		{
-			notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+			notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "NOOP");
 			notice(opersvs.nick, origin, "Syntax: NOOP ADD <HOSTMASK|SERVER> <mask> [reason]");
 		}			
 	}
@@ -203,7 +206,7 @@ static void os_cmd_noop(char *origin)
 		{
 			if (!mask)
 			{
-				notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+				notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "NOOP");
 				notice(opersvs.nick, origin, "Syntax: NOOP <ADD|DEL|LIST> <HOSTMASK|SERVER> <mask> [reason]");
 				return;
 			}
@@ -213,7 +216,7 @@ static void os_cmd_noop(char *origin)
 				return;
 			}
 
-			logcommand(opersvs.me, user_find(origin), CMDLOG_ADMIN, "NOOP DEL HOSTMASK %s", np->target);
+			logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "NOOP DEL HOSTMASK %s", np->target);
 			notice(opersvs.nick, origin, "Removed \2%s\2 from the hostmask NOOP list.", np->target);
 
 			n = node_find(np, &noop_hostmask_list);
@@ -236,7 +239,7 @@ static void os_cmd_noop(char *origin)
 				return;
 			}
 
-			logcommand(opersvs.me, user_find(origin), CMDLOG_ADMIN, "NOOP DEL SERVER %s", np->target);
+			logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "NOOP DEL SERVER %s", np->target);
 			notice(opersvs.nick, origin, "Removed \2%s\2 from the server NOOP list.", np->target);
 
 			n = node_find(np, &noop_server_list);
@@ -253,7 +256,7 @@ static void os_cmd_noop(char *origin)
 		}
 		else
 		{
-			notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+			notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "NOOP");
 			notice(opersvs.nick, origin, "Syntax: NOOP DEL <HOSTMASK|SERVER> <mask>");
 		}			
 	}
@@ -262,7 +265,7 @@ static void os_cmd_noop(char *origin)
 		if (!strcasecmp(type, "HOSTMASK"))
 		{
 			uint16_t i = 1;
-			logcommand(opersvs.me, user_find(origin), CMDLOG_GET, "NOOP LIST HOSTMASK");
+			logcommand(opersvs.me, user_find_named(origin), CMDLOG_GET, "NOOP LIST HOSTMASK");
 			notice(opersvs.nick, origin, "Hostmask NOOP list (%d entries):", noop_hostmask_list.count);
 			notice(opersvs.nick, origin, " ");
 			notice(opersvs.nick, origin, "Entry Hostmask                        Adder                 Reason");
@@ -282,7 +285,7 @@ static void os_cmd_noop(char *origin)
 		else if (!strcasecmp(type, "SERVER"))
 		{
 			uint16_t i = 1;
-			logcommand(opersvs.me, user_find(origin), CMDLOG_GET, "NOOP LIST SERVER");
+			logcommand(opersvs.me, user_find_named(origin), CMDLOG_GET, "NOOP LIST SERVER");
 			notice(opersvs.nick, origin, "Server NOOP list (%d entries):", noop_server_list.count);
 			notice(opersvs.nick, origin, " ");
 			notice(opersvs.nick, origin, "Entry Hostmask                        Adder                 Reason");
@@ -301,7 +304,7 @@ static void os_cmd_noop(char *origin)
 		}
 		else
 		{
-			notice(opersvs.nick, origin, "Insufficient parameters provided for \2NOOP\2.");
+			notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "NOOP");
 			notice(opersvs.nick, origin, "Syntax: NOOP LIST <HOSTMASK|SERVER>");
 		}			
 	}

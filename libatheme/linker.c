@@ -4,7 +4,7 @@
  *
  * Dynamic linker.
  *
- * $Id: linker.c 3953 2005-11-20 08:59:19Z nenolod $
+ * $Id: linker.c 3951 2005-11-20 05:10:01Z terminal $
  */
 
 #include <org.atheme.claro.base>

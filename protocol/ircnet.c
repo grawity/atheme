@@ -6,13 +6,13 @@
  * Derived mainly from the documentation (or lack thereof)
  * in my protocol bridge.
  *
- * $Id: ircnet.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: ircnet.c 4759 2006-02-01 23:47:43Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/ircnet.h"
 
-DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 4759 2006-02-01 23:47:43Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -33,7 +33,11 @@ ircd_t IRCNet = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+",                            /* Mode we set for halfops. */
-	PROTOCOL_IRCNET			/* Protocol type */
+	PROTOCOL_IRCNET,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"beIR",                         /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ ircnet_mode_list[] = {
@@ -47,8 +51,6 @@ struct cmode_ ircnet_mode_list[] = {
 };
 
 struct cmode_ ircnet_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
   { '\0', 0 }
 };
 
@@ -81,6 +83,8 @@ static uint8_t ircnet_server_login(void)
 
 	services_init();
 
+	sts(":%s EOB", me.numeric);
+
 	return 0;
 }
 
@@ -88,6 +92,24 @@ static uint8_t ircnet_server_login(void)
 static void ircnet_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	sts(":%s UNICK %s %s %s %s 0.0.0.0 +%s :%s", me.numeric, nick, uid, user, host, "io", real);
+}
+
+/* invite a user to a channel */
+static void ircnet_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	int joined = 0;
+
+	/* Need to join to invite -- jilles */
+	if (!chanuser_find(channel, sender))
+	{
+		sts(":%s NJOIN %s :@%s", ME, channel->name, CLIENT_NAME(sender));
+		joined = 1;
+	}
+	/* ircnet's UID implementation is incomplete, in many places,
+	 * like this one, it does not accept UIDs -- jilles */
+	sts(":%s INVITE %s %s", CLIENT_NAME(sender), target->nick, channel->name);
+	if (joined)
+		sts(":%s PART %s :Invited %s", CLIENT_NAME(sender), channel->name, target->nick);
 }
 
 static void ircnet_quit_sts(user_t *u, char *reason)
@@ -297,10 +319,10 @@ static void ircnet_on_login(char *origin, char *user, char *wantedhost)
 }
 
 /* protocol-specific stuff to do on login */
-static void ircnet_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t ircnet_on_logout(char *origin, char *user, char *wantedhost)
 {
 	/* nothing to do on ratbox */
-	return;
+	return FALSE;
 }
 
 static void ircnet_jupe(char *server, char *reason)
@@ -366,16 +388,52 @@ static void m_pong(char *origin, uint8_t parc, char *parv[])
 	me.uplinkpong = CURRTIME;
 
 	/* -> :test.projectxero.net PONG test.projectxero.net :shrike.malkier.net */
+}
+
+static void m_eob(char *origin, uint8_t parc, char *parv[])
+{
+	server_t *source = server_find(origin), *serv;
+	char sidbuf[4+1], *p;
+
+	if (source == NULL)
+	{
+		slog(LG_DEBUG, "m_eob(): Got EOB from unknown server %s", origin);
+	}
+	if (!(source->flags & SF_EOB))
+	{
+		source->flags |= SF_EOB;
+		slog(LG_DEBUG, "m_eob(): End of burst from %s", source->name);
+	}
+	if (parc >= 1)
+	{
+		sidbuf[4] = '\0';
+		p = parv[0];
+		while (p[0] && p[1] && p[2] && p[3])
+		{
+			memcpy(sidbuf, p, 4);
+			serv = server_find(sidbuf);
+			if (serv != NULL && !(serv->flags & SF_EOB))
+			{
+				slog(LG_DEBUG, "m_eob(): End of burst from %s (mass, via %s)", serv->name, source->name);
+				serv->flags |= SF_EOB;
+			}
+			if (p[4] != ',')
+				break;
+			p += 5;
+		}
+	}
+
 	if (me.bursting)
 	{
+		sts(":%s EOBACK", me.numeric);
 #ifdef HAVE_GETTIMEOFDAY
 		e_time(burstime, &burstime);
 
-		slog(LG_INFO, "m_pong(): finished synching with uplink (%d %s)", (tv2ms(&burstime) > 1000) ? (tv2ms(&burstime) / 1000) : tv2ms(&burstime), (tv2ms(&burstime) > 1000) ? "s" : "ms");
+		slog(LG_INFO, "m_eob(): finished synching with uplink (%d %s)", (tv2ms(&burstime) > 1000) ? (tv2ms(&burstime) / 1000) : tv2ms(&burstime), (tv2ms(&burstime) > 1000) ? "s" : "ms");
 
 		wallops("Finished synching to network in %d %s.", (tv2ms(&burstime) > 1000) ? (tv2ms(&burstime) / 1000) : tv2ms(&burstime), (tv2ms(&burstime) > 1000) ? "s" : "ms");
 #else
-		slog(LG_INFO, "m_pong(): finished synching with uplink");
+		slog(LG_INFO, "m_eob(): finished synching with uplink");
 		wallops("Finished synching to network.");
 #endif
 
@@ -405,15 +463,19 @@ static void m_njoin(char *origin, uint8_t parc, char *parv[])
 	uint8_t userc;
 	char *userv[256];
 	uint8_t i;
+	server_t *source;
 
-	if (origin)
+	source = server_find(origin);
+	if (source != NULL)
 	{
 		c = channel_find(parv[0]);
 
 		if (!c)
 		{
 			slog(LG_DEBUG, "m_njoin(): new channel: %s", parv[0]);
-			c = channel_add(parv[0], CURRTIME);
+			/* Give channels created during burst an older "TS"
+			 * so they won't be deopped -- jilles */
+			c = channel_add(parv[0], source->flags & SF_EOB ? CURRTIME : CURRTIME - 601);
 		}
 
 		userc = sjtoken(parv[parc - 1], ',', userv);
@@ -463,7 +525,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 			return;
 		}
 
-		u = user_add(parv[0], parv[2], parv[3], NULL, NULL, parv[1], parv[6], s, 0);
+		u = user_add(parv[0], parv[2], parv[3], NULL, parv[4], parv[1], parv[6], s, 0);
 
 		user_mode(u, parv[5]);
 
@@ -514,7 +576,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -566,10 +628,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]) || !irccasecmp(chansvs.me->me->uid, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -589,7 +651,7 @@ static void m_squit(char *origin, uint8_t parc, char *parv[])
 static void m_server(char *origin, uint8_t parc, char *parv[])
 {
 	slog(LG_DEBUG, "m_server(): new server: %s", parv[0]);
-	server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, parv[2], parv[3]);
+	server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, parv[2], parv[parc - 1]);
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
@@ -597,32 +659,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -669,7 +731,8 @@ void _modinit(module_t * m)
 	join_sts = &ircnet_join_sts;
 	kick = &ircnet_kick;
 	msg = &ircnet_msg;
-	notice = &ircnet_notice;
+	notice_sts = &ircnet_notice;
+	/* no wallchops, ircnet ircd does not support this */
 	numeric_sts = &ircnet_numeric_sts;
 	skill = &ircnet_skill;
 	part = &ircnet_part;
@@ -681,6 +744,7 @@ void _modinit(module_t * m)
 	ircd_on_login = &ircnet_on_login;
 	ircd_on_logout = &ircnet_on_logout;
 	jupe = &ircnet_jupe;
+	invite_sts = &ircnet_invite_sts;
 
 	mode_list = ircnet_mode_list;
 	ignore_mode_list = ircnet_ignore_mode_list;
@@ -691,6 +755,7 @@ void _modinit(module_t * m)
 
 	pcommand_add("PING", m_ping);
 	pcommand_add("PONG", m_pong);
+	pcommand_add("EOB", m_eob);
 	pcommand_add("PRIVMSG", m_privmsg);
 	pcommand_add("NOTICE", m_notice);
 	pcommand_add("NJOIN", m_njoin);

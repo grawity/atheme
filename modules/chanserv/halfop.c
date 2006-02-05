@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService OP functions.
  *
- * $Id: halfop.c 3739 2005-11-09 12:52:23Z jilles $
+ * $Id: halfop.c 4745 2006-01-31 02:26:19Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/halfop", FALSE, _modinit, _moddeinit,
-	"$Id: halfop.c 3739 2005-11-09 12:52:23Z jilles $",
+	"$Id: halfop.c 4745 2006-01-31 02:26:19Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -81,7 +81,7 @@ static void cs_cmd_halfop(char *origin)
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2HALFOP\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "HALFOP");
 		notice(chansvs.nick, origin, "Syntax: HALFOP <#channel> [nickname]");
 		return;
 	}
@@ -93,7 +93,7 @@ static void cs_cmd_halfop(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_HALFOP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -136,16 +136,16 @@ static void cs_cmd_halfop(char *origin)
 		return;
 	}
 
-	if (ircd->halfops_mode & cu->modes)
-	{
-		notice(chansvs.nick, origin, "\2%s\2 is already halfopped on \2%s\2.", tu->nick, mc->name);
-		return;
-	}
-
 	cmode(chansvs.nick, chan, "+h", CLIENT_NAME(tu));
 	cu->modes |= ircd->halfops_mode;
+
+	/* TODO: Add which username had access to perform the command */
+	if (tu != u)
+		notice(chansvs.nick, tu->nick, "You have been halfopped on %s by %s", mc->name, origin);
+
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s HALFOP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been halfopped on \2%s\2.", tu->nick, mc->name);
+	if (!chanuser_find(mc->chan, u))
+		notice(chansvs.nick, origin, "\2%s\2 has been halfopped on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_cmd_dehalfop(char *origin)
@@ -164,7 +164,7 @@ static void cs_cmd_dehalfop(char *origin)
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, "Insufficient parameters specified for \2DEHALFOP\2.");
+		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "DEHALFOP");
 		notice(chansvs.nick, origin, "Syntax: DEHALFOP <#channel> [nickname]");
 		return;
 	}
@@ -176,7 +176,7 @@ static void cs_cmd_dehalfop(char *origin)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_HALFOP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -211,16 +211,16 @@ static void cs_cmd_dehalfop(char *origin)
 		return;
 	}
 
-	if (!(ircd->halfops_mode & cu->modes))
-	{
-		notice(chansvs.nick, origin, "\2%s\2 is not halfopped on \2%s\2.", tu->nick, mc->name);
-		return;
-	}
-
 	cmode(chansvs.nick, chan, "-h", CLIENT_NAME(tu));
 	cu->modes &= ~ircd->halfops_mode;
+
+	/* TODO: Add which username had access to perform the command */
+	if (tu != u)
+		notice(chansvs.nick, tu->nick, "You have been dehalfopped on %s by %s", mc->name, origin);
+
 	logcommand(chansvs.me, u, CMDLOG_SET, "%s DEHALFOP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	notice(chansvs.nick, origin, "\2%s\2 has been dehalfopped on \2%s\2.", tu->nick, mc->name);
+	if (!chanuser_find(mc->chan, u))
+		notice(chansvs.nick, origin, "\2%s\2 has been dehalfopped on \2%s\2.", tu->nick, mc->name);
 }
 
 static void cs_fcmd_halfop(char *origin, char *chan)
@@ -243,7 +243,7 @@ static void cs_fcmd_halfop(char *origin, char *chan)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_HALFOP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -289,16 +289,10 @@ static void cs_fcmd_halfop(char *origin, char *chan)
 			continue;
 		}
 
-		if (ircd->halfops_mode & cu->modes)
-		{
-			notice(chansvs.nick, origin, "\2%s\2 is already halfopped on \2%s\2.", tu->nick, mc->name);
-			continue;
-		}
-
 		cmode(chansvs.nick, chan, "+h", CLIENT_NAME(tu));
 		cu->modes |= ircd->halfops_mode;
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s HALFOP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	} while (nick = strtok(NULL, " "));
+	} while ((nick = strtok(NULL, " ")) != NULL);
 }
 
 static void cs_fcmd_dehalfop(char *origin, char *chan)
@@ -321,7 +315,7 @@ static void cs_fcmd_dehalfop(char *origin, char *chan)
 		return;
 	}
 
-	u = user_find(origin);
+	u = user_find_named(origin);
 	if (!chanacs_user_has_flag(mc, u, CA_HALFOP))
 	{
 		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
@@ -359,14 +353,8 @@ static void cs_fcmd_dehalfop(char *origin, char *chan)
 			continue;
 		}
 
-		if (!(ircd->halfops_mode & cu->modes))
-		{
-			notice(chansvs.nick, origin, "\2%s\2 is not halfopped on \2%s\2.", tu->nick, mc->name);
-			continue;
-		}
-
 		cmode(chansvs.nick, chan, "-h", CLIENT_NAME(tu));
 		cu->modes &= ~ircd->halfops_mode;
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s DEHALFOP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
-	} while (nick = strtok(NULL, " "));
+	} while ((nick = strtok(NULL, " ")) != NULL);
 }

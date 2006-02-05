@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for chunky monkey ircd.
  *
- * $Id: monkey.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: monkey.c 4639 2006-01-21 22:06:41Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/monkey.h"
 
-DECLARE_MODULE_V1("protocol/monkey", TRUE, _modinit, NULL, "$Id: monkey.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/monkey", TRUE, _modinit, NULL, "$Id: monkey.c 4639 2006-01-21 22:06:41Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -31,7 +31,11 @@ ircd_t Monkey = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+h",                           /* Mode we set for halfops. */
-	PROTOCOL_MONKEY			/* Protocol type */
+	PROTOCOL_MONKEY,		/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"beI",                          /* Ban-like cmodes */
+	'e',                            /* Except mchar */
+	'I'                             /* Invex mchar */
 };
 
 struct cmode_ monkey_mode_list[] = {
@@ -49,8 +53,6 @@ struct cmode_ monkey_mode_list[] = {
 };
 
 struct cmode_ monkey_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
   { '\0', 0 }
 };
 
@@ -94,6 +96,12 @@ static uint8_t monkey_server_login(void)
 static void monkey_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
 	sts("NICK %s 1 %ld +%s %s %s %s 0 0 :%s", nick, CURRTIME, "io", user, host, me.name, real);
+}
+
+/* invite a user to a channel */
+static void monkey_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	sts(":%s INVITE %s %s", sender->nick, target->nick, channel->name);
 }
 
 static void monkey_quit_sts(user_t *u, char *reason)
@@ -267,16 +275,26 @@ static void monkey_on_login(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return;
 
+	/* Can only do this for nickserv, and can only record identified
+	 * state if logged in to correct nick, sorry -- jilles
+	 */
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return;
+
 	sts(":%s SVSMODE %s +rd %ld", nicksvs.nick, origin, time(NULL));
 }
 
 /* protocol-specific stuff to do on login */
-static void monkey_on_logout(char *origin, char *user, char *wantedhost)
+static boolean_t monkey_on_logout(char *origin, char *user, char *wantedhost)
 {
 	if (!me.connected)
-		return;
+		return FALSE;
+
+	if (nicksvs.me == NULL || irccasecmp(origin, user))
+		return FALSE;
 
 	sts(":%s SVSMODE %s -r+d %ld", nicksvs.nick, origin, time(NULL));
+	return FALSE;
 }
 
 static void monkey_jupe(char *server, char *reason)
@@ -546,7 +564,7 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
@@ -598,10 +616,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -629,32 +647,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	handle_admin(origin);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	handle_version(origin);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	handle_info(origin);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -701,7 +719,7 @@ void _modinit(module_t * m)
 	join_sts = &monkey_join_sts;
 	kick = &monkey_kick;
 	msg = &monkey_msg;
-	notice = &monkey_notice;
+	notice_sts = &monkey_notice;
 	numeric_sts = &monkey_numeric_sts;
 	skill = &monkey_skill;
 	part = &monkey_part;
@@ -713,6 +731,7 @@ void _modinit(module_t * m)
 	ircd_on_login = &monkey_on_login;
 	ircd_on_logout = &monkey_on_logout;
 	jupe = &monkey_jupe;
+	invite_sts = &monkey_invite_sts;
 
 	mode_list = monkey_mode_list;
 	ignore_mode_list = monkey_ignore_mode_list;

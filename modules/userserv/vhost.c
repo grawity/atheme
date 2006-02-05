@@ -4,7 +4,7 @@
  *
  * VHost management! (ratbox only right now.)
  *
- * $Id: vhost.c 3991 2005-11-29 08:03:27Z pfish $
+ * $Id: vhost.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"userserv/vhost", FALSE, _modinit, _moddeinit,
-	"$Id: vhost.c 3991 2005-11-29 08:03:27Z pfish $",
+	"$Id: vhost.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -22,7 +22,7 @@ static void vhost_on_identify(void *vptr);
 static void us_cmd_vhost(char *origin);
 
 command_t us_vhost = { "VHOST", "Manages user virtualhosts.",
-			AC_IRCOP, us_cmd_vhost };
+			PRIV_USER_VHOST, us_cmd_vhost };
 
 void _modinit(module_t *m)
 {
@@ -114,7 +114,7 @@ static void us_cmd_vhost(char *origin)
 	char *target = strtok(NULL, " ");
 	char *host = strtok(NULL, " ");
 	node_t *n;
-	user_t *source = user_find(origin);
+	user_t *source = user_find_named(origin);
 	myuser_t *mu;
 
 	if (source == NULL)
@@ -122,13 +122,13 @@ static void us_cmd_vhost(char *origin)
 
 	if (!target)
 	{
-		notice(usersvs.nick, origin, "Invalid parameters for \2VHOST\2.");
+		notice(usersvs.nick, origin, STR_INVALID_PARAMS, "VHOST");
 		notice(usersvs.nick, origin, "Syntax: VHOST <nick> [vhost]");
 		return;
 	}
 
 	/* find the user... */
-	if (!(mu = myuser_find(target)))
+	if (!(mu = myuser_find_ext(target)))
 	{
 		notice(usersvs.nick, origin, "\2%s\2 is not a registered account.", target);
 		return;

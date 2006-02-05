@@ -2,17 +2,17 @@
  * Copyright (c) 2005 William Pitcock, et al.
  * Rights to this code are documented in doc/LICENSE.
  *
- * This file contains protocol support for IRCnet ircd's.
- * Derived mainly from the documentation (or lack thereof)
- * in my protocol bridge.
+ * This file contains protocol support for P10 ircd's.
+ * Some sources used: Run's documentation, beware's description,
+ * raw data sent by asuka.
  *
- * $Id: bircd.c 3837 2005-11-11 11:35:48Z jilles $
+ * $Id: bircd.c 4783 2006-02-05 00:38:13Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/asuka.h"
 
-DECLARE_MODULE_V1("protocol/asuka", TRUE, _modinit, NULL, "$Id: bircd.c 3837 2005-11-11 11:35:48Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/asuka", TRUE, _modinit, NULL, "$Id: bircd.c 4783 2006-02-05 00:38:13Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -33,7 +33,11 @@ ircd_t Asuka = {
         "+",                            /* Mode we set for owner. */
         "+",                            /* Mode we set for protect. */
         "+",                            /* Mode we set for halfops. */
-	PROTOCOL_ASUKA			/* Protocol type */
+	PROTOCOL_ASUKA,			/* Protocol type */
+	0,                              /* Permanent cmodes */
+	"b",                            /* Ban-like cmodes */
+	0,                              /* Except mchar */
+	0                               /* Invex mchar */
 };
 
 struct cmode_ asuka_mode_list[] = {
@@ -46,14 +50,11 @@ struct cmode_ asuka_mode_list[] = {
   { 'c', CMODE_NOCOLOR },
   { 'C', CMODE_NOCTCP },
   { 'D', CMODE_DELAYED },
-  { 'd', CMODE_AUDITORIUM },
   { 'u', CMODE_NOQUIT },
   { '\0', 0 }
 };
 
 struct cmode_ asuka_ignore_mode_list[] = {
-  { 'e', CMODE_EXEMPT },
-  { 'I', CMODE_INVEX  },
   { '\0', 0 }
 };
 
@@ -69,6 +70,8 @@ struct cmode_ asuka_prefix_mode_list[] = {
   { '\0', 0 }
 };
 
+static void check_hidehost(user_t *u);
+
 /* *INDENT-ON* */
 
 /* login to our uplink */
@@ -76,6 +79,7 @@ static uint8_t asuka_server_login(void)
 {
 	int8_t ret;
 
+	me.recvsvr = FALSE;
 	ret = sts("PASS :%s", curr_uplink->pass);
 	if (ret == 1)
 		return 1;
@@ -83,7 +87,7 @@ static uint8_t asuka_server_login(void)
 	me.bursting = TRUE;
 
 	/* SERVER irc.undernet.org 1 933022556 947908144 J10 AA]]] :[127.0.0.1] A Undernet Server */
-	sts("SERVER %s 1 %ld %ld J10 %s]]] :%s", me.name, me.start, CURRTIME, me.numeric, me.desc);
+	sts("SERVER %s 1 %ld %ld J10 %s]]] +s :%s", me.name, me.start, CURRTIME, me.numeric, me.desc);
 
 	services_init();
 
@@ -95,7 +99,14 @@ static uint8_t asuka_server_login(void)
 /* introduce a client */
 static void asuka_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
-	sts("%s N %s 1 %ld %s %s +%sk A %s :%s", me.numeric, nick, CURRTIME, user, host, "io", uid, real);
+	sts("%s N %s 1 %ld %s %s +%s%sk A %s :%s", me.numeric, nick, CURRTIME, user, host, "io", chansvs.fantasy ? "" : "d", uid, real);
+}
+
+/* invite a user to a channel */
+static void asuka_invite_sts(user_t *sender, user_t *target, channel_t *channel)
+{
+	/* target is a nick, weird eh? -- jilles */
+	sts("%s I %s %s", sender->uid, target->nick, channel->name);
 }
 
 static void asuka_quit_sts(user_t *u, char *reason)
@@ -119,7 +130,7 @@ static void asuka_wallops(char *fmt, ...)
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-	sts("%s WA :%s", chansvs.me->me->uid, buf);
+	sts("%s WA :%s", me.numeric, buf);
 }
 
 /* join a channel */
@@ -143,8 +154,8 @@ static void asuka_join_sts(channel_t *c, user_t *u, boolean_t isnew, char *modes
 static void asuka_kick(char *from, char *channel, char *to, char *reason)
 {
 	channel_t *chan = channel_find(channel);
-	user_t *fptr = user_find(from);
-	user_t *user = user_find(to);
+	user_t *fptr = user_find_named(from);
+	user_t *user = user_find_named(to);
 
 	if (!chan || !user || !fptr)
 		return;
@@ -158,7 +169,7 @@ static void asuka_kick(char *from, char *channel, char *to, char *reason)
 static void asuka_msg(char *from, char *target, char *fmt, ...)
 {
 	va_list ap;
-	user_t *u = user_find(from);
+	user_t *u = user_find_named(from);
 	char buf[BUFSIZE];
 
 	if (!u)
@@ -176,8 +187,8 @@ static void asuka_notice(char *from, char *target, char *fmt, ...)
 {
 	va_list ap;
 	char buf[BUFSIZE];
-	user_t *u = user_find(from);
-	user_t *t = user_find(target);
+	user_t *u = user_find_named(from);
+	user_t *t = user_find_named(target);
 
 	if (u == NULL && (from == NULL || (irccasecmp(from, me.name) && irccasecmp(from, ME))))
 	{
@@ -192,14 +203,19 @@ static void asuka_notice(char *from, char *target, char *fmt, ...)
 	sts("%s O %s :%s", u ? u->uid : me.numeric, t ? t->uid : target, buf);
 }
 
+static void asuka_wallchops(user_t *sender, channel_t *channel, char *message)
+{
+	sts("%s WC %s :%s", sender->uid, channel->name, message);
+}
+
 static void asuka_numeric_sts(char *from, int numeric, char *target, char *fmt, ...)
 {
 	va_list ap;
 	char buf[BUFSIZE];
 	user_t *source_p, *target_p;
 
-	source_p = user_find(from);
-	target_p = user_find(target);
+	source_p = user_find_named(from);
+	target_p = user_find_named(target);
 
 	if (!target_p)
 		return;
@@ -216,23 +232,23 @@ static void asuka_skill(char *from, char *nick, char *fmt, ...)
 {
 	va_list ap;
 	char buf[BUFSIZE];
-	user_t *fptr = user_find(from);
-	user_t *tptr = user_find(nick);
+	user_t *fptr = user_find_named(from);
+	user_t *tptr = user_find_named(nick);
 
-	if (!fptr || !tptr)
+	if (!tptr)
 		return;
 
 	va_start(ap, fmt);
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-	sts("%s D %s :%s!%s!%s (%s)", fptr->uid, tptr->uid, from, from, from, buf);
+	sts("%s D %s :%s!%s!%s (%s)", fptr ? fptr->uid : me.numeric, tptr->uid, from, from, from, buf);
 }
 
 /* PART wrapper */
 static void asuka_part(char *chan, char *nick)
 {
-	user_t *u = user_find(nick);
+	user_t *u = user_find_named(nick);
 	channel_t *c = channel_find(chan);
 	chanuser_t *cu;
 
@@ -268,19 +284,27 @@ static void asuka_unkline_sts(char *server, char *user, char *host)
 /* topic wrapper */
 static void asuka_topic_sts(char *channel, char *setter, time_t ts, char *topic)
 {
-	/* ircu does not support remote topic propagation */
+	channel_t *c;
+
+	c = channel_find(channel);
+	if (c == NULL)
+		return;
+	sts("%s T %s %ld %ld :%s", chansvs.me->me->uid, channel, c->ts, ts, topic);
 }
 
 /* mode wrapper */
 static void asuka_mode_sts(char *sender, char *target, char *modes)
 {
-	user_t *fptr = user_find(sender);
+	user_t *fptr = user_find_named(sender);
 	channel_t *cptr = channel_find(target);
 
 	if (!fptr || !cptr)
 		return;
 
-	sts("%s M %s %s %ld", fptr->uid, target, modes, cptr->ts);
+	if (chanuser_find(cptr, fptr))
+		sts("%s M %s %s %ld", fptr->uid, target, modes, cptr->ts);
+	else
+		sts("%s M %s %s %ld", me.numeric, target, modes, cptr->ts);
 }
 
 /* ping wrapper */
@@ -295,19 +319,32 @@ static void asuka_ping_sts(void)
 /* protocol-specific stuff to do on login */
 static void asuka_on_login(char *origin, char *user, char *wantedhost)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 
 	if (!u)
 		return;
 
 	sts("%s AC %s %s", me.numeric, u->uid, u->myuser->name);
+	check_hidehost(u);
 }
 
-/* protocol-specific stuff to do on login */
-static void asuka_on_logout(char *origin, char *user, char *wantedhost)
+/* P10 does not support logout, so kill the user
+ * we can't keep track of which logins are stale and which aren't -- jilles */
+static boolean_t asuka_on_logout(char *origin, char *user, char *wantedhost)
 {
-	/* nothing to do on ratbox */
-	return;
+	user_t *u = user_find_named(origin);
+
+	if (!me.connected)
+		return FALSE;
+
+	if (u != NULL)
+	{
+		skill(me.name, u->nick, "Forcing logout %s -> %s", u->nick, user);
+		user_delete(u);
+		return TRUE;
+	}
+	else
+		return FALSE;
 }
 
 static void asuka_jupe(char *server, char *reason)
@@ -321,12 +358,32 @@ static void asuka_jupe(char *server, char *reason)
 static void m_topic(char *origin, uint8_t parc, char *parv[])
 {
 	channel_t *c = channel_find(parv[0]);
-	user_t *u = user_find(origin);
+	server_t *source_server;
+	user_t *source_user;
+	char *source;
+	time_t ts = 0;
 
-	if (!c || !u)
+	if (!c || parc < 2)
 		return;
 
-	handle_topic(c, u->nick, CURRTIME, parv[1]);
+	if (origin == NULL)
+		source = me.actual;
+	else if ((source_server = server_find(origin)) != NULL)
+		source = source_server->name;
+	else if ((source_user = user_find(origin)) != NULL)
+		source = source_user->nick;
+	else
+		source = origin;
+
+	/* Let's accept any topic
+	 * The criteria asuka uses for acceptance are broken,
+	 * and it will not propagate anything not accepted
+	 * -- jilles */
+	if (parc > 2)
+		ts = atoi(parv[parc - 2]);
+	if (ts == 0)
+		ts = CURRTIME;
+	handle_topic(c, source, ts, parv[parc - 1]);
 }
 
 /* AB G !1119920789.573932 services.atheme.org 1119920789.573932 */
@@ -402,6 +459,25 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 	uint8_t chanc;
 	char *chanv[256];
 	uint8_t i;
+	user_t *u;
+	node_t *n, *tn;
+	chanuser_t *cu;
+
+	/* JOIN 0 is really a part from all channels */
+	if (!strcmp(parv[0], "0"))
+	{
+		u = user_find(origin);
+		if (u == NULL)
+			return;
+		LIST_FOREACH_SAFE(n, tn, u->channels.head)
+		{
+			cu = (chanuser_t *)n->data;
+			chanuser_delete(cu->chan, u);
+		}
+		return;
+	}
+	if (parc < 2)
+		return;
 
 	chanc = sjtoken(parv[0], ',', chanv);
 
@@ -412,246 +488,121 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 		if (!c)
 			c = channel_add(chanv[i], atoi(parv[1]));
 
-		buf[0] = '@';
-		buf[1] = '\0';
-
-		strlcat(buf, origin, BUFSIZE);
-
-		chanuser_add(c, buf);
+		chanuser_add(c, origin);
 	}
 }
 
 static void m_burst(char *origin, uint8_t parc, char *parv[])
 {
 	channel_t *c;
-	uint8_t modec = 0;
+	uint8_t modec;
 	char *modev[16];
 	uint8_t userc;
 	char *userv[256];
 	uint8_t i;
+	int j;
+	char prefix[16];
+	char newnick[16+NICKLEN];
+	char *p;
+	time_t ts;
 
-	if (parc >= 6)
+	/* S BURST <channel> <ts> [parameters]
+	 * parameters can be:
+	 * +<simple mode>
+	 * %<bans separated with spaces>
+	 * <nicks>
+	 */
+	if (parc < 2)
 	{
-		c = channel_find(parv[0]);
-
-		modev[modec++] = parv[2];
-		modev[modec++] = parv[3];
-		modev[modec++] = parv[4];
-
-		if (!c)
-		{
-			slog(LG_DEBUG, "m_burst(): new channel: %s", parv[0]);
-			c = channel_add(parv[0], atoi(parv[1]));
-		}
-
-		channel_mode(NULL, c, modec, modev);
-
-		/* handle bans. */
-		if (parv[parc - 1][0] == '%')
-			userc = sjtoken(parv[parc - 2], ',', userv);
-		else
-			userc = sjtoken(parv[parc - 1], ',', userv);
-
-		for (i = 0; i < userc; i++)
-		{
-			slog(LG_DEBUG, "m_burst(): parsing %s", userv[i]);
-
-			if (strchr(userv[i], ':'))
-			{
-				char buf[BUFSIZE];
-				char *nick = strtok(userv[i], ":");
-				char *status = strtok(NULL, ":");
-				char *bptr = buf;
-
-				memset(buf, 0, sizeof(buf));
-
-				while (*status)
-				{
-					if (*status == 'o')
-						*bptr = '@';
-					else if (*status == 'v')
-						*bptr = '+';
-					status++;
-					bptr++;
-				}
-
-				strlcat(buf, nick, BUFSIZE);
-
-				slog(LG_DEBUG, "m_burst(): converted %s into %s.", userv[i], buf);
-
-				chanuser_add(c, buf);
-
-				continue;
-			}
-
-			chanuser_add(c, userv[i]);
-		}
+		slog(LG_DEBUG, "m_burst(): too few parameters");
+		return;
 	}
-	else if (parc == 5)
+
+	ts = atoi(parv[1]);
+
+	c = channel_find(parv[0]);
+
+	if (c == NULL)
 	{
-		c = channel_find(parv[0]);
-
-		modev[modec++] = parv[2];
-		modev[modec++] = parv[3];
-
-		if (parv[parc - 1][0] != '%')
-			modev[++modec] = parv[4];
-
-		if (!c)
-		{
-			slog(LG_DEBUG, "m_burst(): new channel: %s", parv[0]);
-			c = channel_add(parv[0], atoi(parv[1]));
-		}
-
-		channel_mode(NULL, c, modec, modev);
-
-		/* handle bans. */
-		if (parv[parc - 1][0] == '%')
-			userc = sjtoken(parv[parc - 2], ',', userv);
-		else
-			userc = sjtoken(parv[parc - 1], ',', userv);
-
-		for (i = 0; i < userc; i++)
-		{
-			slog(LG_DEBUG, "m_burst(): parsing %s", userv[i]);
-
-			if (strchr(userv[i], ':'))
-			{
-				char buf[BUFSIZE];
-				char *nick = strtok(userv[i], ":");
-				char *status = strtok(NULL, ":");
-				char *bptr = buf;
-
-				memset(buf, 0, sizeof(buf));
-
-				while (*status)
-				{
-					if (*status == 'o')
-						*bptr = '@';
-					else if (*status == 'v')
-						*bptr = '+';
-					status++;
-					bptr++;
-				}
-
-				strlcat(buf, nick, BUFSIZE);
-
-				slog(LG_DEBUG, "m_burst(): converted %s into %s.", userv[i], buf);
-
-				chanuser_add(c, buf);
-
-				continue;
-			}
-
-			chanuser_add(c, userv[i]);
-		}
+		slog(LG_DEBUG, "m_burst(): new channel: %s", parv[0]);
+		c = channel_add(parv[0], ts);
 	}
-	else if (parc == 4)
+	else if (ts < c->ts)
 	{
-		c = channel_find(parv[0]);
+		chanuser_t *cu;
+		node_t *n;
 
-		modev[modec++] = parv[2];
-		if (parv[parc - 1][0] != '%')
-			modev[modec++] = parv[3];
-
-		if (!c)
+		c->modes = 0;
+		c->limit = 0;
+		if (c->key)
+			free(c->key);
+		c->key = NULL;
+		chanban_clear(c);
+		handle_topic(c, "", 0, "");
+		LIST_FOREACH(n, c->members.head)
 		{
-			slog(LG_DEBUG, "m_burst(): new channel: %s", parv[0]);
-			c = channel_add(parv[0], atoi(parv[1]));
-		}
-
-		channel_mode(NULL, c, modec, modev);
-
-		/* handle bans. */
-		if (parv[parc - 1][0] == '%')
-			userc = sjtoken(parv[parc - 2], ',', userv);
-		else
-			userc = sjtoken(parv[parc - 1], ',', userv);
-
-		for (i = 0; i < userc; i++)
-		{
-			slog(LG_DEBUG, "m_burst(): parsing %s", userv[i]);
-
-			if (strchr(userv[i], ':'))
+			cu = (chanuser_t *)n->data;
+			if (cu->user->server == me.me)
 			{
-				char buf[BUFSIZE];
-				char *nick = strtok(userv[i], ":");
-				char *status = strtok(NULL, ":");
-				char *bptr = buf;
-
-				memset(buf, 0, sizeof(buf));
-
-				while (*status)
-				{
-					if (*status == 'o')
-						*bptr = '@';
-					else if (*status == 'v')
-						*bptr = '+';
-					status++;
-					bptr++;
-				}
-
-				strlcat(buf, nick, BUFSIZE);
-
-				slog(LG_DEBUG, "m_burst(): converted %s into %s.", userv[i], buf);
-
-				chanuser_add(c, buf);
-
-				continue;
+				/* it's a service, reop */
+				sts("%s M %s +o %s %ld", me.numeric, c->name, CLIENT_NAME(cu->user), ts);
+				cu->modes = CMODE_OP;
 			}
-
-			chanuser_add(c, userv[i]);
+			else
+				cu->modes = 0;
 		}
+
+		slog(LG_INFO, "m_burst(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
+		c->ts = ts;
 	}
-	else if (parc == 3)
+
+	j = 2;
+	while (j < parc)
 	{
-		c = channel_find(parv[0]);
-
-		if (!c)
+		if (parv[j][0] == '+')
 		{
-			slog(LG_DEBUG, "m_burst(): new channel: %s", parv[0]);
-			c = channel_add(parv[0], atoi(parv[1]));
+			modec = 0;
+			modev[modec++] = parv[j++];
+			if (strchr(modev[0], 'k') && j < parc)
+				modev[modec++] = parv[j++];
+			if (strchr(modev[0], 'l') && j < parc)
+				modev[modec++] = parv[j++];
+			channel_mode(NULL, c, modec, modev);
 		}
-
-		/* handle bans. */
-		if (parv[parc - 1][0] == '%')
-			userc = sjtoken(parv[parc - 2], ',', userv);
-		else
-			userc = sjtoken(parv[parc - 1], ',', userv);
-
-		for (i = 0; i < userc; i++)
+		else if (parv[j][0] == '%')
 		{
-			slog(LG_DEBUG, "m_burst(): parsing %s", userv[i]);
+			userc = sjtoken(parv[j++] + 1, ' ', userv);
+			for (i = 0; i < userc; i++)
+				chanban_add(c, userv[i], 'b');
+		}
+		else
+		{
+			userc = sjtoken(parv[j++], ',', userv);
 
-			if (strchr(userv[i], ':'))
+			prefix[0] = '\0';
+			for (i = 0; i < userc; i++)
 			{
-				char buf[BUFSIZE];
-				char *nick = strtok(userv[i], ":");
-				char *status = strtok(NULL, ":");
-				char *bptr = buf;
-
-				memset(buf, 0, sizeof(buf));
-
-				while (*status)
+				p = strchr(userv[i], ':');
+				if (p != NULL)
 				{
-					if (*status == 'o')
-						*bptr = '@';
-					else if (*status == 'v')
-						*bptr = '+';
-					status++;
-					bptr++;
+					*p = '\0';
+					prefix[0] = '\0';
+					prefix[1] = '\0';
+					prefix[2] = '\0';
+					p++;
+					while (*p)
+					{
+						if (*p == 'o')
+							prefix[prefix[0] ? 1 : 0] = '@';
+						else if (*p == 'v')
+							prefix[prefix[0] ? 1 : 0] = '+';
+						p++;
+					}
 				}
-
-				strlcat(buf, nick, BUFSIZE);
-
-				slog(LG_DEBUG, "m_burst(): converted %s into %s.", userv[i], buf);
-
-				chanuser_add(c, buf);
-
-				continue;
+				strlcpy(newnick, prefix, sizeof newnick);
+				strlcat(newnick, userv[i], sizeof newnick);
+				chanuser_add(c, newnick);
 			}
-
-			chanuser_add(c, userv[i]);
 		}
 	}
 }
@@ -668,10 +619,14 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 	server_t *s;
 	user_t *u;
 	kline_t *k;
+	struct in_addr ip;
+	char ipstring[64];
 
 	/* got the right number of args for an introduction? */
-	if (parc == 10)
+	if (parc >= 8)
 	{
+		/* -> AB N jilles 1 1137687480 jilles jaguar.test +oiwgrx jilles B]AAAB ABAAE :Jilles Tjoelker */
+		/* -> AB N test4 1 1137690148 jilles jaguar.test +iw B]AAAB ABAAG :Jilles Tjoelker */
 		s = server_find(origin);
 		if (!s)
 		{
@@ -690,81 +645,44 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 			 * a new KLINE.
 			 */
 
-			skill(opersvs.nick, parv[0], k->reason);
+			/* We *cannot* use skill() here -- jilles */
+			/* but why do we need to anyway? ircd will kill
+			 * the bastard */
+			/*sts("%s D %s :%s!%s!%s (%s)", opersvs.me ? opersvs.me->me->uid : me.numeric, parv[parc - 2], opersvs.nick, opersvs.nick, opersvs.nick, k->reason);*/
 			kline_sts(origin, k->user, k->host, (k->expires - CURRTIME), k->reason);
 
 			return;
 		}
 
-		u = user_add(parv[0], parv[3], parv[4], NULL, NULL, parv[8], parv[9], s, atoi(parv[2]));
+		ipstring[0] = '\0';
+		if (strlen(parv[parc - 3]) == 6)
+		{
+			ip.s_addr = ntohl(base64touint(parv[parc - 3]));
+			if (!inet_ntop(AF_INET, &ip, ipstring, sizeof ipstring))
+				ipstring[0] = '\0';
+		}
+		u = user_add(parv[0], parv[3], parv[4], NULL, ipstring, parv[parc - 2], parv[parc - 1], s, atoi(parv[2]));
 
-		user_mode(u, parv[5]);
+		if (parv[5][0] == '+')
+		{
+			user_mode(u, parv[5]);
+			if (strchr(parv[5], 'r'))
+			{
+				handle_burstlogin(u, parv[6]);
+				/* killed to force logout? */
+				if (user_find(parv[parc - 2]) == NULL)
+					return;
+			}
+			if (strchr(parv[5], 'x'))
+			{
+				u->flags |= UF_HIDEHOSTREQ;
+				/* this must be after setting the account name */
+				check_hidehost(u);
+			}
+		}
 
 		handle_nickchange(u);
 	}
-	else if (parc == 9)
-	{
-		s = server_find(origin);
-		if (!s)
-		{
-			slog(LG_DEBUG, "m_nick(): new user on nonexistant server: %s", origin);
-			return;
-		}
-
-		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[3], parv[4])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(origin, k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
-
-		u = user_add(parv[0], parv[3], parv[4], NULL, NULL, parv[7], parv[8], s, atoi(parv[2]));
-
-		user_mode(u, parv[5]);
-
-		handle_nickchange(u);
-	}
-	else if (parc == 8)
-	{
-		s = server_find(origin);
-		if (!s)
-		{
-			slog(LG_DEBUG, "m_nick(): new user on nonexistant server: %s", origin);
-			return;
-		}
-
-		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[3], parv[4])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(origin, k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
-
-		u = user_add(parv[0], parv[3], parv[4], NULL, NULL, parv[6], parv[7], s, atoi(parv[2]));
-
-		handle_nickchange(u);
-	}
-
 	/* if it's only 2 then it's a nickname change */
 	else if (parc == 2)
 	{
@@ -810,11 +728,13 @@ static void m_quit(char *origin, uint8_t parc, char *parv[])
 	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(origin);
+	user_delete(user_find(origin));
 }
 
 static void m_mode(char *origin, uint8_t parc, char *parv[])
 {
+	user_t *u;
+
 	if (!origin)
 	{
 		slog(LG_DEBUG, "m_mode(): received MODE without origin");
@@ -830,7 +750,90 @@ static void m_mode(char *origin, uint8_t parc, char *parv[])
 	if (*parv[0] == '#')
 		channel_mode(NULL, channel_find(parv[0]), parc - 1, &parv[1]);
 	else
-		user_mode(user_find(parv[0]), parv[1]);
+	{
+		/* Yes this is a nick and not a UID -- jilles */
+		u = user_find_named(parv[0]);
+		if (u == NULL)
+		{
+			slog(LG_DEBUG, "m_mode(): user mode for unknown user %s", parv[0]);
+			return;
+		}
+		user_mode(u, parv[1]);
+		if (strchr(parv[1], 'x'))
+		{
+			u->flags |= UF_HIDEHOSTREQ;
+			check_hidehost(u);
+		}
+	}
+}
+
+static void m_clearmode(char *origin, uint8_t parc, char *parv[])
+{
+	channel_t *chan;
+	char *p, c;
+	node_t *n;
+	chanuser_t *cu;
+	int i;
+
+	if (parc < 2)
+	{
+		slog(LG_DEBUG, "m_clearmode(): missing parameters in CLEARMODE");
+		return;
+	}
+
+	/* -> ABAAA CM # b */
+	/* Note: this is an IRCop command, do not enforce mode locks. */
+	chan = channel_find(parv[0]);
+	if (chan == NULL)
+	{
+		slog(LG_DEBUG, "m_clearmode(): unknown channel %s", parv[0]);
+		return;
+	}
+	p = parv[1];
+	while ((c = *p++))
+	{
+		if (c == 'b')
+			chanban_clear(chan);
+		else if (c == 'k')
+		{
+			if (chan->key)
+				free(chan->key);
+			chan->key = NULL;
+		}
+		else if (c == 'l')
+			chan->limit = 0;
+		else if (c == 'o')
+		{
+			LIST_FOREACH(n, chan->members.head)
+			{
+				cu = (chanuser_t *)n->data;
+				if (cu->user->server == me.me)
+				{
+					/* it's a service, reop */
+					sts("%s M %s +o %s %ld", me.numeric,
+							chan->name,
+							cu->user->uid,
+							chan->ts);
+				}
+				else
+					cu->modes &= ~CMODE_OP;
+			}
+		}
+		else if (c == 'v')
+		{
+			LIST_FOREACH(n, chan->members.head)
+			{
+				cu = (chanuser_t *)n->data;
+				cu->modes &= ~CMODE_VOICE;
+			}
+		}
+		else
+			for (i = 0; mode_list[i].mode != '\0'; i++)
+			{
+				if (c == mode_list[i].mode)
+					chan->modes &= ~mode_list[i].value;
+			}
+	}
 }
 
 static void m_kick(char *origin, uint8_t parc, char *parv[])
@@ -862,10 +865,10 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	chanuser_delete(c, u);
 
 	/* if they kicked us, let's rejoin */
-	if (!irccasecmp(chansvs.nick, parv[1]))
+	if (is_internal_client(u))
 	{
-		slog(LG_DEBUG, "m_kick(): i got kicked from `%s'; rejoining", parv[0]);
-		join(parv[0], parv[1]);
+		slog(LG_DEBUG, "m_kick(): %s got kicked from %s; rejoining", u->nick, parv[0]);
+		join(parv[0], u->nick);
 	}
 }
 
@@ -899,47 +902,32 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])
 {
-	handle_stats(origin, parv[0][0]);
+	handle_stats(user_find(origin), parv[0][0]);
 }
 
 static void m_admin(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u = user_find(origin);
-
-	if (!u)
-		return;
-
-	handle_admin(u->nick);
+	handle_admin(user_find(origin));
 }
 
 static void m_version(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u = user_find(origin);
-
-	if (!u)
-		return;
-
-	handle_version(u->nick);
+	handle_version(user_find(origin));
 }
 
 static void m_info(char *origin, uint8_t parc, char *parv[])
 {
-	user_t *u = user_find(origin);
-
-	if (!u)
-		return;
-
-	handle_info(u->nick);
+	handle_info(user_find(origin));
 }
 
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
-	handle_whois(origin, parc >= 2 ? parv[1] : "*");
+	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
 }
 
 static void m_trace(char *origin, uint8_t parc, char *parv[])
 {
-	handle_trace(origin, parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
 }
 
 static void m_pass(char *origin, uint8_t parc, char *parv[])
@@ -958,7 +946,38 @@ static void m_error(char *origin, uint8_t parc, char *parv[])
 
 static void m_eos(char *origin, uint8_t parc, char *parv[])
 {
-	sts("%s EA", me.numeric);
+	server_t *source = server_find(origin);
+
+	/* acknowledge a local END_OF_BURST */
+	if (source->uplink == me.me)
+		sts("%s EA", me.numeric);
+}
+
+static void check_hidehost(user_t *u)
+{
+	static boolean_t warned = FALSE;
+
+	/* do they qualify? */
+	if (!(u->flags & UF_HIDEHOSTREQ) || u->myuser == NULL)
+		return;
+	/* don't use this if they have some other kind of vhost */
+	if (strcmp(u->host, u->vhost))
+	{
+		slog(LG_DEBUG, "check_hidehost(): +x overruled by other vhost for %s", u->nick);
+		return;
+	}
+	if (me.hidehostsuffix == NULL)
+	{
+		if (!warned)
+		{
+			wallops("Misconfiguration: serverinfo::hidehostsuffix not set");
+			warned = TRUE;
+		}
+		return;
+	}
+	snprintf(u->vhost, sizeof u->vhost, "%s.%s", u->myuser->name,
+			me.hidehostsuffix);
+	slog(LG_DEBUG, "check_hidehost(): %s -> %s", u->nick, u->vhost);
 }
 
 void _modinit(module_t * m)
@@ -971,7 +990,8 @@ void _modinit(module_t * m)
 	join_sts = &asuka_join_sts;
 	kick = &asuka_kick;
 	msg = &asuka_msg;
-	notice = &asuka_notice;
+	notice_sts = &asuka_notice;
+	wallchops = &asuka_wallchops;
 	numeric_sts = &asuka_numeric_sts;
 	skill = &asuka_skill;
 	part = &asuka_part;
@@ -983,6 +1003,7 @@ void _modinit(module_t * m)
 	ircd_on_login = &asuka_on_login;
 	ircd_on_logout = &asuka_on_logout;
 	jupe = &asuka_jupe;
+	invite_sts = &asuka_invite_sts;
 
 	parse = &p10_parse;
 
@@ -1005,6 +1026,8 @@ void _modinit(module_t * m)
 	pcommand_add("N", m_nick);
 	pcommand_add("Q", m_quit);
 	pcommand_add("M", m_mode);
+	pcommand_add("OM", m_mode); /* OPMODE, treat as MODE */
+	pcommand_add("CM", m_clearmode);
 	pcommand_add("K", m_kick);
 	pcommand_add("D", m_kill);
 	pcommand_add("SQ", m_squit);

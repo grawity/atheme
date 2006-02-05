@@ -5,7 +5,7 @@
  * This file contains the implementation of the Atheme 0.1
  * flatfile database format, with metadata extensions.
  *
- * $Id: flatfile.c 3985 2005-11-28 02:56:19Z pfish $
+ * $Id: flatfile.c 4745 2006-01-31 02:26:19Z nenolod $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 DECLARE_MODULE_V1
 (
 	"backend/flatfile", TRUE, _modinit, NULL,
-	"$Id: flatfile.c 3985 2005-11-28 02:56:19Z pfish $",
+	"$Id: flatfile.c 4745 2006-01-31 02:26:19Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -24,6 +24,7 @@ static void flatfile_db_save(void *arg)
 	mychan_t *mc;
 	chanacs_t *ca;
 	kline_t *k;
+	svsignore_t *svsignore;
 	node_t *n, *tn, *tn2;
 	FILE *f;
 	uint32_t i, muout = 0, mcout = 0, caout = 0, kout = 0;
@@ -79,7 +80,7 @@ static void flatfile_db_save(void *arg)
 			{
 				mymemo_t *mz = (mymemo_t *)tn->data;
 
-				fprintf(f, "ME %s %s %u %u %s\n", mu->name, mz->sender, mz->sent, mz->status, mz->text);
+				fprintf(f, "ME %s %s %lu %lu %s\n", mu->name, mz->sender, (unsigned long)mz->sent, (unsigned long)mz->status, mz->text);
 			}
 			
 			LIST_FOREACH(tn, mu->memo_ignores.head)
@@ -157,6 +158,18 @@ static void flatfile_db_save(void *arg)
 		}
 	}
 
+	/* Services ignores */
+	slog(LG_DEBUG, "db_save(): saving svsignores");
+
+	LIST_FOREACH(n, svs_ignore_list.head)
+	{
+		svsignore = (svsignore_t *)n->data;
+
+		/* SI <mask> <settime> <setby> <reason> */
+		fprintf(f, "SI %s %ld %s %s\n", svsignore->mask, svsignore->settime, svsignore->setby, svsignore->reason);
+	}
+
+
 	slog(LG_DEBUG, "db_save(): saving klines");
 
 	LIST_FOREACH(n, klnlist.head)
@@ -194,7 +207,7 @@ static void flatfile_db_load(void)
 	myuser_t *mu;
 	mychan_t *mc;
 	kline_t *k;
-	node_t *n;
+	svsignore_t *svsignore;
 	uint32_t i = 0, linecnt = 0, muin = 0, mcin = 0, cain = 0, kin = 0;
 	FILE *f = fopen("etc/atheme.db", "r");
 	char *item, *s, dBuf[BUFSIZE];
@@ -403,12 +416,14 @@ static void flatfile_db_load(void)
 			if (type[0] == 'U')
 			{
 				mu = myuser_find(name);
-				metadata_add(mu, METADATA_USER, property, value);
+				if (mu != NULL)
+					metadata_add(mu, METADATA_USER, property, value);
 			}
 			else if (type[0] == 'C')
 			{
 				mc = mychan_find(name);
-				metadata_add(mc, METADATA_CHANNEL, property, value);
+				if (mc != NULL)
+					metadata_add(mc, METADATA_CHANNEL, property, value);
 			}
 			else if (type[0] == 'A')
 			{
@@ -416,8 +431,9 @@ static void flatfile_db_load(void)
 				char *chan = strtok(name, ":");
 				char *mask = strtok(NULL, " ");
 
-				ca = chanacs_find_by_mask(mychan_find(name), mask, CA_NONE);
-				metadata_add(ca, METADATA_CHANACS, property, value);
+				ca = chanacs_find_by_mask(mychan_find(chan), mask, CA_NONE);
+				if (ca != NULL)
+					metadata_add(ca, METADATA_CHANACS, property, value);
 			}
 		}
 
@@ -486,8 +502,9 @@ static void flatfile_db_load(void)
 					uint32_t fl = flags_to_bitmask(strtok(NULL, " "), chanacs_flags, 0x0);
 
 					/* Compatibility with oldworld Atheme db's. --nenolod */
-					if (fl == OLD_CA_AOP)
-						fl = CA_AOP;
+					/* arbitrary cutoff to avoid touching newer +voOt entries -- jilles */
+					if (fl == OLD_CA_AOP && i < 4)
+						fl = CA_AOP_DEF;
 
 					/* previous to CA_ACLVIEW, everyone could view
 					 * access lists. If they aren't AKICKed, upgrade
@@ -510,11 +527,11 @@ static void flatfile_db_load(void)
 					switch (fl)
 					{
 					  case SHRIKE_CA_VOP:
-						  fl2 = CA_VOP;
+						  fl2 = chansvs.ca_vop;
 					  case SHRIKE_CA_AOP:
-						  fl2 = CA_AOP;
+						  fl2 = chansvs.ca_hop;
 					  case SHRIKE_CA_SOP:
-						  fl2 = CA_SOP;
+						  fl2 = chansvs.ca_sop;
 					  case SHRIKE_CA_SUCCESSOR:
 						  fl2 = CA_SUCCESSOR_0;
 					  case SHRIKE_CA_FOUNDER:
@@ -527,6 +544,27 @@ static void flatfile_db_load(void)
 						ca = chanacs_add(mc, mu, fl2);
 				}
 			}
+		}
+
+
+		/* Services ignores */
+		if (!strcmp("SI", item))
+		{
+			char *mask, *setby, *reason, *tmp;
+			time_t settime;
+
+			mask = strtok(NULL, " ");
+                        tmp = strtok(NULL, " ");
+			settime = atol(tmp);
+			setby = strtok(NULL, " ");
+			reason = strtok(NULL, "");
+
+			strip(reason);
+
+			svsignore = svsignore_add(mask, reason);
+			svsignore->settime = settime;
+			svsignore->setby = sstrdup(setby);
+
 		}
 
 		/* klines */

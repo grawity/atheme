@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService STATUS function.
  *
- * $Id: status.c 3925 2005-11-15 03:59:24Z pfish $
+ * $Id: status.c 4613 2006-01-19 23:52:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"userserv/status", FALSE, _modinit, _moddeinit,
-	"$Id: status.c 3925 2005-11-15 03:59:24Z pfish $",
+	"$Id: status.c 4613 2006-01-19 23:52:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -59,18 +59,18 @@ static void us_cmd_acc(char *origin)
 	user_t *u;
 
 	if (!targ)
-		u = user_find(origin);
+		u = user_find_named(origin);
 	else
 		u = user_find_named(targ);
 
 	if (!u)
 	{
-		notice(nicksvs.nick, origin, "User not online");
+		notice(nicksvs.nick, origin, "User not online.");
 		return;
 	}
 
 
-	logcommand(usersvs.me, user_find(origin), CMDLOG_GET, "ACC %s", u->nick);
+	logcommand(usersvs.me, user_find_named(origin), CMDLOG_GET, "ACC %s", u->nick);
 
 	if (!u->myuser)
 	{
@@ -83,7 +83,7 @@ static void us_cmd_acc(char *origin)
 
 static void us_cmd_status(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 
 	logcommand(usersvs.me, u, CMDLOG_GET, "STATUS");
 
@@ -95,8 +95,16 @@ static void us_cmd_status(char *origin)
 
 	notice(usersvs.nick, origin, "You are logged in as \2%s\2.", u->myuser->name);
 
-	if (is_sra(u->myuser))
-		notice(usersvs.nick, origin, "You are a services root administrator.");
+	if (is_soper(u->myuser))
+	{
+		operclass_t *operclass;
+
+		operclass = u->myuser->soper->operclass;
+		if (operclass == NULL)
+			notice(usersvs.nick, origin, "You are a services root administrator.");
+		else
+			notice(usersvs.nick, origin, "You are a services operator of class %s.", operclass->name);
+	}
 
 	if (is_admin(u))
 		notice(usersvs.nick, origin, "You are a server administrator.");

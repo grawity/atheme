@@ -5,7 +5,7 @@
  * This file contains code for the UserServ LISTCHANS function.
  *   -- Contains an alias "MYACCESS" for legacy users
  *
- * $Id: listchans.c 3807 2005-11-11 02:02:22Z jilles $
+ * $Id: listchans.c 4743 2006-01-31 02:22:42Z jilles $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 DECLARE_MODULE_V1
 (
 	"userserv/listchans", FALSE, _modinit, _moddeinit,
-	"$Id: listchans.c 3807 2005-11-11 02:02:22Z jilles $",
+	"$Id: listchans.c 4743 2006-01-31 02:22:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -47,7 +47,7 @@ void _moddeinit()
 
 static void us_cmd_listchans(char *origin)
 {
-	user_t *u = user_find(origin);
+	user_t *u = user_find_named(origin);
 	myuser_t *mu;
 	node_t *n;
 	chanacs_t *ca;
@@ -58,13 +58,13 @@ static void us_cmd_listchans(char *origin)
 
 	if (target)
 	{
-		if (!is_ircop(u) && !is_sra(u->myuser))
+		if (!has_priv(u, PRIV_USER_AUSPEX))
 		{
-			notice(usersvs.nick, origin, "The target argument is only available to IRC operators.");
+			notice(nicksvs.nick, origin, "You are not authorized to use the target argument.");
 			return;
 		}
 
-		mu = myuser_find(target);
+		mu = myuser_find_ext(target);
 
 		if (mu == NULL)
 		{
@@ -108,18 +108,6 @@ static void us_cmd_listchans(char *origin)
 
 		switch (ca->level)
 		{
-			case CA_VOP:
-				notice(usersvs.nick, origin, "VOP in %s", ca->mychan->name);
-				break;
-			case CA_HOP:
-				notice(usersvs.nick, origin, "HOP in %s", ca->mychan->name);
-				break;
-			case CA_AOP:
-				notice(usersvs.nick, origin, "AOP in %s", ca->mychan->name);
-				break;
-			case CA_SOP:
-				notice(usersvs.nick, origin, "SOP in %s", ca->mychan->name);
-				break;
 			default:
 				/* don't tell users they're akicked (flag +b) */
 				if (!(ca->level & CA_AKICK))

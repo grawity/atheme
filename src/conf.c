@@ -4,7 +4,7 @@
  *
  * This file contains the routines that deal with the configuration.
  *
- * $Id: conf.c 4779 2006-02-05 00:04:15Z jilles $
+ * $Id: conf.c 5065 2006-04-14 03:55:44Z w00t $
  */
 
 #include "atheme.h"
@@ -24,6 +24,7 @@ static int c_database(CONFIGENTRY *);
 static int c_uplink(CONFIGENTRY *);
 static int c_nickserv(CONFIGENTRY *);
 static int c_userserv(CONFIGENTRY *);
+static int c_saslserv(CONFIGENTRY *);
 static int c_memoserv(CONFIGENTRY *);
 static int c_helpserv(CONFIGENTRY *);
 static int c_loadmodule(CONFIGENTRY *);
@@ -89,6 +90,12 @@ static int c_ui_nick(CONFIGENTRY *);
 static int c_ui_user(CONFIGENTRY *);
 static int c_ui_host(CONFIGENTRY *);
 static int c_ui_real(CONFIGENTRY *);
+
+/* SaslServ client information. */
+static int c_ss_nick(CONFIGENTRY *);
+static int c_ss_user(CONFIGENTRY *);
+static int c_ss_host(CONFIGENTRY *);
+static int c_ss_real(CONFIGENTRY *);
 
 /* MemoServ client information. */
 static int c_ms_nick(CONFIGENTRY *);
@@ -165,6 +172,7 @@ list_t conf_ui_table;
 list_t conf_ms_table;
 list_t conf_hs_table;
 list_t conf_la_table;
+list_t conf_ss_table;
 
 /* *INDENT-ON* */
 
@@ -252,6 +260,8 @@ void conf_init(void)
 	me.mdlimit = 30;
 
 	chansvs.fantasy = FALSE;
+	if (chansvs.me != NULL && fcmd_agent == chansvs.me)
+		fcmd_agent = NULL;
 	chansvs.ca_vop = CA_VOP_DEF;
 	chansvs.ca_hop = CA_HOP_DEF;
 	chansvs.ca_aop = CA_AOP_DEF;
@@ -356,7 +366,6 @@ void add_top_conf(char *name, int (*handler) (CONFIGENTRY *ce))
 
 void add_conf_item(char *name, list_t *conflist, int (*handler) (CONFIGENTRY *ce))
 {
-	node_t *n;
 	struct ConfTable *ct;
 
 	if ((ct = find_conf_item(name, conflist)))
@@ -432,6 +441,7 @@ void init_newconf(void)
 	add_top_conf("OSERVICE", c_oservice);
 	add_top_conf("NICKSERV", c_nickserv);
 	add_top_conf("USERSERV", c_userserv);
+	add_top_conf("SASLSERV", c_saslserv);
 	add_top_conf("MEMOSERV", c_memoserv);
 	add_top_conf("HELPSERV", c_helpserv);
 	add_top_conf("UPLINK", c_uplink);
@@ -520,7 +530,13 @@ void init_newconf(void)
 	add_conf_item("USER", &conf_ui_table, c_ui_user);
 	add_conf_item("HOST", &conf_ui_table, c_ui_host);
 	add_conf_item("REAL", &conf_ui_table, c_ui_real);
-	
+
+	/* saslserv{} block */
+	add_conf_item("NICK", &conf_ss_table, c_ss_nick);
+	add_conf_item("USER", &conf_ss_table, c_ss_user);
+	add_conf_item("HOST", &conf_ss_table, c_ss_host);
+	add_conf_item("REAL", &conf_ss_table, c_ss_real);
+
 	/* memoserv{} block */
 	add_conf_item("NICK", &conf_ms_table, c_ms_nick);
 	add_conf_item("USER", &conf_ms_table, c_ms_user);
@@ -578,6 +594,12 @@ static int c_nickserv(CONFIGENTRY *ce)
 static int c_userserv(CONFIGENTRY *ce)
 {
 	subblock_handler(ce, &conf_ui_table);
+	return 0;
+}
+
+static int c_saslserv(CONFIGENTRY *ce)
+{
+	subblock_handler(ce, &conf_ss_table);
 	return 0;
 }
 
@@ -691,19 +713,51 @@ static int c_operclass(CONFIGENTRY *ce)
 	{
 		if (!strcasecmp("PRIVS", ce->ce_varname))
 		{
-			if (ce->ce_vardata == NULL)
+			if (ce->ce_vardata == NULL && ce->ce_entries == NULL)
 				PARAM_ERROR(ce);
 
-			if (privs == NULL)
-				privs = sstrdup(ce->ce_vardata);
+			if (ce->ce_entries == NULL)
+			{
+				if (privs == NULL)
+					privs = sstrdup(ce->ce_vardata);
+				else
+				{
+					newprivs = smalloc(strlen(privs) + 1 + strlen(ce->ce_vardata) + 1);
+					strcpy(newprivs, privs);
+					strcat(newprivs, " ");
+					strcat(newprivs, ce->ce_vardata);
+					free(privs);
+					privs = newprivs;
+				}
+			}
 			else
 			{
-				newprivs = smalloc(strlen(privs) + 1 + strlen(ce->ce_vardata) + 1);
-				strcpy(newprivs, privs);
-				strcat(newprivs, " ");
-				strcat(newprivs, ce->ce_vardata);
-				free(privs);
-				privs = newprivs;
+				CONFIGENTRY *conf_p;
+				/*
+				 * New definition format for operclasses.
+				 *
+				 * operclass "sra" {
+				 *     privs = {
+				 *         special:ircop;
+				 *     };
+				 * };
+				 *
+				 * - nenolod
+				 */
+				for (conf_p = ce->ce_entries; conf_p; conf_p = conf_p->ce_next)
+				{
+					if (privs == NULL)
+						privs = sstrdup(conf_p->ce_varname);
+					else
+					{
+						newprivs = smalloc(strlen(privs) + 1 + strlen(conf_p->ce_varname) + 1);
+						strcpy(newprivs, privs);
+						strcat(newprivs, " ");
+						strcat(newprivs, conf_p->ce_varname);
+						free(privs);
+						privs = newprivs;
+					}
+				}
 			}
 		}
 		else
@@ -1122,6 +1176,9 @@ static int c_ci_real(CONFIGENTRY *ce)
 static int c_ci_fantasy(CONFIGENTRY *ce)
 {
 	chansvs.fantasy = TRUE;
+	
+	if (chansvs.me != NULL)
+		fcmd_agent = chansvs.me;
 
 	return 0;
 }
@@ -1434,6 +1491,46 @@ static int c_ui_real(CONFIGENTRY *ce)
 		PARAM_ERROR(ce);
 
 	usersvs.real = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_ss_nick(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	saslsvs.nick = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_ss_user(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	saslsvs.user = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_ss_host(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	saslsvs.host = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_ss_real(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	saslsvs.real = sstrdup(ce->ce_vardata);
 
 	return 0;
 }
@@ -1797,13 +1894,13 @@ boolean_t conf_check(void)
 
 	if (!chansvs.nick || !chansvs.user || !chansvs.host || !chansvs.real)
 	{
-		slog(LG_INFO, "conf_check(): invalid clientinfo{} block in %s", config_file);
+		slog(LG_INFO, "conf_check(): invalid chanserv{} block in %s", config_file);
 		return FALSE;
 	}
 
 	if ((strchr(chansvs.user, ' ')) || (strlen(chansvs.user) > 10))
 	{
-		slog(LG_INFO, "conf_check(): invalid `clientinfo::user' in %s", config_file);
+		slog(LG_INFO, "conf_check(): invalid `chanserv::user' in %s", config_file);
 		return FALSE;
 	}
 

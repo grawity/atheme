@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ IDENTIFY function.
  *
- * $Id: identify.c 4651 2006-01-21 23:37:16Z jilles $
+ * $Id: identify.c 5087 2006-04-14 14:59:46Z w00t $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/identify", FALSE, _modinit, _moddeinit,
-	"$Id: identify.c 4651 2006-01-21 23:37:16Z jilles $",
+	"$Id: identify.c 5087 2006-04-14 14:59:46Z w00t $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 

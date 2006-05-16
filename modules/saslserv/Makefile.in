@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 4189 2005-12-26 00:02:24Z jilles $
+# $Id: Makefile.in 4847 2006-02-19 03:57:57Z gxti $
 #
 
 CC		= @CC@
@@ -22,39 +22,44 @@ DOCDIR		= @DOCDIR@
 MODDIR		= @MODDIR@
 SHAREDIR	= @SHAREDIR@
 BIN		= atheme@EXEEXT@
-MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include -I../libatheme
-CFLAGS		= @CFLAGS@ -I../include -I../libatheme @PGINC@
+MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../../include @PGINC@ @MYINC@
+PICFLAGS	= @PICFLAGS@
+CFLAGS		= @CFLAGS@ -I../../include -I../../libatheme @PGINC@ @MYINC@
 
 VERSION		= 0.1
 
-LIBS		= @LIBS@
+LIBS		= @LIBS@ @PQLIB@
 LDFLAGS		= @LDFLAGS@
 CPPFLAGS	= @CPPFLAGS@
 
 default: all
 
-BASE_SRCS = dbtool.c
+BASE_SRCS =
+	
+SRCS = ${BASE_SRCS} @SASL_C@
 
-SRCS = ${BASE_SRCS}
+OBJS = ${SRCS:.c=.so}
 
-OBJS = ${SRCS:.c=.o}
-
-all: dbtool
+all: modules
 
 build: all
 
 install: build
+	${INSTALL} -d ${MODDIR}/modules/saslserv
+	${INSTALL} -m 755 *.so ${MODDIR}/modules/saslserv
 
-dbtool: $(OBJS)
-	${CC} ${CFLAGS} ${LDFLAGS} -o $@ ${OBJS} ${LIBS}
+modules: $(OBJS)
 
-.c.o:
-	${CC} ${CPPFLAGS} ${CFLAGS} -c $< -o $@
+.SUFFIXES: .so
+
+.c.so:
+	${CC} ${PICFLAGS} ${CPPFLAGS} ${CFLAGS} $< -o $@
 
 .PHONY: clean distclean
 
 clean:
-	${RM} -f *.o *.exe *~ version.c dbtool.core core dbtool
+	${RM} -f *.so
 
 distclean: clean
 	${RM} -f Makefile version.c.last
+

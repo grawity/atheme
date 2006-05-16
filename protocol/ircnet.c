@@ -6,13 +6,13 @@
  * Derived mainly from the documentation (or lack thereof)
  * in my protocol bridge.
  *
- * $Id: ircnet.c 4759 2006-02-01 23:47:43Z jilles $
+ * $Id: ircnet.c 5131 2006-04-29 19:09:24Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/ircnet.h"
 
-DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 4759 2006-02-01 23:47:43Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -496,7 +496,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	/* got the right number of args for an introduction? */
 	if (parc == 7)
@@ -509,21 +508,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[2], parv[3])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[6], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		u = user_add(parv[0], parv[2], parv[3], NULL, parv[4], parv[1], parv[6], s, 0);
 
@@ -721,6 +705,11 @@ static void m_error(char *origin, uint8_t parc, char *parv[])
 	slog(LG_INFO, "m_error(): error from server: %s", parv[0]);
 }
 
+static void m_motd(char *origin, uint8_t parc, char *parv[])
+{
+	handle_motd(user_find(origin));
+}
+
 void _modinit(module_t * m)
 {
 	/* Symbol relocation voodoo. */
@@ -778,6 +767,7 @@ void _modinit(module_t * m)
 	pcommand_add("PASS", m_pass);
 	pcommand_add("ERROR", m_error);
 	pcommand_add("TOPIC", m_topic);
+	pcommand_add("MOTD", m_motd);
 
 	m->mflags = MODTYPE_CORE;
 

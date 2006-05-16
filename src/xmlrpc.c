@@ -454,10 +454,6 @@ static int xmlrpc_split_buf(char *buffer, char ***argv)
 			{
 				tagtype = 1;
 			}
-			else if (!stricmp("base64", nexttag))
-			{
-				tagtype = 2;
-			}
 			else
 			{
 				tagtype = 0;
@@ -472,10 +468,6 @@ static int xmlrpc_split_buf(char *buffer, char ***argv)
 					if (tagtype == 1)
 					{
 						(*argv)[ac++] = xmlrpc_decode_string(final);
-					}
-					else if (tagtype == 2)
-					{
-						(*argv)[ac++] = xmlrpc_decode64(final);
 					}
 					else
 					{
@@ -528,9 +520,10 @@ void xmlrpc_generic_error(int code, const char *string)
 		strlcat(buf2, buf, XMLRPC_BUFSIZE);
 		len += strlen(header);
 		free(header);
+		xmlrpc.setbuffer(buf2, len);
 	}
-
-	xmlrpc.setbuffer(buf2, len);
+	else
+		xmlrpc.setbuffer(buf, len);
 }
 
 /*************************************************************************/
@@ -678,30 +671,6 @@ char *xmlrpc_boolean(char *buf, int value)
 	*buf = '\0';
 	snprintf(buf, XMLRPC_BUFSIZE, "<boolean>%d</boolean>", (value ? 1 : 0));
 	return buf;
-}
-
-/*************************************************************************/
-
-char *xmlrpc_base64(char *buf, char *value)
-{
-	struct buffer_st b64buf;
-
-	base64_encode(&b64buf, value, strlen(value));
-	snprintf(buf, XMLRPC_BUFSIZE, "<base64>%s</base64>", b64buf.data);
-	buffer_delete(&b64buf);
-	return buf;
-}
-
-/*************************************************************************/
-
-char *xmlrpc_decode64(char *value)
-{
-	char *retval;
-	struct buffer_st buf;
-	base64_decode(&buf, value, strlen(value));
-	retval = xmlrpc_strdup(buf.data);
-	buffer_delete(&buf);
-	return retval;
 }
 
 /*************************************************************************/
@@ -1241,7 +1210,7 @@ char *xmlrpc_decode_string(char *buf)
 	int count;
 	int i;
 	char *token, *temp;
-	char *temptoken, *temptoken2;
+	char *temptoken;
 	char buf2[12];
 	char buf3[12];
 

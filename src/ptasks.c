@@ -4,7 +4,7 @@
  *
  * Protocol tasks, such as handle_stats().
  *
- * $Id: ptasks.c 4753 2006-02-01 14:48:41Z nenolod $
+ * $Id: ptasks.c 5243 2006-05-04 00:31:41Z jilles $
  */
 
 #include "atheme.h"
@@ -265,6 +265,49 @@ void handle_trace(user_t *u, char *target, char *dest)
 	numeric_sts(me.name, 262, u->nick, "%s :End of TRACE", target);
 }
 
+void handle_motd(user_t *u)
+{
+	FILE *f;
+	char lbuf[BUFSIZE];
+	char ebuf[BUFSIZE];
+	char nbuf[BUFSIZE];
+	char cbuf[BUFSIZE];
+
+	if (u == NULL)
+		return;
+	if (floodcheck(u, NULL))
+		return;
+
+	f = fopen("etc/atheme.motd", "r");
+	if (!f)
+	{
+		numeric_sts(me.name, 422, u->nick, ":The MOTD file is unavailable.");
+		return;
+	}
+
+	snprintf(ebuf, BUFSIZE, "%d", config_options.expire / 86400);
+	snprintf(nbuf, BUFSIZE, "%d", cnt.myuser);
+	snprintf(cbuf, BUFSIZE, "%d", cnt.mychan);
+
+	numeric_sts(me.name, 375, u->nick, ":- %s Message of the Day -", me.name);
+
+	while (fgets(lbuf, BUFSIZE, f))
+	{
+		strip(lbuf);
+
+		replace(lbuf, BUFSIZE, "&network&", me.netname);
+		replace(lbuf, BUFSIZE, "&expiry&", ebuf);
+		replace(lbuf, BUFSIZE, "&myusers&", nbuf);
+		replace(lbuf, BUFSIZE, "&mychans&", cbuf);
+
+		numeric_sts(me.name, 372, u->nick, ":- %s", lbuf);
+	}
+
+	numeric_sts(me.name, 376, u->nick, ":End of the message of the day.");
+
+	fclose(f);
+}
+
 void handle_message(char *origin, char *target, boolean_t is_notice, char *message)
 {
 	user_t *u;
@@ -282,7 +325,8 @@ void handle_message(char *origin, char *target, boolean_t is_notice, char *messa
 	}
 
 	/* If target is a channel and fantasy commands are enabled,
-	 * this will return chanserv */
+	 * this will return chanserv
+	 */
 	sptr = find_service(target);
 	if (sptr == NULL)
 	{
@@ -296,15 +340,12 @@ void handle_message(char *origin, char *target, boolean_t is_notice, char *messa
 		t = sptr->me;
 
 		/* Run it through flood checks. Channel commands are checked
-		 * separately. (XXX they aren't)
-		 *
-		 * XXX we have to ignore channel messages for now, otherwise people
-		 * could get akilled.
+		 * separately.
 		 */
 		if (t != NULL && *target != '#' && floodcheck(u, t))
 			return;
 
-		if (!is_notice && config_options.secure && irccasecmp(target, sptr->disp))
+		if (!is_notice && config_options.secure && *target != '#' && irccasecmp(target, sptr->disp))
 		{
 			notice(t->nick, u->nick, "For security reasons, \2/msg %s\2 has been disabled."
 					" Use \2/%s%s <command>\2 to send a command.",

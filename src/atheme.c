@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: atheme.c 4539 2006-01-08 23:46:58Z jilles $
+ * $Id: atheme.c 5075 2006-04-14 11:44:03Z jilles $
  */
 
 #include "atheme.h"
@@ -16,13 +16,17 @@ memosvs_t memosvs;
 helpsvs_t helpsvs;
 nicksvs_t nicksvs;
 usersvs_t usersvs;
+saslsvs_t saslsvs;
 
 me_t me;
 cnt_t cnt;
 
-extern char **environ;
 char *config_file;
 boolean_t cold_start = FALSE;
+
+#ifndef _WIN32
+extern char **environ;
+#endif
 
 /* *INDENT-OFF* */
 static void print_help(void)
@@ -49,7 +53,7 @@ int main(int argc, char *argv[])
 	boolean_t have_conf = FALSE;
 	char buf[32];
 	int i, pid, r;
-	FILE *restart_file, *pid_file;
+	FILE *pid_file;
 	char *pidfilename = "var/atheme.pid";
 #ifndef _WIN32
 	struct rlimit rlim;

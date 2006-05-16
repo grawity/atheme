@@ -6,7 +6,7 @@
 # This file generates version.c.
 # Stolen from ircd-ratbox.
 #
-# $Id: version.sh 4395 2006-01-01 20:37:51Z jilles $
+# $Id: version.sh 5067 2006-04-14 08:44:09Z w00t $
 #
 
 spitshell=cat
@@ -34,7 +34,7 @@ awk '{if (NF == 6) \
 else \
          { print $1 " "  $2 " " $3 " " $7 " at " $4 " " $5 " " $6 }}'`
 
-buildid=`echo "\$Revision: 4395 $" | \
+buildid=`echo "\$Revision: 5067 $" | \
 	awk '{ print $2 }'`;
 
 $spitshell >version.c <<!SUB!THIS!
@@ -105,11 +105,12 @@ const char *infotext[] =
   "Currently Atheme's core group consists of the following developers,",
   "in nick-alphabetical order:",
   "  alambert, Alex Lambert <alambert@quickfire.org>",
+  "  gxti, Michael Tharp <gxti@partiallystapled.com>",
   "  jilles, Jilles Tjoelker <jilles@stack.nl>",
   "  nenolod, William Pitcock <nenolod@nenolod.net>",
   "  pfish, Patrick Fish <pofish@gmail.com>",
   "  terminal, Theo Julienne <admin@ozweb.nu>",
-  "  w00t, Robin Burchell <w00t@staff.chatspike.net>",
+  "  w00t, Robin Burchell <viroteck@viroteck.net>",
   " ",
   "The following people have contributed blood, sweat and tears to",
   "this Atheme release:",

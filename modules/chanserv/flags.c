@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService FLAGS functions.
  *
- * $Id: flags.c 4743 2006-01-31 02:22:42Z jilles $
+ * $Id: flags.c 5073 2006-04-14 11:16:18Z w00t $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/flags", FALSE, _modinit, _moddeinit,
-	"$Id: flags.c 4743 2006-01-31 02:22:42Z jilles $",
+	"$Id: flags.c 5073 2006-04-14 11:16:18Z w00t $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -50,7 +50,6 @@ void _moddeinit()
 static void cs_cmd_flags(char *origin)
 {
 	user_t *u = user_find_named(origin);
-	metadata_t *md;
 	chanacs_t *ca;
 	node_t *n;
 	int operoverride = 0;
@@ -176,7 +175,11 @@ static void cs_cmd_flags(char *origin)
 			addflags = get_template_flags(mc, flagstr);
 			if (addflags == 0)
 			{
-				notice(chansvs.nick, origin, "Invalid template name given, use /%s%s TEMPLATE %s for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp, mc->name);
+				/* Hack -- jilles */
+				if (*target == '+' || *target == '-' || *target == '=')
+					notice(chansvs.nick, origin, "Usage: FLAGS %s [target] [flags]", mc->name);
+				else
+					notice(chansvs.nick, origin, "Invalid template name given, use /%s%s TEMPLATE %s for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp, mc->name);
 				return;
 			}
 			removeflags = CA_ALL & ~addflags;
@@ -243,7 +246,6 @@ static void cs_fcmd_flags(char *origin, char *channel)
 	char *target = strtok(NULL, " ");
 	char *flagstr = strtok(NULL, " ");
 	uint32_t addflags, removeflags, restrictflags;
-	metadata_t *md;
 
 	if (!target || !flagstr)
 	{
@@ -300,7 +302,11 @@ static void cs_fcmd_flags(char *origin, char *channel)
 		addflags = get_template_flags(mc, flagstr);
 		if (addflags == 0)
 		{
-			notice(chansvs.nick, origin, "Invalid template name given, use /%s%s TEMPLATE %s for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp, mc->name);
+			/* Hack -- jilles */
+			if (*target == '+' || *target == '-' || *target == '=')
+				notice(chansvs.nick, origin, "Syntax: .flags <target> <flags>");
+			else
+				notice(chansvs.nick, origin, "Invalid template name given, use /%s%s TEMPLATE %s for a list", ircd->uses_rcommand ? "" : "msg ", chansvs.disp, mc->name);
 			return;
 		}
 		removeflags = CA_ALL & ~addflags;

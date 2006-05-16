@@ -5,7 +5,7 @@
  * This file contains data structures, and functions to
  * manipulate them.
  *
- * $Id: node.c 4765 2006-02-04 20:52:34Z nenolod $
+ * $Id: node.c 5221 2006-05-03 15:42:14Z jilles $
  */
 
 #include "atheme.h"
@@ -507,14 +507,19 @@ server_t *server_add(char *name, uint8_t hops, char *uplink, char *id, char *des
 		node_add(s, node_create(), &sidlist[s->shash]);
 	}
 
+	/* check to see if it's hidden */
+	if (!strncmp(desc, "(H)", 3))
+	{
+		s->flags |= SF_HIDE;
+		desc += 3;
+		if (*desc == ' ')
+			desc++;
+	}
+
 	s->name = sstrdup(name);
 	s->desc = sstrdup(desc);
 	s->hops = hops;
 	s->connected_since = CURRTIME;
-
-	/* check to see if it's hidden */
-	if (!strncmp(desc, "(H)", 3))
-		s->flags |= SF_HIDE;
 
 	if (u)
 	{
@@ -539,7 +544,6 @@ void server_delete(char *name)
 	server_t *child;
 	user_t *u;
 	node_t *n, *tn;
-	uint32_t i;
 
 	if (!s)
 	{
@@ -620,7 +624,7 @@ server_t *server_find(char *name)
 	{
 		s = (server_t *)n->data;
 
-		if (!strcasecmp(name, s->name))
+		if (!irccasecmp(name, s->name))
 			return s;
 	}
 
@@ -753,7 +757,7 @@ user_t *user_find(char *nick)
 		{
 			u = (user_t *)n->data;
 
-			if (!irccasecmp(nick, u->uid))
+			if (!strcasecmp(nick, u->uid))
 				return u;
 		}
 	}
@@ -1259,6 +1263,24 @@ kline_t *kline_find_num(uint32_t number)
 	return NULL;
 }
 
+kline_t *kline_find_user(user_t *u)
+{
+	kline_t *k;
+	node_t *n;
+
+	LIST_FOREACH(n, klnlist.head)
+	{
+		k = (kline_t *)n->data;
+
+		if (k->duration != 0 && k->expires <= CURRTIME)
+			continue;
+		if (!match(k->user, u->user) && (!match(k->host, u->host) || !match(k->host, u->ip)))
+			return k;
+	}
+
+	return NULL;
+}
+
 void kline_expire(void *arg)
 {
 	kline_t *k;
@@ -1342,13 +1364,13 @@ myuser_t *myuser_add(char *name, char *pass, char *email, uint32_t flags)
 
 void myuser_delete(myuser_t *mu)
 {
-	myuser_t *tmu, *successor;
-	mychan_t *mc, *tmc;
+	myuser_t *successor;
+	mychan_t *mc;
 	chanacs_t *ca;
 	user_t *u;
-	node_t *n, *tn, *n2;
+	node_t *n, *tn;
 	metadata_t *md;
-	uint32_t i, j, tcnt;
+	uint32_t i;
 
 	if (!mu)
 	{

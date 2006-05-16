@@ -4,7 +4,7 @@
  *
  * This file contains client interaction routines.
  *
- * $Id: services.c 4699 2006-01-24 17:22:41Z nenolod $
+ * $Id: services.c 5261 2006-05-07 21:47:38Z jilles $
  */
 
 #include "atheme.h"
@@ -196,12 +196,13 @@ void reintroduce_user(user_t *u)
 	LIST_FOREACH(n, u->channels.head)
 	{
 		c = ((chanuser_t *)n->data)->chan;
-		if (LIST_LENGTH(&c->members) > 1)
+		if (LIST_LENGTH(&c->members) > 1 || c->modes & ircd->perm_mode)
 			join_sts(c, u, 0, channel_modes(c, TRUE));
 		else
 		{
 			/* channel will have been destroyed... */
-			/* XXX ban desync between services and ircd */
+			/* XXX resend the bans instead of destroying them? */
+			chanban_clear(c);
 			join_sts(c, u, 1, channel_modes(c, TRUE));
 #if 0
 			strlcpy(chname, c->name, sizeof chname);
@@ -252,7 +253,9 @@ void snoop(char *fmt, ...)
 void handle_nickchange(user_t *u)
 {
 	myuser_t *mu;
-	metadata_t *md;
+
+	if (u == NULL)
+		return;
 
 	if (me.loglevel & LG_DEBUG && runflags & RF_LIVE)
 		notice(globsvs.nick, u->nick, "Services are presently running in debug mode, attached to a console. You should take extra caution when utilizing your services passwords.");
@@ -285,6 +288,20 @@ void handle_nickchange(user_t *u)
 	if (u->myuser == mu)
 		return;
 
+	/* If we're MU_SASL, then this user has just identified by SASL
+	 * (we just don't know it yet). So, we bypass the complaint below.
+	 *
+	 * This is not a major concern, as MU_SASL is a hack intended to bypass
+	 * NickServ anyway. The u->myuser relationship isn't set up until later.
+	 *
+	 *   - nenolod
+	 */
+	if (mu->flags & MU_SASL)
+	{
+		mu->flags &= ~MU_SASL;
+		return;
+	}
+
 	notice(nicksvs.nick, u->nick, "This nickname is registered. Please choose a different nickname, or identify via \2/%s%s identify <password>\2.",
 	       (ircd->uses_rcommand == FALSE) ? "msg " : "", nicksvs.disp);
 }
@@ -304,6 +321,8 @@ void handle_burstlogin(user_t *u, char *login)
 {
 	myuser_t *mu;
 	node_t *n;
+
+	hook_call_event("user_burstlogin", u);
 
 	mu = myuser_find(login);
 	if (mu == NULL)

@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for ratbox-based ircd.
  *
- * $Id: ratbox.c 4639 2006-01-21 22:06:41Z jilles $
+ * $Id: ratbox.c 5131 2006-04-29 19:09:24Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/ratbox.h"
 
-DECLARE_MODULE_V1("protocol/ratbox", TRUE, _modinit, NULL, "$Id: ratbox.c 4639 2006-01-21 22:06:41Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ratbox", TRUE, _modinit, NULL, "$Id: ratbox.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -692,7 +692,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	/* got the right number of args for an introduction? */
 	if (parc == 8)
@@ -705,21 +704,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[4], parv[5])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[6], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		u = user_add(parv[0], parv[4], parv[5], NULL, NULL, NULL, parv[7], s, atoi(parv[2]));
 
@@ -779,7 +763,6 @@ static void m_uid(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	/* got the right number of args for an introduction? */
 	if (parc == 9)
@@ -792,21 +775,6 @@ static void m_uid(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_uid(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[4], parv[5])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[6], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		u = user_add(parv[0], parv[4], parv[5], NULL, parv[6], parv[7], parv[8], s, atoi(parv[2]));
 
@@ -1076,6 +1044,11 @@ static void m_capab(char *origin, uint8_t parc, char *parv[])
 	services_init();
 }
 
+static void m_motd(char *origin, uint8_t parc, char *parv[])
+{
+	handle_motd(user_find(origin));
+}
+
 /* Server ended their burst: warn all their users if necessary -- jilles */
 static void server_eob(server_t *s)
 {
@@ -1150,6 +1123,7 @@ void _modinit(module_t * m)
 	pcommand_add("BMASK", m_bmask);
 	pcommand_add("TMODE", m_tmode);
 	pcommand_add("SID", m_sid);
+	pcommand_add("MOTD", m_motd);
 
 	m->mflags = MODTYPE_CORE;
 

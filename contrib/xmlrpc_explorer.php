@@ -5,7 +5,7 @@
  *
  * An XML-RPC testing script.
  *
- * $Id: xmlrpc_explorer.php 4761 2006-02-04 02:57:30Z nenolod $
+ * $Id: xmlrpc_explorer.php 5207 2006-05-03 15:02:49Z jilles $
  */
 
 /* This script requires XML-RPC for PHP 1.1
@@ -35,6 +35,7 @@ $methods = array(
 	'atheme.logout' => array('authcookie', 'account'),
 	'atheme.account.register' => array('account', 'password', 'email'),
 	'atheme.account.verify' => array('authcookie', 'account', 'operation', 'key'),
+	'atheme.account.set_password' => array('authcookie', 'account', 'password'),
 	'atheme.account.metadata.set' => array('authcookie', 'account', 'key', 'value'),
 	'atheme.account.metadata.get' => array('account', 'key'),
 	'atheme.account.metadata.delete' => array('authcookie', 'account', 'key', 'value'),
@@ -43,6 +44,9 @@ $methods = array(
 	'atheme.channel.metadata.set' => array('authcookie', 'account', 'channel', 'key', 'value'),
 	'atheme.channel.metadata.get' => array('channel', 'key'),
 	'atheme.channel.metadata.delete' => array('authcookie', 'account', 'channel', 'key', 'value'),
+	'atheme.channel.topic.set' => array('authcookie', 'account', 'channel', 'topic'),
+	'atheme.channel.topic.append' => array('authcookie', 'account', 'channel', 'topic'),
+	'atheme.channel.access.get' => array('authcookie', 'account', 'channel'),
 );
 
 switch ($_REQUEST['state'])
@@ -97,4 +101,4 @@ switch ($_REQUEST['state'])
 
 ?>
 <hr>
-$Id: xmlrpc_explorer.php 4761 2006-02-04 02:57:30Z nenolod $
+$Id: xmlrpc_explorer.php 5207 2006-05-03 15:02:49Z jilles $

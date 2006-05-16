@@ -4,7 +4,7 @@
  *
  * Commandtree manipulation routines.
  *
- * $Id: commandtree.c 4611 2006-01-19 23:41:14Z jilles $
+ * $Id: commandtree.c 5255 2006-05-05 02:05:07Z nenolod $
  */
 
 #include "atheme.h"
@@ -114,8 +114,94 @@ void command_help(char *mynick, char *origin, list_t *commandtree)
 		 * (taken from command_exec())
 		 */
 		if (has_priv(u, c->access))
-			notice(mynick, origin, "\2%-16s\2 %s", c->name, c->desc);
+			notice(mynick, origin, "\2%-15s\2 %s", c->name, c->desc);
 	}
+}
+
+/* name1 name2 name3... */
+static boolean_t string_in_list(const char *str, const char *name)
+{
+	char *p;
+	int l;
+
+	if (str == NULL)
+		return FALSE;
+	l = strlen(name);
+	while (*str != '\0')
+	{
+		p = strchr(str, ' ');
+		if (p != NULL ? p - str == l && !strncasecmp(str, name, p - str) : !strcasecmp(str, name))
+			return TRUE;
+		if (p == NULL)
+			return FALSE;
+		str = p;
+		while (*str == ' ')
+			str++;
+	}
+	return FALSE;
+}
+
+/*
+ * command_help_short
+ *     Iterates the command tree and lists available commands.
+ *
+ * inputs -
+ *     mynick:      The nick of the services bot sending out the notices.
+ *     origin:      The origin of the request.
+ *     commandtree: The command tree being listed.
+ *     maincmds:    The commands to list verbosely.
+ * 
+ * outputs -
+ *     A list of available commands.
+ */
+void command_help_short(char *mynick, char *origin, list_t *commandtree, char *maincmds)
+{
+	user_t *u = user_find_named(origin);
+	node_t *n;
+	unsigned int l;
+	char buf[256];
+
+	notice(mynick, origin, "The following commands are available:");
+
+	LIST_FOREACH(n, commandtree->head)
+	{
+		command_t *c = n->data;
+
+		/* show only the commands we have access to
+		 * (taken from command_exec())
+		 */
+		if (string_in_list(maincmds, c->name) && has_priv(u, c->access))
+			notice(mynick, origin, "\2%-15s\2 %s", c->name, c->desc);
+	}
+
+	notice(mynick, origin, " ");
+	strlcpy(buf, translation_get("Other commands: "), sizeof buf);
+	l = strlen(buf);
+	LIST_FOREACH(n, commandtree->head)
+	{
+		command_t *c = n->data;
+
+		/* show only the commands we have access to
+		 * (taken from command_exec())
+		 */
+		if (!string_in_list(maincmds, c->name) && has_priv(u, c->access))
+		{
+			if (strlen(buf) > l)
+				strlcat(buf, ", ", sizeof buf);
+			if (strlen(buf) > 55)
+			{
+				notice(mynick, origin, "%s", buf);
+				buf[l] = '\0';
+				while (--l > 0)
+					buf[l] = ' ';
+				buf[0] = ' ';
+				l = strlen(buf);
+			}
+			strlcat(buf, c->name, sizeof buf);
+		}
+	}
+	if (strlen(buf) > l)
+		notice(mynick, origin, "%s", buf);
 }
 
 void fcommand_add(fcommand_t * cmd, list_t *commandtree)

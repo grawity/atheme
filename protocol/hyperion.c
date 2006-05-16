@@ -4,7 +4,7 @@
  *
  * This file contains protocol support for hyperion-based ircd.
  *
- * $Id: hyperion.c 4719 2006-01-25 12:40:27Z jilles $
+ * $Id: hyperion.c 5131 2006-04-29 19:09:24Z jilles $
  */
 
 /* option: use SVSLOGIN/SIGNON to remember users even if they're
@@ -15,7 +15,7 @@
 #include "atheme.h"
 #include "protocol/hyperion.h"
 
-DECLARE_MODULE_V1("protocol/hyperion", TRUE, _modinit, NULL, "$Id: hyperion.c 4719 2006-01-25 12:40:27Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/hyperion", TRUE, _modinit, NULL, "$Id: hyperion.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -532,7 +532,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	/* got the right number of args for an introduction? */
 	if (parc == 9)
@@ -545,21 +544,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[4], parv[5])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[6], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		u = user_add(parv[0], parv[4], parv[5], NULL, parv[7], NULL, parv[8], s, atoi(parv[2]));
 
@@ -902,6 +886,11 @@ static void m_signon(char *origin, uint8_t parc, char *parv[])
 	/* don't use login id, assume everyone signs in via atheme */
 }
 
+static void m_motd(char *origin, uint8_t parc, char *parv[])
+{
+	handle_motd(user_find(origin));
+}
+
 void _modinit(module_t * m)
 {
 	/* Symbol relocation voodoo. */
@@ -968,6 +957,7 @@ void _modinit(module_t * m)
 	pcommand_add("SETNAME", m_setname);
 	pcommand_add("SIGNON", m_signon);
 	pcommand_add("CAPAB", m_capab);
+	pcommand_add("MOTD", m_motd);
 
 	m->mflags = MODTYPE_CORE;
 

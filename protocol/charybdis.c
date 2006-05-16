@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for charybdis-based ircd.
  *
- * $Id: charybdis.c 4649 2006-01-21 23:10:43Z jilles $
+ * $Id: charybdis.c 5131 2006-04-29 19:09:24Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/charybdis.h"
 
-DECLARE_MODULE_V1("protocol/charybdis", TRUE, _modinit, NULL, "$Id: charybdis.c 4649 2006-01-21 23:10:43Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/charybdis", TRUE, _modinit, NULL, "$Id: charybdis.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -78,6 +78,7 @@ static boolean_t use_rserv_support = FALSE;
 static boolean_t use_tb = FALSE;
 
 static void server_eob(server_t *s);
+static server_t *sid_find(char *name);
 
 static char ts6sid[3 + 1] = "";
 
@@ -410,6 +411,36 @@ static void charybdis_fnc_sts(user_t *source, user_t *u, char *newnick, int type
 			(unsigned long)u->ts);
 }
 
+static void charybdis_svslogin_sts(char *target, char *nick, char *user, char *host, char *login)
+{
+	user_t *tu = user_find(target);
+	server_t *s;
+
+	if(tu)
+		s = tu->server;
+	else if(ircd->uses_uid) /* Non-announced UID - must be a SASL client. */
+		s = sid_find(target);
+	else
+		return;
+
+	sts(":%s ENCAP %s SVSLOGIN %s %s %s %s %s", ME, s->name,
+			target, nick, user, host, login);
+}
+
+static void charybdis_sasl_sts(char *target, char mode, char *data)
+{
+	server_t *s = sid_find(target);
+
+	if(s == NULL)
+		return;
+
+	sts(":%s ENCAP %s SASL %s %s %c %s", ME, s->name,
+			nicksvs.me->uid,
+			target,
+			mode,
+			data);
+}
+
 static void m_topic(char *origin, uint8_t parc, char *parv[])
 {
 	channel_t *c = channel_find(parv[0]);
@@ -701,7 +732,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	/* got the right number of args for an introduction? */
 	if (parc == 8)
@@ -714,21 +744,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[4], parv[5])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[6], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		u = user_add(parv[0], parv[4], parv[5], NULL, NULL, NULL, parv[7], s, atoi(parv[2]));
 
@@ -788,7 +803,6 @@ static void m_uid(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	/* got the right number of args for an introduction? */
 	if (parc == 9)
@@ -801,21 +815,6 @@ static void m_uid(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_uid(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[4], parv[5])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[6], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		u = user_add(parv[0], parv[4], parv[5], NULL, parv[6], parv[7], parv[8], s, atoi(parv[2]));
 
@@ -1043,11 +1042,11 @@ static void m_encap(char *origin, uint8_t parc, char *parv[])
 		u = user_find(origin);
 		if (u == NULL)
 			return;
-		if (u->server->flags & SF_EOB)
-		{
-			slog(LG_DEBUG, "m_encap(): %s sent ENCAP LOGIN for user %s outside burst", u->server->name, origin);
-			return;
-		}
+		/* We used to throw out LOGINs outside of a burst,
+		 * but we can't do that anymore since it's used for
+		 * SASL users.
+		 * --gxti
+		 */
 		handle_burstlogin(u, parv[2]);
 	}
 	else if (!irccasecmp(parv[1], "REALHOST"))
@@ -1059,6 +1058,100 @@ static void m_encap(char *origin, uint8_t parc, char *parv[])
 		if (u == NULL)
 			return;
 		strlcpy(u->host, parv[2], HOSTLEN);
+	}
+	else if (!irccasecmp(parv[1], "CHGHOST"))
+	{
+		if (parc < 4)
+			return;
+		u = user_find(parv[2]);
+		if (u == NULL)
+			return;
+		strlcpy(u->vhost, parv[3], HOSTLEN);
+		slog(LG_DEBUG, "m_encap(): chghost %s -> %s", u->nick,
+				u->vhost);
+	}
+#ifdef USE_SASL
+	else if (!irccasecmp(parv[1], "SASL"))
+	{
+		/* :08C ENCAP * SASL 08CAAAAAE * S d29vTklOSkFTAGRhdGEgaW4gZmlyc3QgbGluZQ== */
+		sasl_message_t msg;
+
+		if (parc < 6)
+			return;
+
+		msg.uid = parv[2];
+		msg.mode = *parv[4];
+		msg.buf = parv[5];
+		hook_call_event("sasl_input", &msg);
+	}
+#endif
+}
+
+static void m_signon(char *origin, uint8_t parc, char *parv[])
+{
+	user_t *u;
+	node_t *n, *tn;
+	myuser_t *old, *new;
+
+	if((u = user_find(parv[0])) == NULL)
+		return;
+
+	/* NICK */
+	/* remove the current one from the list */
+	n = node_find(u, &userlist[u->hash]);
+	node_del(n, &userlist[u->hash]);
+	node_free(n);
+	/* change the nick */
+	strlcpy(u->nick, parv[0], NICKLEN);
+	u->ts = atoi(parv[3]);
+	/* readd with new nick (so the hash works) */
+	n = node_create();
+	u->hash = UHASH((unsigned char *)u->nick);
+	node_add(u, n, &userlist[u->hash]);
+	handle_nickchange(u); /* If they're logging out, this will bug them about identifying. Or something. */
+
+	/* USER */
+	strlcpy(u->user, parv[1], USERLEN);
+
+	/* HOST */
+	strlcpy(u->vhost, parv[2], HOSTLEN);
+
+	/* LOGIN */
+	if(*parv[4] == '*') /* explicitly unchanged */
+		return;
+	if(u->myuser == NULL && !strcmp(parv[4], "0")) /* both unset */
+		return;
+	
+	old = u->myuser;
+	new = myuser_find(parv[4]);
+	if(old == new)
+		return;
+
+	if(old)
+	{
+		old->lastlogin = CURRTIME;
+		LIST_FOREACH_SAFE(n, tn, old->logins.head)
+		{
+			if(n->data == u)
+			{
+				node_del(n, &old->logins);
+				node_free(n);
+				break;
+			}
+		}
+		u->myuser = NULL;
+	}
+
+	if(new)
+	{
+		if (is_soper(new))
+			snoop("SOPER: \2%s\2 as \2%s\2", u->nick, new->name);
+
+		myuser_notice(nicksvs.nick, new, "%s!%s@%s has just authenticated as you (%s)", u->nick, u->user, u->vhost, new->name);
+
+		u->myuser = new;
+		n = node_create();
+		node_add(u, n, &new->logins);
 	}
 }
 
@@ -1080,6 +1173,14 @@ static void m_capab(char *origin, uint8_t parc, char *parv[])
 			slog(LG_DEBUG, "m_capab(): uplink does topic bursting, using if appropriate.");
 			use_tb = TRUE;
 		}
+		if (!irccasecmp(p, "HOPS"))
+		{
+			slog(LG_DEBUG, "m_capab(): uplink does halfops, enabling support.");
+
+			ircd->uses_halfops = TRUE;
+			ircd->halfops_mchar = "+h";
+			ircd->halfops_mode = CMODE_HALFOP;
+		}
 	}
 
 	/* Now we know whether or not we should enable services support,
@@ -1087,6 +1188,11 @@ static void m_capab(char *origin, uint8_t parc, char *parv[])
 	 *       --nenolod
 	 */
 	services_init();
+}
+
+static void m_motd(char *origin, uint8_t parc, char *parv[])
+{
+	handle_motd(user_find(origin));
 }
 
 /* Server ended their burst: warn all their users if necessary -- jilles */
@@ -1098,6 +1204,13 @@ static void server_eob(server_t *s)
 	{
 		handle_nickchange((user_t *)n->data);
 	}
+}
+
+static server_t *sid_find(char *name)
+{
+	char sid[4];
+	strlcpy(sid, name, 4);
+	return server_find(sid);
 }
 
 void _modinit(module_t * m)
@@ -1126,6 +1239,8 @@ void _modinit(module_t * m)
 	sethost_sts = &charybdis_sethost_sts;
 	fnc_sts = &charybdis_fnc_sts;
 	invite_sts = &charybdis_invite_sts;
+	svslogin_sts = &charybdis_svslogin_sts;
+	sasl_sts = &charybdis_sasl_sts;
 
 	mode_list = charybdis_mode_list;
 	ignore_mode_list = charybdis_ignore_mode_list;
@@ -1164,6 +1279,8 @@ void _modinit(module_t * m)
 	pcommand_add("BMASK", m_bmask);
 	pcommand_add("TMODE", m_tmode);
 	pcommand_add("SID", m_sid);
+	pcommand_add("MOTD", m_motd);
+	pcommand_add("SIGNON", m_signon);
 
 	m->mflags = MODTYPE_CORE;
 

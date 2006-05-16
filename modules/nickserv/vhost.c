@@ -4,7 +4,7 @@
  *
  * VHost management! (ratbox only right now.)
  *
- * $Id: vhost.c 4743 2006-01-31 02:22:42Z jilles $
+ * $Id: vhost.c 5113 2006-04-19 11:58:25Z jilles $
  */
 
 #include "atheme.h"
@@ -12,11 +12,11 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/vhost", FALSE, _modinit, _moddeinit,
-	"$Id: vhost.c 4743 2006-01-31 02:22:42Z jilles $",
+	"$Id: vhost.c 5113 2006-04-19 11:58:25Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-list_t *ns_cmdtree;
+list_t *ns_cmdtree, *ns_helptree;
 
 static void vhost_on_identify(void *vptr);
 static void ns_cmd_vhost(char *origin);
@@ -30,12 +30,15 @@ void _modinit(module_t *m)
 	hook_add_event("user_identify");
 	hook_add_hook("user_identify", vhost_on_identify);
 	command_add(&ns_vhost, ns_cmdtree);
+	ns_helptree = module_locate_symbol("nickserv/main", "ns_helptree");
+	help_addentry(ns_helptree, "VHOST", "help/nickserv/vhost", NULL);
 }
 
 void _moddeinit(void)
 {
 	hook_del_hook("user_identify", vhost_on_identify);
 	command_delete(&ns_vhost, ns_cmdtree);
+	help_delentry(ns_helptree, "VHOST");
 }
 
 static void do_sethost_all(myuser_t *mu, char *host)
@@ -48,13 +51,15 @@ static void do_sethost_all(myuser_t *mu, char *host)
 	{
 		u = n->data;
 
+		if (!strcmp(u->vhost, host))
+			continue;
 		strlcpy(u->vhost, host, HOSTLEN);
 		notice(nicksvs.nick, u->nick, "Setting your host to \2%s\2.",
-			host);
-		sethost_sts(nicksvs.nick, u->nick, host);
+			u->vhost);
+		sethost_sts(nicksvs.nick, u->nick, u->vhost);
 		strlcpy(luhost, u->user, BUFSIZE);
 		strlcat(luhost, "@", BUFSIZE);
-		strlcat(luhost, host, BUFSIZE);
+		strlcat(luhost, u->vhost, BUFSIZE);
 		metadata_add(mu, METADATA_USER, "private:host:vhost", luhost);
 	}
 }
@@ -63,13 +68,15 @@ static void do_sethost(user_t *u, char *host)
 {
 	char luhost[BUFSIZE];
 
+	if (!strcmp(u->vhost, host))
+		return;
 	strlcpy(u->vhost, host, HOSTLEN);
 	notice(nicksvs.nick, u->nick, "Setting your host to \2%s\2.",
-		host);
-	sethost_sts(nicksvs.nick, u->nick, host);
+		u->vhost);
+	sethost_sts(nicksvs.nick, u->nick, u->vhost);
 	strlcpy(luhost, u->user, BUFSIZE);
 	strlcat(luhost, "@", BUFSIZE);
-	strlcat(luhost, host, BUFSIZE);
+	strlcat(luhost, u->vhost, BUFSIZE);
 	metadata_add(u->myuser, METADATA_USER, "private:host:vhost", luhost);
 }
 
@@ -83,6 +90,8 @@ static void do_restorehost_all(myuser_t *mu)
 	{
 		u = n->data;
 
+		if (!strcmp(u->vhost, u->host))
+			continue;
 		strlcpy(u->vhost, u->host, HOSTLEN);
 		notice(nicksvs.nick, u->nick, "Setting your host to \2%s\2.",
 			u->host);
@@ -97,7 +106,9 @@ static void do_restorehost_all(myuser_t *mu)
 static void do_restorehost(user_t *u)
 {
 	char luhost[BUFSIZE];
-	
+
+	if (!strcmp(u->vhost, u->host))
+		return;
 	strlcpy(u->vhost, u->host, HOSTLEN);
 	notice(nicksvs.nick, u->nick, "Setting your host to \2%s\2.",
 		u->host);
@@ -146,11 +157,19 @@ static void ns_cmd_vhost(char *origin)
 		return;
 	}
 
-	if (strchr(host, '@'))
+	/* Never ever allow @!?* as they have special meaning in all ircds */
+	if (strchr(host, '@') || strchr(host, '!') || strchr(host, '?') ||
+			strchr(host, '*'))
 	{
 		notice(nicksvs.nick, origin, "The vhost provided contains invalid characters.");
 		return;
 	}
+	if (strlen(host) >= HOSTLEN)
+	{
+		notice(nicksvs.nick, origin, "The vhost provided is too long.");
+		return;
+	}
+	/* XXX more checks here, perhaps as a configurable regexp? */
 
 	metadata_add(mu, METADATA_USER, "private:usercloak", host);
 	notice(nicksvs.nick, origin, "Assigned vhost \2%s\2 to \2%s\2.", 

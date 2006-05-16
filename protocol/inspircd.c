@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for spanning-tree inspircd, b6 or later.
  *
- * $Id: inspircd.c 4705 2006-01-24 17:55:17Z jilles $
+ * $Id: inspircd.c 5131 2006-04-29 19:09:24Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/inspircd.h"
 
-DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd.c 4705 2006-01-24 17:55:17Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
+DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd.c 5131 2006-04-29 19:09:24Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
 
 /* *INDENT-OFF* */
 
@@ -131,15 +131,44 @@ static void inspircd_wallops(char *fmt, ...)
 {
 	va_list ap;
 	char buf[BUFSIZE];
+	char *sendernick;
+	user_t *u;
+	node_t *n;
 
 	if (config_options.silent)
 		return;
+
+	if (me.me == NULL)
+	{
+		/*
+		 * this means we have no pseudoclients -- under present inspircd, servers cannot globops, and
+		 * thus, we will need to bail -- slog, and let them know. --w00t
+		 *
+		 * XXX - we shouldn't rely on me.me being NULL, me.me->userlist or something instead. --w00t
+		 */
+		 slog(LG_ERROR, "wallops(): InspIRCD requires at least one pseudoclient module to be loaded to send wallops.");
+	}
 
 	va_start(ap, fmt);
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-	sts(":%s GLOBOPS :%s", me.name, buf);
+	if (is_internal_client(user_find_named(opersvs.nick)))
+	{
+		sendernick = opersvs.nick;
+	}
+	else
+	{
+		LIST_FOREACH(n, me.me->userlist.head)
+		{
+			u = (user_t *)n->data;
+
+			sendernick = u->nick;
+			break;
+		}
+	}
+
+	sts(":%s GLOBOPS :%s", sendernick, buf);
 }
 
 /* join a channel */
@@ -209,7 +238,7 @@ static void inspircd_numeric_sts(char *from, int numeric, char *target, char *fm
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-	/* InspIRCd doesnt pass numerics around */
+	sts(":%s PUSH %s ::%s %d %s %s", me.name, target, from, numeric, target, buf);
 }
 
 /* KILL wrapper */
@@ -416,22 +445,9 @@ static void m_notice(char *origin, uint8_t parc, char *parv[])
 
 static void m_fjoin(char *origin, uint8_t parc, char *parv[])
 {
-	/*
-	 *  -> :proteus.malkier.net SJOIN 1073516550 #shrike +tn :@sycobuny @+rakaur
-	 *      also:
-	 *  -> :nenolod_ SJOIN 1117334567 #chat
-	 *      also:
-	 *  -> SJOIN 1117334567 #chat :@nenolod
-	 */
-
 	channel_t *c;
-	uint8_t modec = 0;
-	char *modev[16];
-	uint8_t userc;
-	char *userv[256];
 	uint8_t i;
 	time_t ts;
-	char nicklist[512];
 
 	if (parc >= 3)
 	{
@@ -454,22 +470,8 @@ static void m_fjoin(char *origin, uint8_t parc, char *parv[])
 			c->ts = ts;
 		}
 
-		/* XXX: InspIRCd has no leading colon on the nick list,
-		 * so we must build one. This is a mess, someone pleaaaase
-		 * tidy it up for me - Brain
-		 */
-		*nicklist = '\0';
 		for (i = 2; i < parc; i++)
-		{
-			if (i != 2)
-				strncat(nicklist," ",512);
-			strncat(nicklist,parv[i],512);
-		}
-
-		userc = sjtoken(nicklist, ' ', userv);
-
-		for (i = 0; i < userc; i++)
-			chanuser_add(c, userv[i]);
+			chanuser_add(c, parv[i]);
 	}
 }
 
@@ -484,7 +486,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	/* :services-dev.chatspike.net NICK 1133994664 DevNull chatspike.net chatspike.net services +i 0.0.0.0 :/dev/null -- message sink */
 	if (parc == 8)
@@ -498,21 +499,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[1]);
 
-		if ((k = kline_find(parv[4], parv[2])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[1], k->reason);
-			kline_sts(origin, k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
-
 		/* char *nick, char *user, char *host, char *vhost, char *ip, char *uid, char *gecos, server_t *server, uint32_t ts */
 		u = user_add(parv[1], parv[4], parv[2], parv[3], parv[6], NULL, parv[7], s, atol(parv[0]));
 
@@ -520,7 +506,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		/* Assumes ircd clears +r on nick changes (r2882 or newer) */
 		if (strchr(parv[5], 'r'))
-			handle_burstlogin(u, parv[0]);
+			handle_burstlogin(u, parv[1]);
 
 		handle_nickchange(u);
 	}

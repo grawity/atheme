@@ -4,7 +4,7 @@
  *
  * XMLRPC library header, hacked up for Atheme.
  *
- * $Id: xmlrpc.h 3755 2005-11-09 23:48:04Z jilles $
+ * $Id: xmlrpc.h 5103 2006-04-17 05:24:24Z gxti $
  */
 #ifndef XMLRPC_H
 #define XMLRPC_H
@@ -60,13 +60,6 @@ typedef struct XMLRPCCmdHash_ XMLRPCCmdHash;
 
 extern XMLRPCCmdHash *XMLRPCCMD[MAX_CMD_HASH];
 
-struct buffer_st {
-  char *data;
-  int length;
-  char *ptr;
-  int offset;
-};
-
 struct XMLRPCCmd_ {
     XMLRPCMethodFunc func;
 	char *name;
@@ -96,11 +89,9 @@ E int xmlrpc_unregister_method(const char *method);
 
 E char *xmlrpc_array(int argc, ...);
 E char *xmlrpc_double(char *buf, double value);
-E char *xmlrpc_base64(char *buf, char *value);
 E char *xmlrpc_boolean(char *buf, int value);
 E char *xmlrpc_string(char *buf, char *value);
 E char *xmlrpc_integer(char *buf, int value);
-E char *xmlrpc_decode64(char *value);
 E char *xmlrpc_time2date(char *buf, time_t t);
 
 E int xmlrpc_set_options(int type, const char *value);
@@ -110,12 +101,5 @@ E void xmlrpc_send(int argc, ...);
 E int xmlrpc_about(void *userdata, int ac, char **av);
 E char *xmlrpc_char_encode(char *outbuffer, char *s1);
 E char *xmlrpc_decode_string(char *buf);
-
-/* base64.c */
-E void base64_encode(struct buffer_st *b, const char *source, int length);
-E void base64_decode(struct buffer_st *bfr, const char *source, int length);
-E void buffer_new(struct buffer_st *b);
-E void buffer_add(struct buffer_st *b, char c);
-E void buffer_delete(struct buffer_st *b);
 
 #endif

@@ -532,7 +532,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 	struct in_addr ip;
 	char ipstring[64];
 
@@ -547,21 +546,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[4], parv[5])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[6], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		ip.s_addr = ntohl(strtoul(parv[8], NULL, 10));
 		ipstring[0] = '\0';

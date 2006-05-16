@@ -6,13 +6,13 @@
  * Some sources used: Run's documentation, beware's description,
  * raw data sent by asuka.
  *
- * $Id: bircd.c 4783 2006-02-05 00:38:13Z jilles $
+ * $Id: bircd.c 5131 2006-04-29 19:09:24Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/asuka.h"
 
-DECLARE_MODULE_V1("protocol/asuka", TRUE, _modinit, NULL, "$Id: bircd.c 4783 2006-02-05 00:38:13Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/asuka", TRUE, _modinit, NULL, "$Id: bircd.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -99,7 +99,7 @@ static uint8_t asuka_server_login(void)
 /* introduce a client */
 static void asuka_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
-	sts("%s N %s 1 %ld %s %s +%s%sk A %s :%s", me.numeric, nick, CURRTIME, user, host, "io", chansvs.fantasy ? "" : "d", uid, real);
+	sts("%s N %s 1 %ld %s %s +%s%sk ]]]]]] %s :%s", me.numeric, nick, CURRTIME, user, host, "io", chansvs.fantasy ? "" : "d", uid, real);
 }
 
 /* invite a user to a channel */
@@ -618,7 +618,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 	struct in_addr ip;
 	char ipstring[64];
 
@@ -635,24 +634,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[3], parv[4])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			/* We *cannot* use skill() here -- jilles */
-			/* but why do we need to anyway? ircd will kill
-			 * the bastard */
-			/*sts("%s D %s :%s!%s!%s (%s)", opersvs.me ? opersvs.me->me->uid : me.numeric, parv[parc - 2], opersvs.nick, opersvs.nick, opersvs.nick, k->reason);*/
-			kline_sts(origin, k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		ipstring[0] = '\0';
 		if (strlen(parv[parc - 3]) == 6)
@@ -920,6 +901,11 @@ static void m_info(char *origin, uint8_t parc, char *parv[])
 	handle_info(user_find(origin));
 }
 
+static void m_motd(char *origin, uint8_t parc, char *parv[])
+{
+	handle_motd(user_find(origin));
+}
+
 static void m_whois(char *origin, uint8_t parc, char *parv[])
 {
 	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
@@ -1042,6 +1028,7 @@ void _modinit(module_t * m)
 	pcommand_add("PASS", m_pass);
 	pcommand_add("ERROR", m_error);
 	pcommand_add("T", m_topic);
+	pcommand_add("MO", m_motd);
 
 	m->mflags = MODTYPE_CORE;
 

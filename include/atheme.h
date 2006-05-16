@@ -4,7 +4,7 @@
  *
  * This is the main header file, usually the only one #include'd
  *
- * $Id: atheme.h 4709 2006-01-24 23:02:59Z jilles $
+ * $Id: atheme.h 5107 2006-04-17 17:48:00Z gxti $
  */
 
 #ifndef ATHEME_H
@@ -23,6 +23,12 @@
 #include "crypto.h"
 #include "culture.h"
 #include "xmlrpc.h"
+#include "base64.h"
+#include "md5.h"
+
+#ifdef USE_SASL
+# include "sasl.h"
+#endif
 
 #ifndef timersub
 #define timersub(tvp, uvp, vvp)                                         \
@@ -49,6 +55,7 @@
 #define ME			(ircd->uses_uid ? me.numeric : me.name)
 
 typedef struct {
+	user_t *u;
         channel_t *c;
         char *msg;
 } hook_cmessage_data_t;
@@ -241,6 +248,19 @@ struct help_command_
   const char *access;
   char *file;
   void (*func) (char *origin);
+};
+
+typedef struct email_t_ email_t;
+struct email_t_
+{
+	char *sender;
+	char *reciever;
+	char *subject;
+	char *body;
+	char **headers;
+	
+	void *miscellaneous;			/* module defined data */
+	void (*callback_sent)(email_t *);	/* callback on email send */
 };
 
 /* email types (meaning of param argument) */

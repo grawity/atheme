@@ -4,7 +4,7 @@
  *
  * This header file contains all of the extern's needed.
  *
- * $Id: extern.h 4743 2006-01-31 02:22:42Z jilles $
+ * $Id: extern.h 5069 2006-04-14 09:03:55Z w00t $
  */
 
 #ifndef EXTERN_H
@@ -60,8 +60,9 @@ E void slog(uint32_t level, const char *fmt, ...);
 E void logcommand(void *svs, user_t *source, int level, const char *fmt, ...);
 E void logcommand_external(void *svs, char *type, connection_t *source, myuser_t *login, int level, const char *fmt, ...);
 E uint32_t time_msec(void);
-E uint8_t regex_match(regex_t * preg, char *pattern, char *string,
-		      size_t nmatch, regmatch_t pmatch[], int eflags);
+E regex_t *regex_create(char *pattern);
+E boolean_t regex_match(regex_t *preg, char *string);
+E boolean_t regex_destroy(regex_t *preg);
 E uint32_t shash(const unsigned char *text);
 E char *replace(char *s, int32_t size, const char *old, const char *new);
 
@@ -204,6 +205,7 @@ E kline_t *kline_add(char *user, char *host, char *reason, long duration);
 E void kline_delete(char *user, char *host);
 E kline_t *kline_find(char *user, char *host);
 E kline_t *kline_find_num(uint32_t number);
+E kline_t *kline_find_user(user_t *u);
 E void kline_expire(void *arg);
 
 E myuser_t *myuser_add(char *name, char *pass, char *email, uint32_t flags);
@@ -303,6 +305,7 @@ E void handle_info(user_t *);
 E void handle_stats(user_t *, char);
 E void handle_whois(user_t *, char *);
 E void handle_trace(user_t *, char *, char *);
+E void handle_motd(user_t *);
 E void handle_message(char *, char *, boolean_t, char *);
 E void handle_topic(channel_t *, char *, time_t, char *);
 E void handle_kill(char *, char *, char *);

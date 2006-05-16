@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for chunky monkey ircd.
  *
- * $Id: monkey.c 4639 2006-01-21 22:06:41Z jilles $
+ * $Id: monkey.c 5131 2006-04-29 19:09:24Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/monkey.h"
 
-DECLARE_MODULE_V1("protocol/monkey", TRUE, _modinit, NULL, "$Id: monkey.c 4639 2006-01-21 22:06:41Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/monkey", TRUE, _modinit, NULL, "$Id: monkey.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -482,7 +482,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	slog(LG_DEBUG, "%d", parc);
 
@@ -496,21 +495,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[4], parv[5])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[6], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		u = user_add(parv[0], parv[4], parv[5], NULL, NULL, NULL, parv[9], s, atoi(parv[2]));
 
@@ -709,6 +693,11 @@ static void m_error(char *origin, uint8_t parc, char *parv[])
 	slog(LG_INFO, "m_error(): error from server: %s", parv[0]);
 }
 
+static void m_motd(char *origin, uint8_t parc, char *parv[])
+{
+	handle_motd(user_find(origin));
+}
+
 void _modinit(module_t * m)
 {
 	/* Symbol relocation voodoo. */
@@ -763,6 +752,7 @@ void _modinit(module_t * m)
 	pcommand_add("PASS", m_pass);
 	pcommand_add("ERROR", m_error);
 	pcommand_add("TOPIC", m_topic);
+	pcommand_add("MOTD", m_motd);
 
 	m->mflags = MODTYPE_CORE;
 

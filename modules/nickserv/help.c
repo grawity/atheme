@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the NickServ HELP command.
  *
- * $Id: help.c 4613 2006-01-19 23:52:30Z jilles $
+ * $Id: help.c 5145 2006-05-01 14:17:57Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/help", FALSE, _modinit, _moddeinit,
-	"$Id: help.c 4613 2006-01-19 23:52:30Z jilles $",
+	"$Id: help.c 5145 2006-05-01 14:17:57Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -39,7 +39,6 @@ void _moddeinit()
 /* HELP <command> [params] */
 void ns_cmd_help(char *origin)
 {
-	user_t *u = user_find_named(origin);
 	char *command = strtok(NULL, "");
 
 	if (!command)
@@ -55,8 +54,16 @@ void ns_cmd_help(char *origin)
 		notice(nicksvs.nick, origin, "\2/%s%s help <command>\2", (ircd->uses_rcommand == FALSE) ? "msg " : "", nicksvs.disp);
 		notice(nicksvs.nick, origin, " ");
 
-		command_help(nicksvs.nick, origin, ns_cmdtree);
+		command_help_short(nicksvs.nick, origin, ns_cmdtree, "REGISTER IDENTIFY GHOST INFO LISTCHANS SET HOLD MARK FREEZE");
 
+		notice(nicksvs.nick, origin, "***** \2End of Help\2 *****");
+		return;
+	}
+
+	if (!strcasecmp("COMMANDS", command))
+	{
+		notice(nicksvs.nick, origin, "***** \2%s Help\2 *****", nicksvs.nick);
+		command_help(nicksvs.nick, origin, ns_cmdtree);
 		notice(nicksvs.nick, origin, "***** \2End of Help\2 *****");
 		return;
 	}

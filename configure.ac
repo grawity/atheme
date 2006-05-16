@@ -3,16 +3,16 @@ dnl Rights to this code are documented in doc/LICENSE.
 dnl
 dnl This file is the autoconf stub.
 dnl
-dnl $Id: configure.ac 4775 2006-02-04 21:15:19Z nenolod $
+dnl $Id: configure.ac 5151 2006-05-01 14:31:59Z nenolod $
 
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
 
-AC_INIT(atheme, 1.0, bugs@atheme.org)
+AC_INIT(atheme, 1.1.0, bugs@atheme.org)
 
 dnl Sneaky way to get an id into the configure script.
-AC_COPYRIGHT([$Id: configure.ac 4775 2006-02-04 21:15:19Z nenolod $])
+AC_COPYRIGHT([$Id: configure.ac 5151 2006-05-01 14:31:59Z nenolod $])
 
 AC_CONFIG_AUX_DIR(autoconf)
 
@@ -280,6 +280,27 @@ AC_SUBST(MYINC)
 AC_SUBST(MYLIB)
 
 echo " "
+echo "SASL support"
+echo " "
+
+sasl=yes
+AC_ARG_ENABLE(sasl,
+    AC_HELP_STRING([--disable-sasl], [don't use builtin SASL]),
+    [sasl=no])
+if test "$sasl" != "no" ; then
+    AC_DEFINE(USE_SASL, 1, [Define to 1 if you want builtin SASL.])
+    SASL=yes
+    SASL_C="sasl.c main.c plain.c crypt.c"
+else
+    SASL=no
+    SASL_C=
+fi
+AC_MSG_CHECKING([if SASL should be used])
+AC_MSG_RESULT($SASL)
+
+AC_SUBST(SASL_C)
+
+echo " "
 echo "Module support"
 echo " "
 
@@ -544,7 +565,6 @@ AC_OUTPUT(Makefile \
 	backend/Makefile \
 	contrib/Makefile \
 	crypto/Makefile \
-	dbtool/Makefile \
 	modules/Makefile \
 	modules/chanserv/Makefile \
 	modules/global/Makefile \
@@ -554,6 +574,7 @@ AC_OUTPUT(Makefile \
 	modules/xmlrpc/Makefile \
 	modules/memoserv/Makefile \
 	modules/helpserv/Makefile \
+	modules/saslserv/Makefile \
 	protocol/Makefile \
 	src/Makefile)
 
@@ -567,6 +588,7 @@ Configuration:
         Large network support: ${LARGENET}
         PostgreSQL support   : ${POSTGRESQL}
         MySQL support        : ${MYSQL}
+        SASL support         : ${sasl}
         Socket Engine        : ${SOCKET_ENGINE}
         CFLAGS               : ${CFLAGS}
 

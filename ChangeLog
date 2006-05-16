@@ -1,3 +1,1893 @@
+nenolod     2006/05/16 12:55:16 UTC	(20060516-5269)
+  Log:
+  - updates in regards to PleXus 3.
+  
+
+  Changes:	Modified:
+  +12 -4	trunk/doc/IRCD (File Modified) 
+
+
+jilles      2006/05/16 11:10:44 UTC	(20060516-5267)
+  Log:
+  - Mention commenting out mta to disable email
+  - Warn that sending email may disclose services's IP
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/dist/example.conf (File Modified) 
+  +3 -0		trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/05/16 10:50:16 UTC	(20060516-5265)
+  Log:
+  Bahamut: tell people not to use "services hub" server type.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/doc/IRCD (File Modified) 
+
+
+nenolod     2006/05/16 04:22:14 UTC	(20060516-5263)
+  Log:
+  - update plexus support to version 3
+  
+
+  Changes:	Modified:
+  +43 -21	trunk/protocol/plexus.c (File Modified) 
+
+
+jilles      2006/05/07 21:47:38 UTC	(20060507-5261)
+  Log:
+  If a service is killed while alone in a permanent channel
+  (e.g. +P in charybdis), the channel will not have been
+  destroyed.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/05/05 21:25:40 UTC	(20060505-5259)
+  Log:
+  Add better descriptions to sasl modules. Bring
+  example.userserv.conf up to date also.
+  
+
+  Changes:	Modified:
+  +6 -1		trunk/dist/example.conf (File Modified) 
+  +7 -1		trunk/dist/example.userserv.conf (File Modified) 
+
+
+gxti        2006/05/05 21:20:49 UTC	(20060505-5257)
+  Log:
+  Remove crypt module from example conf and add warning to source pertaining to vulnerability.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/dist/example.conf (File Modified) 
+  +7 -0		trunk/modules/saslserv/crypt.c (File Modified) 
+
+
+nenolod     2006/05/05 02:05:07 UTC	(20060505-5255)
+  Log:
+  - alignment changes: 16 characters becomes 15 characters to align with 'Other commands: <XXX>'
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/src/commandtree.c (File Modified) 
+
+
+nenolod     2006/05/05 01:52:28 UTC	(20060505-5253)
+  Log:
+  - add SASL option and ability to append extra options to configure to setup script
+  
+
+  Changes:	Modified:
+  +48 -0	trunk/setup (File Modified) 
+
+
+nenolod     2006/05/05 01:43:39 UTC	(20060505-5251)
+  Log:
+  - durrrr
+  
+
+  Changes:	Modified:
+  +0 -4		trunk/modules/saslserv/plain.c (File Modified) 
+
+
+nenolod     2006/05/05 01:43:04 UTC	(20060505-5249)
+  Log:
+  - no, put that back
+  
+
+  Changes:	Modified:
+  +4 -0		trunk/modules/saslserv/plain.c (File Modified) 
+
+
+nenolod     2006/05/05 01:41:08 UTC	(20060505-5247)
+  Log:
+  - revert?
+  
+
+  Changes:	Modified:
+  +0 -3		trunk/modules/saslserv/plain.c (File Modified) 
+
+
+nenolod     2006/05/05 01:40:30 UTC	(20060505-5245)
+  Log:
+  - return ASASL_FAIL if the account is frozen
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/modules/saslserv/plain.c (File Modified) 
+
+
+jilles      2006/05/04 00:31:41 UTC	(20060504-5243)
+  Log:
+  Comment change: fantasy commands are now (since r4557) indeed checked separately.
+  
+
+  Changes:	Modified:
+  +1 -4		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/05/03 15:42:14 UTC	(20060503-5221)
+  Log:
+  Don't show (H) in the description for hidden servers (/whois etc).
+  
+
+  Changes:	Modified:
+  +9 -4		trunk/src/node.c (File Modified) 
+
+
+jilles      2006/05/03 15:02:49 UTC	(20060503-5207)
+  Log:
+  Update to new definition of atheme.channel.access.get.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/contrib/xmlrpc_explorer.php (File Modified) 
+
+
+jilles      2006/05/03 14:51:14 UTC	(20060503-5203)
+  Log:
+  Comment changes to CRYPT mechanism:
+  - add warning that this allows logging in given just the
+    encrypted password
+  - $1$ MD5 based password encryption is originally from
+    FreeBSD (phk), not GNU
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/modules/saslserv/crypt.c (File Modified) 
+
+
+jilles      2006/05/03 14:43:23 UTC	(20060503-5199)
+  Log:
+  Remove cs_repair.c, it probably wasn't meant to be committed.
+  (For broken anope conversions, change anope_convert.c instead
+  to output the proper levels.)
+  
+
+  Changes:	Modified:
+  +0 -121	trunk/contrib/cs_repair.c (File Deleted) 
+
+
+jilles      2006/05/03 14:31:53 UTC	(20060503-5193)
+  Log:
+  Reserve space for the '\0' if we initialize a char array
+  with a string constant (even if we never use it as a
+  string).
+  
+  From nenolod's C++ cleanups.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/base64.c (File Modified) 
+  +1 -1		trunk/src/function.c (File Modified) 
+  +1 -1		trunk/src/ubase64.c (File Modified) 
+
+
+jilles      2006/05/01 17:09:39 UTC	(20060501-5161)
+  Log:
+  Change atheme.channel.access.get procedure to apply to the
+  origin user always and not require +A.
+  
+
+  Changes:	Modified:
+  +6 -24	trunk/modules/xmlrpc/channel.c (File Modified) 
+
+
+jilles      2006/05/01 17:01:48 UTC	(20060501-5159)
+  Log:
+  Skeletal SASL documentation file, only links for now.
+  Probably want to extend this for 1.1.0.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/doc/SASL (File Added) 
+
+
+jilles      2006/05/01 16:59:38 UTC	(20060501-5157)
+  Log:
+  Release notes for 1.1.
+  
+
+  Changes:	Modified:
+  +39 -0	trunk/doc/RELEASE (File Modified) 
+
+
+jilles      2006/05/01 15:32:34 UTC	(20060501-5155)
+  Log:
+  base64_decode_alloc():
+  - Fix bug where it would return true if malloc failed
+  - Null-terminate the result
+  
+
+  Changes:	Modified:
+  +3 -2		trunk/src/base64.c (File Modified) 
+
+
+nenolod     2006/05/01 14:58:35 UTC	(20060501-5153)
+  Log:
+  add some debugging code
+
+  Changes:	Modified:
+  +121 -0	trunk/contrib/cs_repair.c (File Added) 
+  +2 -0		trunk/modules/saslserv/sasl.c (File Modified) 
+
+
+nenolod     2006/05/01 14:31:59 UTC	(20060501-5151)
+  Log:
+  - version bump: 1.1.0
+  
+
+  Changes:	Modified:
+  +14 -14	trunk/configure (File Modified) 
+  +1 -1		trunk/configure.ac (File Modified) 
+
+
+jilles      2006/05/01 14:19:49 UTC	(20060501-5149)
+  Log:
+  Use the new shorter help display in userserv, verbosely shown commands are
+  REGISTER LOGIN INFO LISTCHANS SET HOLD MARK FREEZE
+  
+
+  Changes:	Modified:
+  +9 -1		trunk/modules/userserv/help.c (File Modified) 
+
+
+nenolod     2006/05/01 14:19:40 UTC	(20060501-5147)
+  Log:
+  - add SET to the shortened command list
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/chanserv/help.c (File Modified) 
+
+
+jilles      2006/05/01 14:17:57 UTC	(20060501-5145)
+  Log:
+  Use the new shorter help display in nickserv, verbosely shown commands are
+  REGISTER IDENTIFY GHOST INFO LISTCHANS SET HOLD MARK FREEZE
+  (as before only commands the user has access to are shown)
+  
+
+  Changes:	Modified:
+  +9 -1		trunk/modules/nickserv/help.c (File Modified) 
+
+
+nenolod     2006/05/01 14:15:35 UTC	(20060501-5143)
+  Log:
+  - add a pointer to help commands here
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/modules/chanserv/help.c (File Modified) 
+
+
+jilles      2006/05/01 14:10:38 UTC	(20060501-5141)
+  Log:
+  Use the new shorter help display in chanserv, verbosely shown commands are
+  REGISTER OP INVITE UNBAN FLAGS RECOVER
+  
+
+  Changes:	Modified:
+  +9 -1		trunk/modules/chanserv/help.c (File Modified) 
+
+
+jilles      2006/05/01 14:08:00 UTC	(20060501-5139)
+  Log:
+  Make this look a bit nicer.
+  
+
+  Changes:	Modified:
+  +16 -12	trunk/src/commandtree.c (File Modified) 
+
+
+jilles      2006/05/01 13:40:56 UTC	(20060501-5137)
+  Log:
+  Add void command_help_short(char *mynick, char *origin,
+  list_t *commandtree, char *maincmds), like command_help()
+  but lists only the commands in maincmds
+  ("command1 command2...") verbosely and just shows the
+  other command names.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/commandtree.h (File Modified) 
+  +82 -0	trunk/src/commandtree.c (File Modified) 
+
+
+gxti        2006/05/01 01:03:52 UTC	(20060501-5135)
+  Log:
+  Remove need for user to be online (especially as their account name) in XMLRPC atheme.channel.topic.set/append
+  
+
+  Changes:	Modified:
+  +4 -6		trunk/modules/xmlrpc/channel.c (File Modified) 
+
+
+gxti        2006/05/01 00:55:48 UTC	(20060501-5133)
+  Log:
+  New XMLRPC method atheme.channel.access.get
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/contrib/xmlrpc_explorer.php (File Modified) 
+  +77 -0	trunk/modules/xmlrpc/channel.c (File Modified) 
+
+
+jilles      2006/04/29 19:09:24 UTC	(20060429-5131)
+  Log:
+  Remove unused variable kline_t *k from protocol modules.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/protocol/asuka.c (File Modified) 
+  +0 -1		trunk/protocol/bahamut.c (File Modified) 
+  +0 -1		trunk/protocol/bircd.c (File Modified) 
+  +0 -2		trunk/protocol/charybdis.c (File Modified) 
+  +0 -1		trunk/protocol/dreamforge.c (File Modified) 
+  +0 -2		trunk/protocol/hybrid.c (File Modified) 
+  +0 -1		trunk/protocol/hyperion.c (File Modified) 
+  +0 -1		trunk/protocol/inspircd.c (File Modified) 
+  +0 -1		trunk/protocol/ircnet.c (File Modified) 
+  +0 -1		trunk/protocol/monkey.c (File Modified) 
+  +0 -1		trunk/protocol/nefarious.c (File Modified) 
+  +0 -1		trunk/protocol/plexus.c (File Modified) 
+  +0 -1		trunk/protocol/ptlink.c (File Modified) 
+  +0 -2		trunk/protocol/ratbox.c (File Modified) 
+  +0 -1		trunk/protocol/shadowircd.c (File Modified) 
+  +0 -1		trunk/protocol/solidircd.c (File Modified) 
+  +0 -1		trunk/protocol/sorcery.c (File Modified) 
+  +0 -1		trunk/protocol/ultimate3.c (File Modified) 
+  +0 -1		trunk/protocol/undernet.c (File Modified) 
+  +0 -1		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/04/27 00:36:50 UTC	(20060427-5129)
+  Log:
+  asuka/bircd/nefarious/undernet: add /motd support
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/protocol/asuka.c (File Modified) 
+  +6 -0		trunk/protocol/bircd.c (File Modified) 
+  +6 -0		trunk/protocol/nefarious.c (File Modified) 
+  +6 -0		trunk/protocol/undernet.c (File Modified) 
+
+
+jilles      2006/04/26 23:55:34 UTC	(20060426-5127)
+  Log:
+  Avoid a ban desync if a service is killed while alone in a channel,
+  by clearing all bans in the channel. Formerly, ircd lost the bans
+  but atheme kept them. A possible enhancement could be to resend the
+  bans.
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/04/25 21:34:44 UTC	(20060425-5125)
+  Log:
+  Mention /motd.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/doc/PCOMMANDS (File Modified) 
+
+
+gxti        2006/04/23 03:10:00 UTC	(20060423-5123)
+  Log:
+  Update example config to include saslserv/crypt.
+  Disable mechanism-listing and replace with a simple session abort, since chary doesn't support this.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/dist/example.conf (File Modified) 
+  +5 -1		trunk/modules/saslserv/sasl.c (File Modified) 
+
+
+jilles      2006/04/22 19:26:16 UTC	(20060422-5121)
+  Log:
+  origin is a nick in chanserv(), so use user_find_named().
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/04/22 19:10:00 UTC	(20060422-5119)
+  Log:
+  asuka/bircd/nefarious/undernet: change services client fake ip
+  from 'A' (invalid) to ']]]]]]' (255.255.255.255). This broke
+  on ircu 2.10.12 with ipv6 support.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/asuka.c (File Modified) 
+  +1 -1		trunk/protocol/bircd.c (File Modified) 
+  +1 -1		trunk/protocol/nefarious.c (File Modified) 
+  +1 -1		trunk/protocol/undernet.c (File Modified) 
+
+
+jilles      2006/04/19 12:01:42 UTC	(20060419-5115)
+  Log:
+  XMLRPC: Add XXX comment about further vhost validation here as well.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/modules/xmlrpc/account.c (File Modified) 
+
+
+jilles      2006/04/19 11:58:25 UTC	(20060419-5113)
+  Log:
+  NickServ/UserServ VHOST: deny setting too long vhosts, use
+  truncated form when doing a sethost_sts().
+  
+
+  Changes:	Modified:
+  +12 -6	trunk/modules/nickserv/vhost.c (File Modified) 
+  +12 -6	trunk/modules/userserv/vhost.c (File Modified) 
+
+
+jilles      2006/04/19 11:48:27 UTC	(20060419-5111)
+  Log:
+  XMLRPC: reject vhosts which contain @!*? or are too long.
+  
+
+  Changes:	Modified:
+  +9 -0		trunk/modules/xmlrpc/account.c (File Modified) 
+
+
+jilles      2006/04/18 00:10:31 UTC	(20060418-5109)
+  Log:
+  NickServ/UserServ vhost: Never ever allow @!?* in vhosts as
+  they have special meaning in all ircds (@ was already
+  disallowed).
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/modules/nickserv/vhost.c (File Modified) 
+  +3 -1		trunk/modules/userserv/vhost.c (File Modified) 
+
+
+gxti        2006/04/17 17:48:00 UTC	(20060417-5107)
+  Log:
+  Move MD5 code from crypto/ircservices.c and saslserv/crypt.c into a common md5.c
+  
+
+  Changes:	Modified:
+  +0 -306	trunk/crypto/ircservices.c (File Modified) 
+  +1 -0		trunk/include/atheme.h (File Modified) 
+  +26 -0	trunk/include/md5.h (File Added) 
+  +2 -309	trunk/modules/saslserv/crypt.c (File Modified) 
+  +1 -0		trunk/src/Makefile.in (File Modified) 
+  +290 -0	trunk/src/md5.c (File Added) 
+
+
+gxti        2006/04/17 08:18:44 UTC	(20060417-5105)
+  Log:
+  Autotools fix (cleanup from r5083)
+  New SASL mechanism CRYPT for posix crypt module friendly authentication.
+  Remove some debugging cruft.
+  
+
+  Changes:	Modified:
+  +4 -4		trunk/configure (File Modified) 
+  +1 -2		trunk/configure.ac (File Modified) 
+  +465 -0	trunk/modules/saslserv/crypt.c (File Added) 
+  +0 -2		trunk/modules/saslserv/plain.c (File Modified) 
+  +0 -6		trunk/modules/saslserv/sasl.c (File Modified) 
+
+
+gxti        2006/04/17 05:24:24 UTC	(20060417-5103)
+  Log:
+  Remove base64 code completely from XMLRPC until someone can implement it properly.
+  
+
+  Changes:	Modified:
+  +0 -2		trunk/include/xmlrpc.h (File Modified) 
+  +0 -22	trunk/src/xmlrpc.c (File Modified) 
+
+
+gxti        2006/04/17 05:22:23 UTC	(20060417-5101)
+  Log:
+  Replaced old gsasl backend with a shiny new modular system.
+  
+
+  Changes:	Modified:
+  +19 -235	trunk/configure (File Modified) 
+  +10 -15	trunk/configure.ac (File Modified) 
+  +1 -0		trunk/dist/example.conf (File Modified) 
+  +16 -4	trunk/include/sasl.h (File Modified) 
+  +1 -5		trunk/modules/saslserv/Makefile.in (File Modified) 
+  +4 -2		trunk/modules/saslserv/main.c (File Modified) (Property Modified)
+  +84 -0	trunk/modules/saslserv/plain.c (File Added) 
+  +90 -79	trunk/modules/saslserv/sasl.c (File Modified) (Property Modified)
+
+
+gxti        2006/04/17 04:26:48 UTC	(20060417-5099)
+  Log:
+  Toss old base64 code and replace with stolen gsasl code. Emptied XMLRPC base64 handlers because they were already broken.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/atheme.h (File Modified) 
+  +47 -0	trunk/include/base64.h (File Added) 
+  +0 -14	trunk/include/xmlrpc.h (File Modified) 
+  +365 -145	trunk/src/base64.c (File Modified) 
+  +2 -12	trunk/src/xmlrpc.c (File Modified) 
+
+
+w00t        2006/04/16 02:45:02 UTC	(20060416-5097)
+  Log:
+  Added src/email.c and email_t -- the start of a proper email API. Per nenolod.
+
+  Changes:	Modified:
+  +13 -0	trunk/include/atheme.h (File Modified) 
+  +37 -0	trunk/src/email.c (File Added) 
+
+
+w00t        2006/04/16 01:18:03 UTC	(20060416-5095)
+  Log:
+  InspIRCd can now send numerics over server links - this should do it adequatly.
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/inspircd.c (File Modified) 
+
+
+w00t        2006/04/16 01:04:24 UTC	(20060416-5093)
+  Log:
+  Fix: Send wallops under inspircd, except when no protocol modules are loaded - this cannot be fixed, as inspircd requires commands be sent by a valid nick, and not a server as the sender.
+
+  Changes:	Modified:
+  +30 -1	trunk/protocol/inspircd.c (File Modified) 
+
+
+jilles      2006/04/15 22:43:28 UTC	(20060415-5091)
+  Log:
+  - operserv kline -> akill
+  - user ipv6 addresses are supported on charybdis/ratbox/hyperion
+  - clarify that user ipv6 addresses are not supported on ircu
+  
+
+  Changes:	Modified:
+  +18 -5	trunk/doc/IRCD (File Modified) 
+
+
+gxti        2006/04/15 05:07:54 UTC	(20060415-5089)
+  Log:
+  pingspam: Redirect blame to NeoStats, add two notices.
+  
+
+  Changes:	Modified:
+  +4 -2		trunk/contrib/os_pingspam.c (File Modified) 
+
+
+w00t        2006/04/14 14:59:46 UTC	(20060414-5087)
+  Log:
+  Rework of fixing of warnings, port fixes over to userserv instead of being naughty.
+
+  Changes:	Modified:
+  +1 -3		trunk/modules/nickserv/identify.c (File Modified) 
+  +5 -9		trunk/modules/nickserv/info.c (File Modified) 
+  +10 -15	trunk/modules/nickserv/resetpass.c (File Modified) 
+  +1 -1		trunk/modules/userserv/info.c (File Modified) 
+  +1 -1		trunk/modules/userserv/resetpass.c (File Modified) 
+
+
+jilles      2006/04/14 12:33:34 UTC	(20060414-5085)
+  Log:
+  Don't introduce a service with a UID if the ircd does
+  not support UIDs when loading it at runtime.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/servtree.c (File Modified) 
+
+
+w00t        2006/04/14 12:02:39 UTC	(20060414-5083)
+  Log:
+  And from configure.
+
+  Changes:	Modified:
+  +1 -2		trunk/configure (File Modified) 
+
+
+w00t        2006/04/14 11:59:47 UTC	(20060414-5081)
+  Log:
+  Don't attempt to build dbtool, either
+
+  Changes:	Modified:
+  +1 -1		trunk/Makefile.in (File Modified) 
+  +1 -5		trunk/Makefile.win32 (File Modified) 
+
+
+w00t        2006/04/14 11:46:53 UTC	(20060414-5079)
+  Log:
+  dbtool is long not relevant, use the contrib module instead.
+
+  Changes:	Modified:
+  + -		trunk/dbtool/ (File Deleted) 
+
+
+w00t        2006/04/14 11:45:22 UTC	(20060414-5077)
+  Log:
+  Strict fixes.
+
+  Changes:	Modified:
+  +0 -1		trunk/modules/nickserv/ghost.c (File Modified) 
+  +0 -1		trunk/modules/nickserv/help.c (File Modified) 
+  +3 -1		trunk/modules/nickserv/identify.c (File Modified) 
+  +8 -4		trunk/modules/nickserv/info.c (File Modified) 
+  +14 -9	trunk/modules/nickserv/resetpass.c (File Modified) 
+
+
+jilles      2006/04/14 11:44:03 UTC	(20060414-5075)
+  Log:
+  Declare environ.
+  
+
+  Changes:	Modified:
+  +4 -0		trunk/src/atheme.c (File Modified) 
+
+
+w00t        2006/04/14 11:16:18 UTC	(20060414-5073)
+  Log:
+  Strict fixes for chanserv.
+
+  Changes:	Modified:
+  +1 -7		trunk/modules/chanserv/close.c (File Modified) 
+  +1 -4		trunk/modules/chanserv/drop.c (File Modified) 
+  +0 -2		trunk/modules/chanserv/flags.c (File Modified) 
+  +0 -1		trunk/modules/chanserv/info.c (File Modified) 
+  +0 -1		trunk/modules/chanserv/register.c (File Modified) 
+  +1 -3		trunk/modules/chanserv/template.c (File Modified) 
+  +0 -2		trunk/modules/chanserv/why.c (File Modified) 
+  +0 -5		trunk/modules/chanserv/xop.c (File Modified) 
+
+
+w00t        2006/04/14 10:50:44 UTC	(20060414-5071)
+  Log:
+  More strict fixes, somehow I missed these yesterday. Onto modules.
+
+  Changes:	Modified:
+  +0 -1		trunk/src/help.c (File Modified) 
+  +0 -1		trunk/src/servtree.c (File Modified) 
+
+
+w00t        2006/04/14 09:03:55 UTC	(20060414-5069)
+  Log:
+  Let's redo regex again. Compiling the same regex every regex_match() for 4k users would be unacceptable, for example...
+
+  Changes:	Modified:
+  +3 -1		trunk/include/extern.h (File Modified) 
+  +43 -18	trunk/src/function.c (File Modified) 
+
+
+w00t        2006/04/14 08:44:09 UTC	(20060414-5067)
+  Log:
+  Change of my email address
+
+  Changes:	Modified:
+  +1 -1		trunk/src/version.sh (File Modified) 
+
+
+w00t        2006/04/14 03:55:44 UTC	(20060414-5065)
+  Log:
+  Once again compile cleanly under strict cflags
+
+  Changes:	Modified:
+  +1 -2		trunk/src/atheme.c (File Modified) 
+  +0 -1		trunk/src/conf.c (File Modified) 
+  +0 -8		trunk/src/function.c (File Modified) 
+  +4 -5		trunk/src/node.c (File Modified) 
+  +0 -1		trunk/src/packet.c (File Modified) 
+  +1 -1		trunk/src/send.c (File Modified) 
+  +0 -1		trunk/src/services.c (File Modified) 
+  +1 -1		trunk/src/xmlrpc.c (File Modified) 
+
+
+w00t        2006/04/14 03:35:23 UTC	(20060414-5063)
+  Log:
+  Helps to have the true and false in the right place
+
+  Changes:	Modified:
+  +1 -1		trunk/src/function.c (File Modified) 
+
+
+w00t        2006/04/14 03:10:51 UTC	(20060414-5061)
+  Log:
+  ...
+
+  Changes:	Modified:
+  +1 -1		trunk/include/extern.h (File Modified) 
+  +2 -2		trunk/src/function.c (File Modified) 
+
+
+w00t        2006/04/14 02:46:38 UTC	(20060414-5059)
+  Log:
+  Perhaps fix the crash in regex_match? Who knows...
+
+  Changes:	Modified:
+  +7 -11	trunk/src/function.c (File Modified) 
+
+
+w00t        2006/04/14 01:41:51 UTC	(20060414-5057)
+  Log:
+  regex_match(): bail on NULL arguments, don't crash. there's a good puppy.
+
+  Changes:	Modified:
+  +6 -0		trunk/src/function.c (File Modified) 
+
+
+w00t        2006/04/14 01:15:06 UTC	(20060414-5055)
+  Log:
+  Rework of regex_match to not be so .. interesting. Needed for barafranca bits and pieces.
+
+  Changes:	Modified:
+  +1 -2		trunk/include/extern.h (File Modified) 
+  +20 -8	trunk/src/function.c (File Modified) 
+
+
+jilles      2006/04/13 10:59:42 UTC	(20060413-5053)
+  Log:
+  Disable modrestart, it cannot possibly work. Modrestart
+  would require some stuff in core.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/modules/operserv/modrestart.c (File Modified) 
+
+
+jilles      2006/04/11 22:17:35 UTC	(20060411-5051)
+  Log:
+  Don't send a CHGHOST and associated notices if the host was unchanged,
+  e.g. same cloak on auth{} block and services.
+  
+
+  Changes:	Modified:
+  +9 -1		trunk/modules/nickserv/vhost.c (File Modified) 
+  +8 -0		trunk/modules/userserv/vhost.c (File Modified) 
+
+
+nenolod     2006/04/11 00:11:00 UTC	(20060411-5049)
+  Log:
+  oops that code needed to go
+
+  Changes:	Modified:
+  +0 -9		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 04:27:47 UTC	(20060410-5045)
+  Log:
+  - remove this. i didn't mean to commit it
+  
+
+  Changes:	Modified:
+  +0 -142	trunk/contrib/os_fuckover.c (File Deleted) 
+
+
+nenolod     2006/04/10 02:00:30 UTC	(20060410-5043)
+  Log:
+  - make things less confusing
+
+  Changes:	Modified:
+  +5 -10	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 01:51:52 UTC	(20060410-5041)
+  Log:
+  - refactor shoot_player(). per Aerdan.
+  
+
+  Changes:	Modified:
+  +31 -19	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 01:37:02 UTC	(20060410-5039)
+  Log:
+  - make things harder
+  
+
+  Changes:	Modified:
+  +3 -2		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 01:35:30 UTC	(20060410-5037)
+  Log:
+  - more sanity checking
+  
+
+  Changes:	Modified:
+  +8 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 01:07:59 UTC	(20060410-5035)
+  Log:
+  - fix improper use of msg()
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 01:06:05 UTC	(20060410-5033)
+  Log:
+  - make the wumpus move when hit and reduce damage caused to it (per Aerdan)
+  
+
+  Changes:	Modified:
+  +5 -4		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 00:53:03 UTC	(20060410-5031)
+  Log:
+  - allow for accuracy problems
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 00:52:30 UTC	(20060410-5029)
+  Log:
+  - improvements to HP patch
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 00:44:19 UTC	(20060410-5027)
+  Log:
+  - a few enhancements to the HP patch
+  
+
+  Changes:	Modified:
+  +4 -3		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/10 00:40:50 UTC	(20060410-5025)
+  Log:
+  - HP patch. Copyright (c) 2006 Kiyoshi Aman <kiyoshi.aman -at- gmail.com>
+  
+
+  Changes:	Modified:
+  +36 -16	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 21:59:58 UTC	(20060409-5023)
+  Log:
+  - more memory fixes sorry
+  
+
+  Changes:	Modified:
+  +9 -9		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 21:40:48 UTC	(20060409-5021)
+  Log:
+  - acknowledge that the game has been won after the wumpus is killed
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 21:29:49 UTC	(20060409-5019)
+  Log:
+  - don't blindly free our vector
+  
+
+  Changes:	Modified:
+  +5 -1		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 21:15:45 UTC	(20060409-5017)
+  Log:
+  more sanity checking
+
+  Changes:	Modified:
+  +6 -3		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 21:11:23 UTC	(20060409-5015)
+  Log:
+  add declaration
+
+  Changes:	Modified:
+  + -		trunk/contrib/os_fuckover.c (File Added) 
+  +1 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 21:08:55 UTC	(20060409-5013)
+  Log:
+  - reset game state when maze generation fails
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 20:18:28 UTC	(20060409-5011)
+  Log:
+  - implement the ability to kill the wumpus:
+    it takes 7 hits to kill him as his strength/speed gets divided by two each time:
+     60 -> 30 -> 15 -> 7 -> 3 -> 1 -> 0 (0.5, but because speed is an int, it becomes 0).
+  
+
+  Changes:	Modified:
+  +34 -10	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 20:07:59 UTC	(20060409-5009)
+  Log:
+  - arrow regeneration (via Aerdan)
+  
+
+  Changes:	Modified:
+  +9 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 20:01:50 UTC	(20060409-5007)
+  Log:
+  - fix logic bug when reporting wumpus kills
+  
+
+  Changes:	Modified:
+  +5 -4		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 19:54:24 UTC	(20060409-5005)
+  Log:
+  - remove the ability to have tunnels loopback to themselves
+  
+
+  Changes:	Modified:
+  +5 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 19:35:24 UTC	(20060409-5003)
+  Log:
+  - balance adjustment: change the factor used to place arrows from 2 to 3.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 19:33:33 UTC	(20060409-5001)
+  Log:
+  - balance adjustment: only players who have no arrows can pick up more
+  
+
+  Changes:	Modified:
+  +9 -4		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 19:21:01 UTC	(20060409-4999)
+  Log:
+  - add crystal ball powerup which exposes the current location of the wumpus
+  
+
+  Changes:	Modified:
+  +18 -1	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 18:39:57 UTC	(20060409-4997)
+  Log:
+  - take care of a condition where everyone has been killed by the wumpus/fallen into a pit
+  
+
+  Changes:	Modified:
+  +5 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 18:39:02 UTC	(20060409-4995)
+  Log:
+  - sanity checks keep the segfault away
+  
+
+  Changes:	Modified:
+  +14 -2	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 18:28:56 UTC	(20060409-4993)
+  Log:
+  - increase starting arrows to 10
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/contrib/wumpus.c (File Modified) 
+
+
+gxti        2006/04/09 08:19:53 UTC	(20060409-4991)
+  Log:
+  Added more notices to pingspam, fixed permenant module issue.
+  
+
+  Changes:	Modified:
+  +5 -2		trunk/contrib/os_pingspam.c (File Modified) 
+
+
+gxti        2006/04/09 07:03:08 UTC	(20060409-4989)
+  Log:
+  Add meta for previous (sorry jilles).
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/contrib/os_pingspam.c (File Modified) (Property Modified)
+
+
+gxti        2006/04/09 06:56:31 UTC	(20060409-4987)
+  Log:
+  New contrib module: os_pingspam
+  If you have to ask, you don't want to know.
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/contrib/Makefile.in (File Modified) 
+  +142 -0	trunk/contrib/os_pingspam.c (File Added) 
+
+
+nenolod     2006/04/09 06:17:18 UTC	(20060409-4985)
+  Log:
+  - double the amount of passes used to place arrows
+  
+
+  Changes:	Modified:
+  +9 -6		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 06:06:32 UTC	(20060409-4983)
+  Log:
+  - add arrows powerup
+  
+
+  Changes:	Modified:
+  +27 -2	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 06:00:26 UTC	(20060409-4981)
+  Log:
+  add who command to display the player list
+  
+
+  Changes:	Modified:
+  +36 -17	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 04:59:40 UTC	(20060409-4979)
+  Log:
+  fixes
+
+  Changes:	Modified:
+  +3 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 04:58:44 UTC	(20060409-4977)
+  Log:
+  - sanity checking
+  
+
+  Changes:	Modified:
+  +18 -0	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 04:51:16 UTC	(20060409-4975)
+  Log:
+  fixes
+
+  Changes:	Modified:
+  +4 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 04:43:40 UTC	(20060409-4973)
+  Log:
+  - updates
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 04:43:14 UTC	(20060409-4971)
+  Log:
+  - wumpus 0.1.0
+  
+
+  Changes:	Modified:
+  +24 -2	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 04:33:10 UTC	(20060409-4969)
+  Log:
+  - more stuff
+  
+
+  Changes:	Modified:
+  +20 -1	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 04:28:04 UTC	(20060409-4967)
+  Log:
+  - more stuff
+  
+
+  Changes:	Modified:
+  +119 -1	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 03:58:42 UTC	(20060409-4965)
+  Log:
+  - updates
+  
+
+  Changes:	Modified:
+  +51 -6	trunk/contrib/wumpus.c (File Modified) 
+
+
+nenolod     2006/04/09 03:12:38 UTC	(20060409-4963)
+  Log:
+  - wumpus for atheme (not yet complete)
+  
+
+  Changes:	Modified:
+  +598 -0	trunk/contrib/wumpus.c (File Added) 
+
+
+nenolod     2006/04/08 19:59:21 UTC	(20060408-4961)
+  Log:
+  - fix hook_cmessage_data_t, it was missing source var
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/atheme.h (File Modified) 
+  +1 -0		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/04/08 00:02:39 UTC	(20060408-4959)
+  Log:
+  ChanServ FLAGS: Better error message for the case .flags +flags nick.
+  Somewhat hackish.
+  
+
+  Changes:	Modified:
+  +10 -2	trunk/modules/chanserv/flags.c (File Modified) 
+
+
+jilles      2006/04/05 23:20:58 UTC	(20060405-4957)
+  Log:
+  Remove gratuitous differences between example.conf
+  and example.userserv.conf.
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/dist/example.conf (File Modified) 
+  +11 -11	trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/04/05 23:16:19 UTC	(20060405-4955)
+  Log:
+  Remove example.saslserv.conf and add the SASL stuff to
+  example.conf and example.userserv.conf, commented.
+  
+
+  Changes:	Modified:
+  +31 -0	trunk/dist/example.conf (File Modified) 
+  +0 -868	trunk/dist/example.saslserv.conf (File Deleted) 
+  +31 -0	trunk/dist/example.userserv.conf (File Modified) 
+
+
+nenolod     2006/04/05 02:10:11 UTC	(20060405-4953)
+  Log:
+  - symbol conflict, change base64_encode/base64_decode to _atheme_base64_(.*)
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/include/xmlrpc.h (File Modified) 
+  +2 -2		trunk/src/base64.c (File Modified) 
+  +2 -2		trunk/src/xmlrpc.c (File Modified) 
+
+
+nenolod     2006/04/05 01:42:55 UTC	(20060405-4951)
+  Log:
+  - do not overwrite *ce, use a different pointer instead for safety.
+  
+
+  Changes:	Modified:
+  +5 -4		trunk/src/conf.c (File Modified) 
+
+
+nenolod     2006/04/05 01:05:13 UTC	(20060405-4949)
+  Log:
+  - version bump: 1.1.0rc1
+  
+
+  Changes:	Modified:
+  +11 -11	trunk/configure (File Modified) 
+  +1 -1		trunk/configure.ac (File Modified) 
+
+
+nenolod     2006/04/05 01:03:27 UTC	(20060405-4947)
+  Log:
+  - new parsing of operclass {} blocks. should be backwards compatible. I hope, anyway.
+  
+
+  Changes:	Modified:
+  +75 -15	trunk/dist/example.conf (File Modified) 
+  +75 -15	trunk/dist/example.saslserv.conf (File Modified) 
+  +75 -15	trunk/dist/example.userserv.conf (File Modified) 
+  +40 -9	trunk/src/conf.c (File Modified) 
+
+
+gxti        2006/04/04 23:43:43 UTC	(20060404-4945)
+  Log:
+  Implement vhost-setting for SASL clients.
+  
+
+  Changes:	Modified:
+  +9 -1		trunk/modules/saslserv/sasl.c (File Modified) 
+
+
+gxti        2006/04/02 20:33:39 UTC	(20060402-4943)
+  Log:
+  New XMLRPC functions atheme.channel.topic.set and atheme.channel.topic.append
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/contrib/xmlrpc_explorer.php (File Modified) 
+  +165 -0	trunk/modules/xmlrpc/channel.c (File Modified) 
+
+
+gxti        2006/04/02 18:31:04 UTC	(20060402-4941)
+  Log:
+  Send SVSLOGIN before finishing a SASL session so the user is introduced to the net correctly.
+  Suppress on-connect spam if a user seems to come from a SASL session.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/account.h (File Modified) 
+  +3 -1		trunk/modules/saslserv/sasl.c (File Modified) 
+  +14 -0	trunk/src/services.c (File Modified) 
+
+
+gxti        2006/04/02 08:48:03 UTC	(20060402-4939)
+  Log:
+  New example config for SASL-enabled networks.
+
+  Changes:	Modified:
+  +808 -0	trunk/dist/example.saslserv.conf (File Added) 
+
+
+jilles      2006/03/31 22:34:39 UTC	(20060331-4937)
+  Log:
+  chanserv set url help file: mention that the url is
+  shown to all users joining the channel
+  
+
+  Changes:	Modified:
+  +3 -2		trunk/help/cservice/set_url (File Modified) 
+
+
+nenolod     2006/03/30 16:13:33 UTC	(20060330-4935)
+  Log:
+  - merge GXTi's wacky atheme-sasl tree with trunk
+  
+
+  Changes:	Modified:
+  +253 -4	trunk/configure (File Modified) 
+  +28 -0	trunk/configure.ac (File Modified) 
+  +4 -0		trunk/include/atheme.h (File Modified) 
+  +5 -0		trunk/include/phandler.h (File Modified) 
+  + -		trunk/include/sasl.h (File Added) 
+  +13 -0	trunk/include/services.h (File Modified) 
+  +3 -0		trunk/include/sysconf.h.in (File Modified) 
+  +1 -1		trunk/modules/Makefile.in (File Modified) 
+  + -		trunk/modules/saslserv/ (File Added) 
+  +1 -5		trunk/modules/saslserv/sasl.c (File Modified) 
+  +129 -5	trunk/protocol/charybdis.c (File Modified) 
+  +1 -0		trunk/src/atheme.c (File Modified) 
+  +62 -1	trunk/src/conf.c (File Modified) 
+  +12 -0	trunk/src/phandler.c (File Modified) 
+  +2 -0		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/03/29 00:14:26 UTC	(20060329-4931)
+  Log:
+  nickserv/userserv resetpass help files:
+  - RECOVER -> RESETPASS
+  - mark doesn't restrict as much anymore, don't mention
+  
+
+  Changes:	Modified:
+  +2 -3		trunk/help/nickserv/resetpass (File Modified) 
+  +3 -5		trunk/help/userserv/resetpass (File Modified) 
+
+
+jilles      2006/03/28 23:59:23 UTC	(20060328-4929)
+  Log:
+  - Move handle_motd() definition and declaration to a more logical place
+  - Change handle_motd() from char *origin to user_t *u
+  - Add floodcheck on handle_motd()
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/include/extern.h (File Modified) 
+  +1 -1		trunk/protocol/bahamut.c (File Modified) 
+  +1 -1		trunk/protocol/charybdis.c (File Modified) 
+  +1 -1		trunk/protocol/dreamforge.c (File Modified) 
+  +1 -1		trunk/protocol/hybrid.c (File Modified) 
+  +1 -1		trunk/protocol/hyperion.c (File Modified) 
+  +1 -1		trunk/protocol/ircnet.c (File Modified) 
+  +1 -1		trunk/protocol/monkey.c (File Modified) 
+  +1 -1		trunk/protocol/plexus.c (File Modified) 
+  +1 -1		trunk/protocol/ptlink.c (File Modified) 
+  +1 -1		trunk/protocol/ratbox.c (File Modified) 
+  +1 -1		trunk/protocol/shadowircd.c (File Modified) 
+  +1 -1		trunk/protocol/unreal.c (File Modified) 
+  +43 -37	trunk/src/ptasks.c (File Modified) 
+
+
+nenolod     2006/03/28 23:57:39 UTC	(20060328-4927)
+  Log:
+  - document these keywords in the sample MOTD
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/dist/example.motd (File Modified) 
+
+
+nenolod     2006/03/28 23:56:47 UTC	(20060328-4925)
+  Log:
+  non-invasive change adding some extra replaceable keywords -- &myusers&
+  and &mychans&, amount of user records and channel records respectively.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/src/ptasks.c (File Modified) 
+
+
+nenolod     2006/03/28 23:43:14 UTC	(20060328-4923)
+  Log:
+  - add MOTD support to more protocol modules
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/protocol/bahamut.c (File Modified) 
+  +6 -0		trunk/protocol/dreamforge.c (File Modified) 
+  +6 -0		trunk/protocol/hyperion.c (File Modified) 
+  +6 -0		trunk/protocol/ircnet.c (File Modified) 
+  +6 -0		trunk/protocol/monkey.c (File Modified) 
+  +6 -0		trunk/protocol/plexus.c (File Modified) 
+  +6 -0		trunk/protocol/ptlink.c (File Modified) 
+  +6 -0		trunk/protocol/shadowircd.c (File Modified) 
+  +7 -0		trunk/protocol/unreal.c (File Modified) 
+
+
+nenolod     2006/03/28 23:27:37 UTC	(20060328-4921)
+  Log:
+  - services MOTD support
+  
+
+  Changes:	Modified:
+  +5 -0		trunk/dist/example.motd (File Added) 
+  +1 -0		trunk/include/extern.h (File Modified) 
+  +6 -0		trunk/protocol/charybdis.c (File Modified) 
+  +6 -0		trunk/protocol/hybrid.c (File Modified) 
+  +6 -0		trunk/protocol/ratbox.c (File Modified) 
+  +1 -0		trunk/src/Makefile.in (File Modified) 
+  +31 -0	trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/03/27 13:29:00 UTC	(20060327-4915)
+  Log:
+  Interpret received CHGHOST, for umode +h etc.
+  
+  Tested by: acidic32@efnet
+  
+
+  Changes:	Modified:
+  +11 -0	trunk/protocol/hybrid.c (File Modified) 
+
+
+jilles      2006/03/27 13:16:56 UTC	(20060327-4913)
+  Log:
+  Interpret received ENCAP CHGHOST, for umode +h
+  and other things that send it.
+  
+
+  Changes:	Modified:
+  +11 -0	trunk/protocol/charybdis.c (File Modified) 
+
+
+jilles      2006/03/27 12:28:18 UTC	(20060327-4911)
+  Log:
+  Don't complain about all channel messages if fantasy
+  and secure are enabled at the same time.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/03/27 12:26:46 UTC	(20060327-4909)
+  Log:
+  Fix log message if target of cmode +o etc cannot be found.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/cmode.c (File Modified) 
+
+
+gxti        2006/03/20 02:40:44 UTC	(20060320-4907)
+  Log:
+  Allow users to GHOST other nicks which are logged into their account.
+  
+
+  Changes:	Modified:
+  +11 -3	trunk/modules/nickserv/ghost.c (File Modified) 
+
+
+nenolod     2006/03/18 05:40:51 UTC	(20060318-4905)
+  Log:
+  - i will not code when half awake again
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/services.c (File Modified) 
+
+
+nenolod     2006/03/18 05:27:35 UTC	(20060318-4903)
+  Log:
+  - sanity checking
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/src/services.c (File Modified) 
+
+
+nenolod     2006/03/14 02:36:14 UTC	(20060314-4899)
+  Log:
+  - add support for charybdis +halfops patch
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/include/protocol/charybdis.h (File Modified) 
+  +8 -0		trunk/protocol/charybdis.c (File Modified) 
+
+
+jilles      2006/03/11 20:59:53 UTC	(20060311-4897)
+  Log:
+  Make xmlrpc work with httpheader disabled.
+  
+  Pointed out by: Trystan
+  
+
+  Changes:	Modified:
+  +3 -2		trunk/src/xmlrpc.c (File Modified) 
+
+
+jilles      2006/03/09 17:39:13 UTC	(20060309-4895)
+  Log:
+  unreal: Introduce services with +S (network service,
+  prevents kick/deop on channels etc).
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/03/08 17:03:41 UTC	(20060308-4893)
+  Log:
+  Make fantasy commands work again in the normal case with chanserv.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/modules/chanserv/main.c (File Modified) 
+  +5 -2		trunk/src/conf.c (File Modified) 
+
+
+jilles      2006/03/03 17:34:10 UTC	(20060303-4889)
+  Log:
+  Allow specification of akill duration in hours (h), days (d) and weeks (w).
+  Make the checks on durations more strict (no extraneous characters allowed,
+  no permanent akills via !T).
+  
+
+  Changes:	Modified:
+  +10 -5	trunk/help/oservice/akill (File Modified) 
+  +20 -0	trunk/modules/operserv/akill.c (File Modified) 
+
+
+jilles      2006/03/03 17:16:55 UTC	(20060303-4887)
+  Log:
+  Add /os akill sync, sends all akills to all servers.
+  This can be useful in case services will be down or
+  do not see a user as matching a certain akill.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/help/oservice/akill (File Modified) 
+  +24 -0	trunk/modules/operserv/akill.c (File Modified) 
+
+
+jilles      2006/02/28 23:39:47 UTC	(20060228-4883)
+  Log:
+  Change "AKILL command" to "AKILL system" since akills
+  are now completely disabled if operserv/akill is not
+  loaded.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/dist/example.conf (File Modified) 
+  +1 -1		trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/02/28 23:37:33 UTC	(20060228-4881)
+  Log:
+  - Move akill checking into a user_add hook function in
+    modules/operserv/akill.c
+  - Do not send klines for akills that have already expired
+  - Match IP as well as host against akills (no CIDR currently)
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/extern.h (File Modified) 
+  +25 -0	trunk/modules/operserv/akill.c (File Modified) 
+  +0 -16	trunk/protocol/asuka.c (File Modified) 
+  +0 -10	trunk/protocol/bahamut.c (File Modified) 
+  +0 -16	trunk/protocol/bircd.c (File Modified) 
+  +0 -20	trunk/protocol/charybdis.c (File Modified) 
+  +0 -10	trunk/protocol/dreamforge.c (File Modified) 
+  +0 -19	trunk/protocol/hybrid.c (File Modified) 
+  +0 -10	trunk/protocol/hyperion.c (File Modified) 
+  +0 -10	trunk/protocol/inspircd.c (File Modified) 
+  +0 -14	trunk/protocol/ircnet.c (File Modified) 
+  +0 -10	trunk/protocol/monkey.c (File Modified) 
+  +0 -16	trunk/protocol/nefarious.c (File Modified) 
+  +0 -10	trunk/protocol/plexus.c (File Modified) 
+  +0 -10	trunk/protocol/ptlink.c (File Modified) 
+  +0 -20	trunk/protocol/ratbox.c (File Modified) 
+  +0 -10	trunk/protocol/shadowircd.c (File Modified) 
+  +0 -10	trunk/protocol/solidircd.c (File Modified) 
+  +0 -10	trunk/protocol/sorcery.c (File Modified) 
+  +0 -11	trunk/protocol/ultimate3.c (File Modified) 
+  +0 -16	trunk/protocol/undernet.c (File Modified) 
+  +0 -10	trunk/protocol/unreal.c (File Modified) 
+  +18 -0	trunk/src/node.c (File Modified) 
+
+
+jilles      2006/02/28 01:47:09 UTC	(20060228-4873)
+  Log:
+  Document userserv vhost (from r4861 nickserv).
+  
+
+  Changes:	Modified:
+  + -		trunk/help/userserv/vhost (File Added) 
+  +4 -1		trunk/modules/userserv/vhost.c (File Modified) 
+
+
+jilles      2006/02/28 01:10:05 UTC	(20060228-4871)
+  Log:
+  - Don't KILL akilled users, except on ircnet (where klines don't work
+    properly). This ensures kline exempt exempts from akills too.
+  - Fix server name the klines are sent to (was sometimes wrong and
+    was needlessly different between protocol modules).
+  
+
+  Changes:	Modified:
+  +1 -3		trunk/protocol/asuka.c (File Modified) 
+  +2 -7		trunk/protocol/bahamut.c (File Modified) 
+  +1 -3		trunk/protocol/bircd.c (File Modified) 
+  +4 -14	trunk/protocol/charybdis.c (File Modified) 
+  +2 -7		trunk/protocol/dreamforge.c (File Modified) 
+  +4 -14	trunk/protocol/hybrid.c (File Modified) 
+  +2 -7		trunk/protocol/hyperion.c (File Modified) 
+  +2 -7		trunk/protocol/inspircd.c (File Modified) 
+  +4 -5		trunk/protocol/ircnet.c (File Modified) 
+  +2 -7		trunk/protocol/monkey.c (File Modified) 
+  +1 -3		trunk/protocol/nefarious.c (File Modified) 
+  +2 -7		trunk/protocol/plexus.c (File Modified) 
+  +2 -7		trunk/protocol/ptlink.c (File Modified) 
+  +4 -14	trunk/protocol/ratbox.c (File Modified) 
+  +2 -7		trunk/protocol/shadowircd.c (File Modified) 
+  +2 -7		trunk/protocol/solidircd.c (File Modified) 
+  +2 -7		trunk/protocol/sorcery.c (File Modified) 
+  +4 -9		trunk/protocol/ultimate3.c (File Modified) 
+  +1 -3		trunk/protocol/undernet.c (File Modified) 
+  +2 -7		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/02/27 21:09:09 UTC	(20060227-4869)
+  Log:
+  Bail out if configure, make or make install fail.
+  
+
+  Changes:	Modified:
+  +18 -0	trunk/setup (File Modified) 
+
+
+nenolod     2006/02/27 03:28:52 UTC	(20060227-4867)
+  Log:
+  - Allow services to override what normally processes fantasy commands.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/include/services.h (File Modified) 
+  +2 -0		trunk/src/conf.c (File Modified) 
+  +2 -1		trunk/src/ptasks.c (File Modified) 
+  +3 -1		trunk/src/servtree.c (File Modified) 
+
+
+jilles      2006/02/26 22:59:20 UTC	(20060226-4865)
+  Log:
+  Add a plus sign before the umodes when introducing a service.
+  
+  Submitted by: eggy
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/ultimate3.c (File Modified) 
+
+
+gxti        2006/02/23 02:42:42 UTC	(20060223-4863)
+  Log:
+  Hi, I work here.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/src/version.sh (File Modified) 
+
+
+gxti        2006/02/23 02:36:49 UTC	(20060223-4861)
+  Log:
+  Documented NS VHOST.
+  
+
+  Changes:	Modified:
+  +12 -0	trunk/help/nickserv/vhost (File Added) 
+  +4 -1		trunk/modules/nickserv/vhost.c (File Modified) 
+
+
+nenolod     2006/02/19 02:26:48 UTC	(20060219-4845)
+  Log:
+  Do the stack as soon as we get back to io_loop().
+  
+
+  Changes:	Modified:
+  +6 -1		trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/02/19 01:04:19 UTC	(20060219-4843)
+  Log:
+  Correct clientinfo{} -> chanserv{} in error message.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/src/conf.c (File Modified) 
+
+
+jilles      2006/02/19 01:03:42 UTC	(20060219-4841)
+  Log:
+  Ultimate3: add +S to services umodes.
+  
+  Submitted by: eggy
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/ultimate3.c (File Modified) 
+
+
+jilles      2006/02/17 23:37:21 UTC	(20060217-4839)
+  Log:
+  Correct kline_t.expires manually on load instead of
+  keeping <load time> + duration.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/backend/flatfile.c (File Modified) 
+  +2 -0		trunk/backend/mysql.c (File Modified) 
+  +2 -0		trunk/backend/postgresql.c (File Modified) 
+
+
+jilles      2006/02/17 23:31:06 UTC	(20060217-4837)
+  Log:
+  Make this work with Anope 1.7.13.
+  It will also still work with Anope 1.6.x.
+  
+
+  Changes:	Modified:
+  +29 -0	trunk/contrib/anope_convert.c (File Modified) 
+
+
+nenolod     2006/02/13 20:37:34 UTC	(20060213-4829)
+  Log:
+  - Document atheme.account.set_password.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/contrib/xmlrpc_explorer.php (File Modified) 
+
+
+nenolod     2006/02/13 20:18:28 UTC	(20060213-4827)
+  Log:
+  - Add atheme.account.set_password call.
+  
+
+  Changes:	Modified:
+  +50 -0	trunk/modules/xmlrpc/account.c (File Modified) 
+
+
+pfish       2006/02/13 10:35:10 UTC	(20060213-4825)
+  Log:
+  fix a crash
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/userserv/listchans.c (File Modified) 
+
+
+pfish       2006/02/13 10:32:54 UTC	(20060213-4821)
+  Log:
+  outdated
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/SVN-Access (File Modified) 
+
+
+pfish       2006/02/13 10:29:40 UTC	(20060213-4819)
+  Log:
+  PRIV_CHAN_AUSPEX will see when a channel is MC_INHABIT
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/modules/chanserv/info.c (File Modified) 
+
+
+jilles      2006/02/10 17:49:03 UTC	(20060210-4817)
+  Log:
+  Send and parse nefarious 0.5.x topic setter information.
+  Should be ignored by 0.4.x.
+  Not tested.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/protocol/nefarious.c (File Modified) 
+
+
+jilles      2006/02/10 17:33:05 UTC	(20060210-4815)
+  Log:
+  Nefarious improvements, from reading the source code (not tested)
+  - complete halfops support
+  - ban exception support
+  - oper only cmodes
+  - apparently don't need to clear +N here (only applies to local clients)
+  
+
+  Changes:	Modified:
+  +37 -26	trunk/protocol/nefarious.c (File Modified) 
+
+
+nenolod     2006/02/10 15:02:54 UTC	(20060210-4813)
+  Log:
+  Add support for Nefarious IRCu 0.4.x or later
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/dist/example.conf (File Modified) 
+  +1 -0		trunk/dist/example.userserv.conf (File Modified) 
+  +34 -0	trunk/include/pmodule.h (File Modified) 
+  + -		trunk/include/protocol/nefarious.h (File Added) 
+  +1131 -0	trunk/protocol/Makefile.in (File Modified) 
+  + -		trunk/protocol/nefarious.c (File Added) 
+
+
+nenolod     2006/02/10 03:13:29 UTC	(20060210-4811)
+  Log:
+  1.0.1 -> Marsupial
+  
+
+  Changes:	Modified:
+  +11 -11	trunk/configure (File Modified) 
+  +1 -1		trunk/configure.ac (File Modified) 
+
+
+nenolod     2006/02/10 03:02:02 UTC	(20060210-4807)
+  Log:
+  Use ubase64toint() from ircu. It's public domain, as the same
+  basic algorithm is used in our base64 stuff too.
+  
+
+  Changes:	Modified:
+  +2 -11	trunk/src/ubase64.c (File Modified) 
+
+
+nenolod     2006/02/09 20:33:19 UTC	(20060209-4805)
+  Log:
+  Improve m_fjoin() quite a bit.
+  
+
+  Changes:	Modified:
+  +1 -28	trunk/protocol/inspircd.c (File Modified) 
+
+
+jilles      2006/02/09 14:46:01 UTC	(20060209-4803)
+  Log:
+  - Make server names case insensitive
+  - Make UIDs case sensitive (required for P10; TS6/IRCnet don't care)
+  (nicks are case insensitive, SIDs are case sensitive)
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/src/node.c (File Modified) 
+
+
+jilles      2006/02/09 14:11:53 UTC	(20060209-4801)
+  Log:
+  This should fix automatic login after a netsplit/services restart
+  (not tested).
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/inspircd.c (File Modified) 
+
+
+pfish       2006/02/09 04:10:20 UTC	(20060209-4799)
+  Log:
+  Atheme 1.0.1
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/configure (File Modified) 
+  +1 -1		trunk/configure.ac (File Modified) 
+
+
+pfish       2006/02/09 03:26:58 UTC	(20060209-4795)
+  Log:
+  config touchup
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/dist/example.conf (File Modified) 
+  +1 -0		trunk/dist/example.userserv.conf (File Modified) 
+
+
+pfish       2006/02/06 10:50:41 UTC	(20060206-4789)
+  Log:
+  Fix 2 crashes where nicksvs was used in UserServ code.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/userserv/status.c (File Modified) 
+  +1 -1		trunk/modules/userserv/vhost.c (File Modified) 
+
+
 nenolod     2006/02/05 04:22:25 UTC	(20060205-4785)
   Log:
   Update RELEASE to reflect the latest changes.

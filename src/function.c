@@ -4,7 +4,7 @@
  *
  * This file contains misc routines.
  *
- * $Id: function.c 4631 2006-01-20 16:38:15Z jilles $
+ * $Id: function.c 5193 2006-05-03 14:31:53Z jilles $
  */
 
 #include "atheme.h"
@@ -16,7 +16,7 @@ FILE *log_file;
 # undef HAVE_GETTIMEOFDAY
 #endif
 
-char ch[26] = "abcdefghijklmnopqrstuvwxyz";
+char ch[27] = "abcdefghijklmnopqrstuvwxyz";
 
 /* This function uses smalloc() to allocate memory.
  * You MUST free the result when you are done with it!
@@ -230,31 +230,70 @@ uint32_t time_msec(void)
 #endif
 }
 
-/* performs a regex match */
-uint8_t regex_match(regex_t * preg, char *pattern, char *string, size_t nmatch, regmatch_t pmatch[], int eflags)
+/*
+ * regex_compile()
+ *  Compile a regex of `pattern' and return it.
+ */
+regex_t *regex_create(char *pattern)
 {
-	static char errmsg[256];
+	static char errmsg[BUFSIZE];
 	int errnum;
-
-	/* compile regex */
-	preg = (regex_t *) malloc(sizeof(*preg));
-
+	regex_t *preg;
+	
+	if (pattern == NULL)
+	{
+		return NULL;
+	}
+	
+	preg = (regex_t *)malloc(sizeof(regex_t));
 	errnum = regcomp(preg, pattern, REG_ICASE | REG_EXTENDED);
+	
 	if (errnum != 0)
 	{
-		regerror(errnum, preg, errmsg, 256);
+		regerror(errnum, preg, errmsg, BUFSIZE);
 		slog(LG_ERROR, "regex_match(): %s\n", errmsg);
+		regfree(preg);
 		free(preg);
-		preg = NULL;
-		return 1;
+		return NULL;
+	}
+	
+	return preg;
+}
+
+/*
+ * regex_match()
+ *  Internal wrapper API for POSIX-based regex matching.
+ *  `preg' is the regex to check with, `string' needs to be checked against.
+ *  Returns `true' on match, `false' else.
+ */
+boolean_t regex_match(regex_t *preg, char *string)
+{
+	boolean_t retval;
+	
+	if (preg == NULL || string == NULL)
+	{
+		slog(LG_ERROR, "regex_match(): we were given NULL string or pattern, bad!");
+		return FALSE;
 	}
 
 	/* match it */
-	if (regexec(preg, string, 5, pmatch, 0) != 0)
-		return 1;
-
+	if (regexec(preg, string, 0, NULL, 0) == 0)
+		retval = TRUE;
 	else
-		return 0;
+		retval = FALSE;
+	
+	return retval;
+}
+
+/*
+ * regex_destroy()
+ *  Perform cleanup with regex `preg', free associated memory.
+ */
+boolean_t regex_destroy(regex_t *preg)
+{
+	regfree(preg);
+	free(preg);
+	return TRUE;
 }
 
 /*
@@ -526,7 +565,6 @@ boolean_t validhostmask(char *host)
 int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 {
 #ifndef _WIN32
-	mychan_t *mc;
 	char *email, *date = NULL;
 	char cmdbuf[512], timebuf[256], to[128], from[128], subject[128];
 	FILE *out;
@@ -699,8 +737,6 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 /* various access level checkers */
 boolean_t is_founder(mychan_t *mychan, myuser_t *myuser)
 {
-	metadata_t *md;
-
 	if (!myuser)
 		return FALSE;
 
@@ -713,7 +749,6 @@ boolean_t is_founder(mychan_t *mychan, myuser_t *myuser)
 boolean_t is_xop(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 {
 	chanacs_t *ca;
-	metadata_t *md;
 
 	if (!myuser)
 		return FALSE;
@@ -726,8 +761,6 @@ boolean_t is_xop(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 
 boolean_t should_owner(mychan_t *mychan, myuser_t *myuser)
 {
-	chanuser_t *cu;
-
 	if (!myuser)
 		return FALSE;
 
@@ -745,8 +778,6 @@ boolean_t should_owner(mychan_t *mychan, myuser_t *myuser)
 
 boolean_t should_protect(mychan_t *mychan, myuser_t *myuser)
 {
-	chanuser_t *cu;
-
 	if (!myuser)
 		return FALSE;
 

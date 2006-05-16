@@ -5,7 +5,7 @@
  * This file contains functionality which implements
  * the OService AKILL/KLINE command.
  *
- * $Id: akill.c 4613 2006-01-19 23:52:30Z jilles $
+ * $Id: akill.c 4889 2006-03-03 17:34:10Z jilles $
  */
 
 #include "atheme.h"
@@ -13,14 +13,17 @@
 DECLARE_MODULE_V1
 (
 	"operserv/akill", FALSE, _modinit, _moddeinit,
-	"$Id: akill.c 4613 2006-01-19 23:52:30Z jilles $",
+	"$Id: akill.c 4889 2006-03-03 17:34:10Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
+
+static void os_akill_newuser(void *vptr);
 
 static void os_cmd_akill(char *origin);
 static void os_cmd_akill_add(char *origin, char *target);
 static void os_cmd_akill_del(char *origin, char *target);
 static void os_cmd_akill_list(char *origin, char *target);
+static void os_cmd_akill_sync(char *origin, char *target);
 
 
 command_t os_kline = { "KLINE", "Manages network bans. [deprecated, use OS AKILL in future.]", PRIV_AKILL, os_cmd_akill };
@@ -29,6 +32,7 @@ command_t os_akill = { "AKILL", "Manages network bans.", PRIV_AKILL, os_cmd_akil
 fcommand_t os_akill_add = { "ADD", AC_NONE, os_cmd_akill_add };
 fcommand_t os_akill_del = { "DEL", AC_NONE, os_cmd_akill_del };
 fcommand_t os_akill_list = { "LIST", AC_NONE, os_cmd_akill_list };
+fcommand_t os_akill_sync = { "SYNC", AC_NONE, os_cmd_akill_sync };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -46,8 +50,12 @@ void _modinit(module_t *m)
 	fcommand_add(&os_akill_add, &os_akill_cmds);
 	fcommand_add(&os_akill_del, &os_akill_cmds);
 	fcommand_add(&os_akill_list, &os_akill_cmds);
+	fcommand_add(&os_akill_sync, &os_akill_cmds);
 	
 	help_addentry(os_helptree, "AKILL", "help/oservice/akill", NULL);
+
+	hook_add_event("user_add");
+	hook_add_hook("user_add", os_akill_newuser);
 }
 
 void _moddeinit()
@@ -59,8 +67,29 @@ void _moddeinit()
 	fcommand_delete(&os_akill_add, &os_akill_cmds);
 	fcommand_delete(&os_akill_del, &os_akill_cmds);
 	fcommand_delete(&os_akill_list, &os_akill_cmds);
+	fcommand_delete(&os_akill_sync, &os_akill_cmds);
 	
 	help_delentry(os_helptree, "AKILL");
+
+	hook_del_hook("user_add", os_akill_newuser);
+}
+
+static void os_akill_newuser(void *vptr)
+{
+	user_t *u;
+	kline_t *k;
+
+	u = vptr;
+	if (is_internal_client(u))
+		return;
+	k = kline_find_user(u);
+	if (k != NULL)
+	{
+		/* Server didn't have that kline, send it again.
+		 * To ensure kline exempt works on akills too, do
+		 * not send a KILL. -- jilles */
+		kline_sts(u->server->name, k->user, k->host, k->duration ? k->expires - CURRTIME : 0, k->reason);
+	}
 }
 
 static void os_cmd_akill(char *origin)
@@ -116,7 +145,27 @@ static void os_cmd_akill_add(char *origin, char *target)
 		else
 			strlcpy(reason, "No reason given", BUFSIZE);
 		if (s)
+		{
 			duration = (atol(s) * 60);
+			while (isdigit(*s))
+				s++;
+			if (*s == 'h' || *s == 'H')
+				duration *= 60;
+			else if (*s == 'd' || *s == 'D')
+				duration *= 1440;
+			else if (*s == 'w' || *s == 'W')
+				duration *= 10080;
+			else if (*s == '\0')
+				;
+			else
+				duration = 0;
+			if (duration == 0)
+			{
+				notice(opersvs.nick, origin, "Invalid duration given.");
+				notice(opersvs.nick, origin, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
+				return;
+			}
+		}
 		else {
 			notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "AKILL ADD");
 			notice(opersvs.nick, origin, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
@@ -406,3 +455,23 @@ static void os_cmd_akill_list(char *origin, char *param)
 	logcommand(opersvs.me, user_find_named(origin), CMDLOG_GET, "AKILL LIST%s", full ? " FULL" : "");
 }
 
+static void os_cmd_akill_sync(char *origin, char *param)
+{
+	node_t *n;
+	kline_t *k;
+
+	logcommand(opersvs.me, user_find_named(origin), CMDLOG_DO, "AKILL SYNC");
+	snoop("AKILL:SYNC: \2%s\2", origin);
+
+	LIST_FOREACH(n, klnlist.head)
+	{
+		k = (kline_t *)n->data;
+
+		if (k->duration == 0)
+			kline_sts("*", k->user, k->host, 0, k->reason);
+		else if (k->expires > CURRTIME)
+			kline_sts("*", k->user, k->host, k->expires - CURRTIME, k->reason);
+	}
+
+	notice(opersvs.nick, origin, "AKILL list synchronized to servers.");
+}

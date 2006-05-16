@@ -4,7 +4,7 @@
  *
  * XMLRPC account management functions.
  *
- * $Id: account.c 4751 2006-02-01 14:47:45Z nenolod $
+ * $Id: account.c 5115 2006-04-19 12:01:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"xmlrpc/account", FALSE, _modinit, _moddeinit,
-	"$Id: account.c 4751 2006-02-01 14:47:45Z nenolod $",
+	"$Id: account.c 5115 2006-04-19 12:01:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -593,6 +593,7 @@ static int do_metadata_get(void *conn, int parc, char *parv[])
  *       fault 1 - validation failed
  *       fault 2 - unknown account
  *       fault 4 - insufficient parameters
+ *       fault 5 - invalid parameters
  *       default - success message
  *
  * Side Effects:
@@ -623,6 +624,15 @@ static int do_set_vanity_host(void *conn, int parc, char *parv[])
 
 	if (parc > 2)
 	{
+		/* Never ever allow @!?* as they have special meaning in all ircds */
+		if (strchr(parv[2], '@') || strchr(parv[2], '!') ||
+			strchr(parv[2], '?') || strchr(parv[2], '*') ||
+			strlen(parv[2]) >= HOSTLEN)
+		{
+			xmlrpc_generic_error(5, "Invalid parameters.");
+			return 0;
+		}
+		/* XXX more checks here, perhaps as a configurable regexp? */
 		metadata_add(mu, METADATA_USER, "private:usercloak", parv[2]);
 		logcommand_external(using_nickserv ? nicksvs.me : usersvs.me, "xmlrpc", conn, mu, CMDLOG_ADMIN, "VHOST ASSIGN %s", parv[2]);
 	}
@@ -631,6 +641,54 @@ static int do_set_vanity_host(void *conn, int parc, char *parv[])
 		metadata_delete(mu, METADATA_USER, "private:usercloak");
 		logcommand_external(using_nickserv ? nicksvs.me : usersvs.me, "xmlrpc", conn, mu, CMDLOG_ADMIN, "VHOST DELETE");
 	}
+
+	xmlrpc_string(buf, "Operation was successful.");
+	xmlrpc_send(1, buf);
+	return 0;
+}
+
+/*
+ * atheme.account.set_password
+ *
+ * XML inputs:
+ *       authcookie, account name, new password
+ *
+ * XML outputs:
+ *       fault 1 - validation failed
+ *       fault 2 - unknown account
+ *       fault 4 - insufficient parameters
+ *       fault 6 - passwords do not match
+ *       default - success message
+ *
+ * Side Effects:
+ *       an account password is changed.
+ */
+static int do_set_password(void *conn, int parc, char *parv[])
+{
+	myuser_t *mu;
+	char buf[XMLRPC_BUFSIZE];
+
+	if (parc < 3)
+	{
+		xmlrpc_generic_error(4, "Insufficient parameters.");
+		return 0;
+	}
+
+	if ((mu = myuser_find(parv[1])) == NULL)
+	{
+		xmlrpc_generic_error(2, "Unknown account.");
+		return 0;
+	}
+
+	if (authcookie_validate(parv[0], mu) == FALSE)
+	{
+		xmlrpc_generic_error(1, "Authcookie validation failed.");
+		return 0;
+	}
+
+	set_password(mu, parv[2]);
+
+	logcommand_external(using_nickserv ? nicksvs.me : usersvs.me, "xmlrpc", conn, mu, CMDLOG_ADMIN, "SET PASSWORD");
 
 	xmlrpc_string(buf, "Operation was successful.");
 	xmlrpc_send(1, buf);
@@ -650,6 +708,7 @@ void _modinit(module_t *m)
 	xmlrpc_register_method("atheme.account.metadata.delete", do_metadata_delete);
 	xmlrpc_register_method("atheme.account.metadata.get", do_metadata_get);
 	xmlrpc_register_method("atheme.account.vhost", do_set_vanity_host);
+	xmlrpc_register_method("atheme.account.set_password", do_set_password);
 }
 
 void _moddeinit(void)
@@ -662,5 +721,6 @@ void _moddeinit(void)
 	xmlrpc_unregister_method("atheme.account.metadata.delete");
 	xmlrpc_unregister_method("atheme.account.metadata.get");
 	xmlrpc_unregister_method("atheme.account.vhost");
+	xmlrpc_unregister_method("atheme.account.set_password");
 }
 

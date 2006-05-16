@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for bahamut-based ircd.
  *
- * $Id: unreal.c 4701 2006-01-24 17:31:20Z jilles $
+ * $Id: unreal.c 5131 2006-04-29 19:09:24Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/unreal.h"
 
-DECLARE_MODULE_V1("protocol/unreal", TRUE, _modinit, NULL, "$Id: unreal.c 4701 2006-01-24 17:31:20Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/unreal", TRUE, _modinit, NULL, "$Id: unreal.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -109,7 +109,7 @@ static uint8_t unreal_server_login(void)
 /* introduce a client */
 static void unreal_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
-	sts("NICK %s 1 %ld %s %s %s 0 +%s * :%s", nick, CURRTIME, user, host, me.name, "io", real);
+	sts("NICK %s 1 %ld %s %s %s 0 +%sS * :%s", nick, CURRTIME, user, host, me.name, "io", real);
 }
 
 /* invite a user to a channel */
@@ -537,7 +537,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
-	kline_t *k;
 
 	if (parc == 10)
 	{
@@ -549,21 +548,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		}
 
 		slog(LG_DEBUG, "m_nick(): new user on `%s': %s", s->name, parv[0]);
-
-		if ((k = kline_find(parv[3], parv[4])))
-		{
-			/* the new user matches a kline.
-			 * the server introducing the user probably wasn't around when
-			 * we added the kline or isn't accepting klines from us.
-			 * either way, we'll KILL the user and send the server
-			 * a new KLINE.
-			 */
-
-			skill(opersvs.nick, parv[0], k->reason);
-			kline_sts(parv[5], k->user, k->host, (k->expires - CURRTIME), k->reason);
-
-			return;
-		}
 
 		u = user_add(parv[0], parv[3], parv[4], parv[8], NULL, NULL, parv[9], s, atoi(parv[2]));
 
@@ -799,6 +783,11 @@ static void m_chghost(char *origin, uint8_t parc, char *parv[])
 	strlcpy(u->vhost, parv[1], HOSTLEN);
 }
 
+static void m_motd(char *origin, uint8_t parc, char *parv[])
+{
+	handle_motd(user_find(origin));
+}
+
 void _modinit(module_t * m)
 {
 	/* Symbol relocation voodoo. */
@@ -857,6 +846,7 @@ void _modinit(module_t * m)
 	pcommand_add("ERROR", m_error);
 	pcommand_add("TOPIC", m_topic);
 	pcommand_add("CHGHOST", m_chghost);
+	pcommand_add("MOTD", m_motd);
 
 	/* 
 	 * for fun, and to give nenolod a heart attack
@@ -891,6 +881,7 @@ void _modinit(module_t * m)
 	pcommand_add("5", m_error);
 	pcommand_add(")", m_topic);
 	pcommand_add("AL", m_chghost);
+	pcommand_add("F", m_motd);
 
 	m->mflags = MODTYPE_CORE;
 

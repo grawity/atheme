@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService XOP functions.
  *
- * $Id: xop.c 5073 2006-04-14 11:16:18Z w00t $
+ * $Id: xop.c 5686 2006-07-03 16:25:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/xop", FALSE, _modinit, _moddeinit,
-	"$Id: xop.c 5073 2006-04-14 11:16:18Z w00t $",
+	"$Id: xop.c 5686 2006-07-03 16:25:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -42,8 +42,8 @@ list_t *cs_cmdtree, *cs_helptree;
 
 void _modinit(module_t *m)
 {
-	cs_cmdtree = module_locate_symbol("chanserv/main", "cs_cmdtree");
-	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
+	MODULE_USE_SYMBOL(cs_cmdtree, "chanserv/main", "cs_cmdtree");
+	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
         command_add(&cs_aop, cs_cmdtree);
         command_add(&cs_sop, cs_cmdtree);
@@ -286,7 +286,7 @@ static void cs_xop_do_add(mychan_t *mc, myuser_t *mu, char *origin, char *target
 			{
 				if (!(cu->modes & CMODE_OP))
 				{
-					cmode(chansvs.nick, mc->name, "+o", cu->user->nick);
+					modestack_mode_param(chansvs.nick, mc->name, MTYPE_ADD, 'o', CLIENT_NAME(cu->user));
 					cu->modes |= CMODE_OP;
 				}
 			}
@@ -294,7 +294,7 @@ static void cs_xop_do_add(mychan_t *mc, myuser_t *mu, char *origin, char *target
 			{
 				if (!(cu->modes & (CMODE_OP | ircd->halfops_mode)))
 				{
-					cmode(chansvs.nick, mc->name, ircd->halfops_mchar, cu->user->nick);
+					modestack_mode_param(chansvs.nick, mc->name, MTYPE_ADD, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
 					cu->modes |= ircd->halfops_mode;
 				}
 			}
@@ -303,7 +303,7 @@ static void cs_xop_do_add(mychan_t *mc, myuser_t *mu, char *origin, char *target
 				/* XXX HOP should have +V */
 				if (!(cu->modes & (CMODE_OP | ircd->halfops_mode | CMODE_VOICE)))
 				{
-					cmode(chansvs.nick, mc->name, "+v", cu->user->nick);
+					modestack_mode_param(chansvs.nick, mc->name, MTYPE_ADD, 'v', CLIENT_NAME(cu->user));
 					cu->modes |= CMODE_VOICE;
 				}
 			}
@@ -375,7 +375,7 @@ static void cs_xop_do_add(mychan_t *mc, myuser_t *mu, char *origin, char *target
 		{
 			if (!(cu->modes & CMODE_OP))
 			{
-				cmode(chansvs.nick, mc->name, "+o", cu->user->nick);
+				modestack_mode_param(chansvs.nick, mc->name, MTYPE_ADD, 'o', CLIENT_NAME(cu->user));
 				cu->modes |= CMODE_OP;
 			}
 		}
@@ -383,7 +383,7 @@ static void cs_xop_do_add(mychan_t *mc, myuser_t *mu, char *origin, char *target
 		{
 			if (!(cu->modes & (CMODE_OP | ircd->halfops_mode)))
 			{
-				cmode(chansvs.nick, mc->name, ircd->halfops_mchar, cu->user->nick);
+				modestack_mode_param(chansvs.nick, mc->name, MTYPE_ADD, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
 				cu->modes |= ircd->halfops_mode;
 			}
 		}
@@ -392,7 +392,7 @@ static void cs_xop_do_add(mychan_t *mc, myuser_t *mu, char *origin, char *target
 			/* XXX HOP should have +V */
 			if (!(cu->modes & (CMODE_OP | ircd->halfops_mode | CMODE_VOICE)))
 			{
-				cmode(chansvs.nick, mc->name, "+v", cu->user->nick);
+				modestack_mode_param(chansvs.nick, mc->name, MTYPE_ADD, 'v', CLIENT_NAME(cu->user));
 				cu->modes |= CMODE_VOICE;
 			}
 		}

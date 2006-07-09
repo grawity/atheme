@@ -4,7 +4,7 @@
  *
  * Connection and I/O management.
  *
- * $Id: connection.c 4169 2005-12-19 15:39:53Z nenolod $
+ * $Id: connection.c 5346 2006-06-04 18:26:42Z jilles $
  */
 
 #include <org.atheme.claro.base>
@@ -116,6 +116,23 @@ connection_t *connection_find(int32_t fd)
 }
 
 /*
+ * connection_count()
+ *
+ * inputs:
+ *       none
+ *
+ * outputs:
+ *       number of connections tracked
+ *
+ * side effects:
+ *       none
+ */
+int connection_count(void)
+{
+
+	return LIST_LENGTH(&connection_list);
+}
+/*
  * connection_close()
  *
  * inputs:
@@ -131,16 +148,29 @@ void connection_close(connection_t *cptr)
 {
 	node_t *nptr, *nptr2;
 	datastream_t *sptr; 
-
-	if (errno)
-		clog(LG_IOERROR, "connection_close(): connection %s[%d] closed due to error %d (%s)",
-				cptr->name, cptr->fd, errno, strerror(errno));
+	int errno1, errno2;
+#ifdef SO_ERROR
+	socklen_t len = sizeof(errno2);
+#endif
 
 	if (!cptr || cptr->fd <= 0)
 	{
 		clog(LG_DEBUG, "connection_close(): no connection to close!");
 		return;
 	}
+
+	errno1 = errno;
+#ifdef SO_ERROR
+	if (!getsockopt(cptr->fd, SOL_SOCKET, SO_ERROR, (char *) &errno2, (socklen_t *) &len))
+	{
+		if (errno2 != 0)
+			errno1 = errno2;
+	}
+#endif
+
+	if (errno1)
+		clog(LG_IOERROR, "connection_close(): connection %s[%d] closed due to error %d (%s)",
+				cptr->name, cptr->fd, errno1, strerror(errno1));
 
 	/* close the fd */
 	close(cptr->fd);

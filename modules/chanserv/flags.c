@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService FLAGS functions.
  *
- * $Id: flags.c 5073 2006-04-14 11:16:18Z w00t $
+ * $Id: flags.c 5686 2006-07-03 16:25:03Z jilles $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/flags", FALSE, _modinit, _moddeinit,
-	"$Id: flags.c 5073 2006-04-14 11:16:18Z w00t $",
+	"$Id: flags.c 5686 2006-07-03 16:25:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -30,9 +30,9 @@ list_t *cs_helptree;
 
 void _modinit(module_t *m)
 {
-	cs_cmdtree = module_locate_symbol("chanserv/main", "cs_cmdtree");
-	cs_fcmdtree = module_locate_symbol("chanserv/main", "cs_fcmdtree");
-	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
+	MODULE_USE_SYMBOL(cs_cmdtree, "chanserv/main", "cs_cmdtree");
+	MODULE_USE_SYMBOL(cs_fcmdtree, "chanserv/main", "cs_fcmdtree");
+	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
         command_add(&cs_flags, cs_cmdtree);
 	fcommand_add(&cs_fantasy_flags, cs_fcmdtree);
@@ -133,9 +133,38 @@ static void cs_cmd_flags(char *origin)
 			return;
 		}
 
-		if (!target || !flagstr)
+		if (!target)
 		{
 			notice(chansvs.nick, origin, "Usage: FLAGS %s [target] [flags]", channel);
+			return;
+		}
+
+		if (!flagstr)
+		{
+			if (!(chanacs_user_flags(mc, u) & CA_ACLVIEW))
+			{
+				notice(chansvs.nick, origin, "You are not authorized to execute this command.");
+				return;
+			}
+			if (validhostmask(target))
+				ca = chanacs_find_host_literal(mc, target, 0);
+			else
+			{
+				if (!(tmu = myuser_find_ext(target)))
+				{
+					notice(chansvs.nick, origin, "The nickname \2%s\2 is not registered.", target);
+					return;
+				}
+				ca = chanacs_find(mc, tmu, 0);
+			}
+			if (ca != NULL)
+				notice(chansvs.nick, origin, "Flags for \2%s\2 in \2%s\2 are \2%s\2.",
+						target, channel,
+						bitmask_to_flags2(ca != NULL ? ca->level : 0, 0, chanacs_flags));
+			else
+				notice(chansvs.nick, origin, "No flags for \2%s\2 in \2%s\2.",
+						target, channel);
+			logcommand(chansvs.me, u, CMDLOG_SET, "%s FLAGS %s", mc->name, target);
 			return;
 		}
 

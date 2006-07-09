@@ -4,7 +4,7 @@
  *
  * Commandtree manipulation routines.
  *
- * $Id: commandtree.c 5255 2006-05-05 02:05:07Z nenolod $
+ * $Id: commandtree.c 5676 2006-07-02 21:42:21Z jilles $
  */
 
 #include "atheme.h"
@@ -38,10 +38,10 @@ void command_add(command_t * cmd, list_t *commandtree)
  */
 void command_add_many(command_t ** cmd, list_t *commandtree)
 {
-	command_t *cptr;
+	uint32_t i;
 
-	for (cptr = cmd[0]; cptr; cptr++)
-		command_add(cptr, commandtree);
+	for (i = 0; cmd[i] != NULL; i++)
+		command_add(cmd[i], commandtree);
 }
 
 void command_delete(command_t * cmd, list_t *commandtree)
@@ -55,6 +55,27 @@ void command_delete(command_t * cmd, list_t *commandtree)
 	}
 
 	node_del(n, commandtree);
+}
+
+/*
+ * command_delete_many()
+ *
+ * Inputs:
+ *       array of commands to delete, list to delete them from.
+ *
+ * Output:
+ *       none
+ *
+ * Side Effects:
+ *       deletes an array of commands from a command list,
+ *       via command_delete().
+ */
+void command_delete_many(command_t ** cmd, list_t *commandtree)
+{
+	uint32_t i;
+
+	for (i = 0; cmd[i] != NULL; i++)
+		command_delete(cmd[i], commandtree);
 }
 
 void command_exec(service_t *svs, char *origin, char *cmd, list_t *commandtree)

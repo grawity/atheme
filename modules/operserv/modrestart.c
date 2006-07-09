@@ -4,7 +4,7 @@
  *
  * Module listing.
  *
- * $Id: modrestart.c 5053 2006-04-13 10:59:42Z jilles $
+ * $Id: modrestart.c 5696 2006-07-03 22:40:19Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modrestart", TRUE, _modinit, _moddeinit,
-	"$Id: modrestart.c 5053 2006-04-13 10:59:42Z jilles $",
+	"$Id: modrestart.c 5696 2006-07-03 22:40:19Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -31,8 +31,9 @@ extern list_t modules;
 
 void _modinit(module_t *m)
 {
-	os_cmdtree = module_locate_symbol("operserv/main", "os_cmdtree");
-	os_helptree = module_locate_symbol("operserv/main", "os_helptree");
+	MODULE_USE_SYMBOL(os_cmdtree, "operserv/main", "os_cmdtree");
+	MODULE_USE_SYMBOL(os_helptree, "operserv/main", "os_helptree");
+
 	command_add(&os_modrestart, os_cmdtree);
 	help_addentry(os_helptree, "MODRESTART", "help/oservice/modrestart", NULL);
 }
@@ -45,43 +46,60 @@ void _moddeinit()
 
 static void os_cmd_modrestart(char *origin)
 {
-#if 0
 	node_t *n;
-	uint32_t iter = 0;
-	uint32_t reloaded = 0;
+	int loadedbefore, kept;
+	boolean_t old_silent;
+	boolean_t fail1 = FALSE;
+	boolean_t unloaded_something;
 
 	snoop("MODRESTART: \2%s\2", origin);
 	logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "MODRESTART");
 	wallops("Restarting modules by request of \2%s\2", origin);
 
-	LIST_FOREACH(n, modules.head)
+	old_silent = config_options.silent;
+	config_options.silent = TRUE; /* no wallops */
+
+	loadedbefore = modules.count;
+
+	/* unload everything we can */
+	/* this contorted loop is necessary because unloading a module
+	 * may unload other modules */
+	do
 	{
-		module_t *m = n->data;
-
-		/* don't touch core modules */
-		if (!m->header->norestart)
+		unloaded_something = FALSE;
+		LIST_FOREACH(n, modules.head)
 		{
-			char *modpath = sstrdup(m->modpath);
-			module_unload(m);
-			module_load(modpath);
-			free(modpath);
-			reloaded++;
+			module_t *m = n->data;
+
+			/* don't touch core modules */
+			/* don't touch ourselves either (ugly way) */
+			if (!m->header->norestart && strcmp(m->header->name, "operserv/main") && strcmp(m->header->name, "operserv/modrestart"))
+			{
+				module_unload(m);
+				unloaded_something = TRUE;
+				break;
+			}
 		}
+	} while (unloaded_something);
 
-		/* Have we unloaded all the modules? */
-		if (iter == (modules.count - 1))
-			break;
+	kept = modules.count;
 
-		iter++;
-	}
-
+	/* now reload again */
 	module_load_dir(MODDIR "/modules");
+	cold_start = TRUE; /* XXX */
+	fail1 = !conf_rehash();
+	cold_start = FALSE;
 
-	notice(opersvs.nick, origin, "Module restart: %d modules reloaded; %d modules now loaded", reloaded, modules.count);
-#else
-	/* The above stuff cannot possibly work, so disable it.
-	 * MODRESTART will probably have to be done in the core somehow
-	 * -- jilles */
-	notice(opersvs.nick, origin, "MODRESTART is currently not implemented.");
-#endif
+	config_options.silent = old_silent;
+
+	if (fail1)
+	{
+		wallops("Module restart failed, functionality will be very limited");
+		notice(opersvs.nick, origin, "Module restart failed, fix it and try again or restart");
+	}
+	else
+	{
+		wallops("Module restart: %d modules unloaded; %d kept; %d modules now loaded", loadedbefore - kept, kept, modules.count);
+		notice(opersvs.nick, origin, "Module restart: %d modules unloaded; %d kept; %d modules now loaded", loadedbefore - kept, kept, modules.count);
+	}
 }

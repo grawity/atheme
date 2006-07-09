@@ -1,3 +1,2879 @@
+jilles      2006/07/09 18:11:01 UTC	(20060709-5828)
+  Log:
+  Merged revisions 5826 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r5826 | jilles | 2006-07-09 20:10:01 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    Update the release notes.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  +6 -1		branches/release-1.2/doc/RELEASE (File Modified) 
+
+
+jilles      2006/07/09 18:05:30 UTC	(20060709-5824)
+  Log:
+  Merged revisions 5774 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r5774 | jilles | 2006-07-07 22:54:19 +0200 (Fri, 07 Jul 2006) | 4 lines
+    
+    Only set founder/protect if user has +O (autoop) flag.
+    Still allow them to keep it if they're founder/have +s
+    but not +O, even if SECURE is enabled, however.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  +2 -2		branches/release-1.2/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/07/09 17:37:41 UTC	(20060709-5822)
+  Log:
+  Merged revisions 5802,5804-5806,5808,5810,5812,5814-5818,5820 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  help files
+  
+  ........
+    r5802 | beu | 2006-07-09 16:34:41 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    Update cservice (chanserv), nickserv and memoserv help files.
+  ........
+    r5806 | beu | 2006-07-09 16:42:47 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    Revert silly "all Examples: are bold" commit (from r5770).
+  ........
+    r5808 | beu | 2006-07-09 17:02:40 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    Grammatical fix.
+  ........
+    r5810 | beu | 2006-07-09 17:22:57 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    Spelling/grammatical fixes.
+  ........
+    r5812 | jilles | 2006-07-09 18:05:52 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    Remove last bold Example(s): from help files.
+  ........
+    r5818 | beu | 2006-07-09 18:29:21 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    Synchronise userserv and nickserv help files.
+  ........
+    r5820 | jilles | 2006-07-09 18:32:21 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    vhost help files: vhosts apply on login, not on connect
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  +5 -5		branches/release-1.2/help/cservice/flags (File Modified) 
+  +1 -1		branches/release-1.2/help/cservice/set_property (File Modified) 
+  +1 -2		branches/release-1.2/help/memoserv/delete (File Modified) 
+  +0 -1		branches/release-1.2/help/memoserv/forward (File Modified) 
+  +3 -4		branches/release-1.2/help/memoserv/list (File Modified) 
+  +0 -1		branches/release-1.2/help/memoserv/read (File Modified) 
+  +0 -1		branches/release-1.2/help/memoserv/send (File Modified) 
+  +1 -1		branches/release-1.2/help/nickserv/drop (File Modified) 
+  +0 -1		branches/release-1.2/help/nickserv/freeze (File Modified) 
+  +2 -2		branches/release-1.2/help/nickserv/info (File Modified) 
+  +1 -1		branches/release-1.2/help/nickserv/logout (File Modified) 
+  +0 -1		branches/release-1.2/help/nickserv/register (File Modified) 
+  +1 -1		branches/release-1.2/help/nickserv/set_emailmemos (File Modified) 
+  +3 -3		branches/release-1.2/help/nickserv/set_nomemo (File Modified) 
+  +1 -2		branches/release-1.2/help/nickserv/set_password (File Modified) 
+  +0 -1		branches/release-1.2/help/nickserv/verify (File Modified) 
+  +5 -4		branches/release-1.2/help/nickserv/vhost (File Modified) 
+  +4 -4		branches/release-1.2/help/oservice/akill (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/ignore (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/inject (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/jupe (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/mode (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/modinspect (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/modload (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/modunload (File Modified) 
+  +2 -2		branches/release-1.2/help/oservice/noop (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/raw (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/rehash (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/restart (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/shutdown (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/specs (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/update (File Modified) 
+  +4 -3		branches/release-1.2/help/userserv/drop (File Modified) 
+  +2 -2		branches/release-1.2/help/userserv/info (File Modified) 
+  +4 -1		branches/release-1.2/help/userserv/register (File Modified) 
+  +0 -1		branches/release-1.2/help/userserv/verify (File Modified) 
+  +6 -5		branches/release-1.2/help/userserv/vhost (File Modified) 
+
+
+jilles      2006/07/09 16:21:28 UTC	(20060709-5816)
+  Log:
+  Merged revisions 5786,5788-5789,5796 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r5786 | jilles | 2006-07-09 00:44:15 +0200 (Sun, 09 Jul 2006) | 3 lines
+    
+    Remove SASL question from ./setup. There is no problem
+    with building this all the time.
+  ........
+    r5796 | jilles | 2006-07-09 02:04:07 +0200 (Sun, 09 Jul 2006) | 4 lines
+    
+    Remove the old modules/saslserv/sasl.so and
+    modules/saslserv/help.so on make install,
+    loading them causes trouble.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  +2 -0		branches/release-1.2/modules/saslserv/Makefile.in (File Modified) 
+  +0 -33	branches/release-1.2/setup (File Modified) 
+
+
+jilles      2006/07/09 16:10:11 UTC	(20060709-5814)
+  Log:
+  Blocked revisions 5770 via svnmerge
+  (already merged)
+  
+  ........
+    r5770 | beu | 2006-07-07 17:12:24 +0200 (Fri, 07 Jul 2006) | 1 line
+    
+    Update oservice help files (purely cosmetic).
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+
+
+jilles      2006/07/09 14:37:47 UTC	(20060709-5804)
+  Log:
+  Merged revisions 5776,5788-5790,5798 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  contrib stuff
+  
+  ........
+    r5776 | jilles | 2006-07-08 18:51:24 +0200 (Sat, 08 Jul 2006) | 4 lines
+    
+    Add modules which disable use of halfops, channel
+    protection and founder statuses, to be loaded
+    after a protocol module.
+  ........
+    r5790 | jilles | 2006-07-09 01:03:39 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    cs_kickdots: add a header comment with copyright notice and short description
+  ........
+    r5798 | jilles | 2006-07-09 02:14:43 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    generatepass contrib module: avoid a crash when given certain arguments
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  +3 -0		branches/release-1.2/contrib/Makefile.in (File Modified) 
+  +132 -0	branches/release-1.2/contrib/cs_kickdots.c (File Modified) 
+  + -		branches/release-1.2/contrib/ircd_nohalfops.c (File Added) 
+  + -		branches/release-1.2/contrib/ircd_noowner.c (File Added) 
+  + -		branches/release-1.2/contrib/ircd_noprotect.c (File Added) 
+  +7 -6		branches/release-1.2/contrib/ns_generatepass.c (File Modified) 
+  +7 -6		branches/release-1.2/contrib/us_generatepass.c (File Modified) 
+
+
+jilles      2006/07/08 22:58:42 UTC	(20060708-5788)
+  Log:
+  Merged revisions 5784 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r5784 | jilles | 2006-07-09 00:30:03 +0200 (Sun, 09 Jul 2006) | 2 lines
+    
+    Mention FANTASY in /cs help set.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  +1 -0		branches/release-1.2/modules/chanserv/help.c (File Modified) 
+
+
+beu         2006/07/07 15:16:28 UTC	(20060707-5772)
+  Log:
+  Merge from trunk (r5770).
+
+  Changes:	Modified:
+  +3 -3		branches/release-1.2/help/oservice/akill (File Modified) 
+  +8 -6		branches/release-1.2/help/oservice/ignore (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/inject (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/jupe (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/mode (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/modinspect (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/modload (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/modunload (File Modified) 
+  +2 -2		branches/release-1.2/help/oservice/noop (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/raw (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/rehash (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/restart (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/shutdown (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/specs (File Modified) 
+  +1 -1		branches/release-1.2/help/oservice/update (File Modified) 
+
+
+jilles      2006/07/07 13:39:05 UTC	(20060707-5768)
+  Log:
+  Merged revisions 5766 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r5766 | jilles | 2006-07-07 15:31:13 +0200 (Fri, 07 Jul 2006) | 2 lines
+    
+    Set Id keywords on unreal protocol module stuff.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  + -		branches/release-1.2/include/protocol/unreal.h  (Property Modified)
+  + -		branches/release-1.2/protocol/unreal.c  (Property Modified)
+
+
+jilles      2006/07/07 13:09:46 UTC	(20060707-5764)
+  Log:
+  Merged revisions 5762 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r5762 | jilles | 2006-07-07 15:08:41 +0200 (Fri, 07 Jul 2006) | 2 lines
+    
+    Rerun autoconf to fix Id tag.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  +2 -2		branches/release-1.2/configure (File Modified) 
+
+
+jilles      2006/07/07 13:07:09 UTC	(20060707-5760)
+  Log:
+  Initialized merge tracking via "svnmerge" with revisions "1-5757" from 
+  http://svn.atheme.org/atheme/trunk
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+
+
+jilles      2006/07/07 13:04:09 UTC	(20060707-5758)
+  Log:
+  Branch 1.2.
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/ (File Added) 
+
+
+jilles      2006/07/06 19:54:45 UTC	(20060706-5756)
+  Log:
+  validhostmask(): reject obviously too long stuff (this
+  still allows too much because we don't know the real
+  NICKLEN)
+  
+
+  Changes:	Modified:
+  +4 -0		trunk/src/function.c (File Modified) 
+
+
+jilles      2006/07/06 18:51:54 UTC	(20060706-5754)
+  Log:
+  Add user_burstlogin and sasl_input hooks to HOOKS document.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/doc/HOOKS (File Modified) 
+
+
+nenolod     2006/07/06 09:52:18 UTC	(20060706-5752)
+  Log:
+  - add -Wdisabled-optimization to CFLAGS if --enable-warnings is toggled on.
+  
+
+  Changes:	Modified:
+  +79 -0	trunk/configure (File Modified) 
+  +1 -0		trunk/configure.ac (File Modified) 
+
+
+nenolod     2006/07/06 09:51:05 UTC	(20060706-5750)
+  Log:
+  - sorcerynet -> sorircd
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/dist/example.conf (File Modified) 
+  +1 -1		trunk/dist/example.userserv.conf (File Modified) 
+
+
+nenolod     2006/07/06 08:57:10 UTC	(20060706-5748)
+  Log:
+  - move some stuff around in the credits
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/src/version.sh (File Modified) 
+
+
+jilles      2006/07/05 18:37:31 UTC	(20060705-5746)
+  Log:
+  example confs: more clarification (numeric/SID, name in uplink block)
+  
+
+  Changes:	Modified:
+  +5 -3		trunk/dist/example.conf (File Modified) 
+  +5 -3		trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/07/05 18:27:18 UTC	(20060705-5744)
+  Log:
+  example confs: add some comments
+  userserv gecos changed to "User Registration Services"
+  
+
+  Changes:	Modified:
+  +9 -0		trunk/dist/example.conf (File Modified) 
+  +14 -5	trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/07/05 16:43:47 UTC	(20060705-5740)
+  Log:
+  Update the release notes.
+  
+
+  Changes:	Modified:
+  +9 -1		trunk/doc/RELEASE (File Modified) 
+
+
+jilles      2006/07/05 16:37:22 UTC	(20060705-5738)
+  Log:
+  **/Makefile.in: Remove the mysql include and library path
+  variables, which configure no longer provides.
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/backend/Makefile.in (File Modified) 
+  +3 -3		trunk/contrib/Makefile.in (File Modified) 
+  +3 -3		trunk/crypto/Makefile.in (File Modified) 
+  +3 -3		trunk/modules/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/chanserv/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/global/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/helpserv/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/memoserv/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/nickserv/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/operserv/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/saslserv/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/userserv/Makefile.in (File Modified) 
+  +2 -2		trunk/modules/xmlrpc/Makefile.in (File Modified) 
+  +3 -3		trunk/src/Makefile.in (File Modified) 
+
+
+jilles      2006/07/05 16:10:07 UTC	(20060705-5736)
+  Log:
+  Rerun autoconf.
+  
+
+  Changes:	Modified:
+  +3 -260	trunk/configure (File Modified) 
+
+
+jilles      2006/07/05 16:09:30 UTC	(20060705-5734)
+  Log:
+  Remove mysql from configure and example confs.
+  
+
+  Changes:	Modified:
+  +0 -43	trunk/configure.ac (File Modified) 
+  +0 -1		trunk/dist/example.conf (File Modified) 
+  +0 -1		trunk/dist/example.userserv.conf (File Modified) 
+
+
+w00t        2006/07/05 16:06:54 UTC	(20060705-5732)
+  Log:
+  Remove MySQL support; needs jilles to do autoconf
+
+  Changes:	Modified:
+  +0 -117	trunk/SQL/atheme_init.mysql (File Deleted) 
+  +1 -1		trunk/backend/Makefile.in (File Modified) 
+  +0 -591	trunk/backend/mysql.c (File Deleted) 
+  +0 -11	trunk/doc/SQL (File Modified) 
+
+
+jilles      2006/07/04 17:31:44 UTC	(20060704-5730)
+  Log:
+  modestack_flush(): put - simple modes before + simple modes
+  this may help somewhat with ircds that still enforce +p xor +s
+  note that the modestacker treats +k as a non-simple mode
+  
+
+  Changes:	Modified:
+  +23 -20	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/07/04 17:16:04 UTC	(20060704-5728)
+  Log:
+  Get rid of some over-copious mode stacker debug output.
+  
+
+  Changes:	Modified:
+  +3 -5		trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/07/04 17:11:15 UTC	(20060704-5726)
+  Log:
+  cmode(): get rid of a warning about possibly uninitialized variables
+  (impossible, but gcc can't see that).
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/src/cmode.c (File Modified) 
+
+
+w00t        2006/07/04 16:06:20 UTC	(20060704-5724)
+  Log:
+  re-add the unreal module, I'm going to maintain it. (Or try to.)
+
+  Changes:	Modified:
+  +2 -1		trunk/dist/example.conf (File Modified) 
+  +2 -1		trunk/dist/example.userserv.conf (File Modified) 
+  +5 -0		trunk/doc/IRCD (File Modified) 
+  +1 -1		trunk/include/pmodule.h (File Modified) 
+  +35 -0	trunk/include/protocol/unreal.h (File Added) 
+  +2 -1		trunk/protocol/Makefile.in (File Modified) 
+  +940 -0	trunk/protocol/unreal.c (File Added) 
+
+
+jilles      2006/07/04 15:30:09 UTC	(20060704-5722)
+  Log:
+  global: include the oper's nick in the first line
+  
+
+  Changes:	Modified:
+  +9 -1		trunk/modules/global/main.c (File Modified) 
+
+
+jilles      2006/07/04 12:25:00 UTC	(20060704-5720)
+  Log:
+  example confs: remove modules/saslserv/sasl from comments
+  Noticed by Lauren
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/dist/example.conf (File Modified) 
+  +0 -1		trunk/dist/example.userserv.conf (File Modified) 
+
+
+gxti        2006/07/04 06:10:05 UTC	(20060704-5718)
+  Log:
+  Clean up stale sessions periodically.
+  Lots of comment fixes/additions.
+  
+
+  Changes:	Modified:
+  +4 -2		trunk/include/sasl.h (File Modified) 
+  +49 -0	trunk/modules/saslserv/main.c (File Modified) 
+
+
+gxti        2006/07/04 04:19:46 UTC	(20060704-5716)
+  Log:
+  SASL: Relocate sasl.c into main.c.
+  Store UIDs of authed users so we can omit notices when they connect.
+  Refine cleanup of sessions, mechanisms.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/dist/example.conf (File Modified) 
+  +0 -1		trunk/dist/example.userserv.conf (File Modified) 
+  +2 -0		trunk/include/services.h (File Modified) 
+  +1 -1		trunk/modules/saslserv/Makefile.in (File Modified) 
+  +448 -3	trunk/modules/saslserv/main.c (File Modified) 
+  +0 -448	trunk/modules/saslserv/sasl.c (File Deleted) 
+  +11 -0	trunk/src/services.c (File Modified) 
+
+
+jilles      2006/07/04 01:05:32 UTC	(20060704-5714)
+  Log:
+  chanserv set mlock help file: improve examples
+  
+
+  Changes:	Modified:
+  +9 -5		trunk/help/cservice/set_mlock (File Modified) 
+
+
+jilles      2006/07/04 00:25:33 UTC	(20060704-5712)
+  Log:
+  Update the release notes.
+  New format with sub headings and indications what's been merged to 1.1.
+  
+
+  Changes:	Modified:
+  +48 -0	trunk/doc/RELEASE (File Modified) 
+
+
+jilles      2006/07/03 23:40:14 UTC	(20060703-5710)
+  Log:
+  Don't send nickserv::spam to bursted users, only to new users.
+  
+
+  Changes:	Modified:
+  +4 -0		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/07/03 23:37:53 UTC	(20060703-5708)
+  Log:
+  Call the server_eob hook before setting the SF_EOB flag
+  on the server, this way functions called from hooks
+  still know the users were bursted and not new users.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/07/03 23:25:09 UTC	(20060703-5706)
+  Log:
+  ChanServ: only send entry messages and urls if the
+  user's server is end of burst, i.e. not after
+  netsplits or services restarts.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/07/03 23:18:12 UTC	(20060703-5704)
+  Log:
+  modrestart help file: add notice that a full restart may be more reliable
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/help/oservice/modrestart (File Modified) 
+
+
+jilles      2006/07/03 23:00:41 UTC	(20060703-5702)
+  Log:
+  modunload help file: remove remark about unloading modload/modunload,
+  we now deny this altogether.
+  
+
+  Changes:	Modified:
+  +0 -3		trunk/help/oservice/modunload (File Modified) 
+
+
+jilles      2006/07/03 22:56:53 UTC	(20060703-5700)
+  Log:
+  Don't allow /os modunload to unload operserv/main, operserv/modunload
+  and operserv/modload. Allowing one of the former two would cause
+  a crash, and allowing the latter is just dumb.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/modules/operserv/modunload.c (File Modified) 
+
+
+jilles      2006/07/03 22:48:14 UTC	(20060703-5698)
+  Log:
+  Update modrestart help file.
+  
+
+  Changes:	Modified:
+  +4 -3		trunk/help/oservice/modrestart (File Modified) 
+
+
+jilles      2006/07/03 22:40:19 UTC	(20060703-5696)
+  Log:
+  operserv modrestart:
+  - tweak notice/wallops on failure
+  - fix counts shown on success
+  
+
+  Changes:	Modified:
+  +9 -6		trunk/modules/operserv/modrestart.c (File Modified) 
+
+
+jilles      2006/07/03 22:21:20 UTC	(20060703-5694)
+  Log:
+  Don't send wallops about every module loaded on a module restart.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/module.c (File Modified) 
+
+
+jilles      2006/07/03 17:01:33 UTC	(20060703-5690)
+  Log:
+  Make chanserv join channels on modrestart
+  
+
+  Changes:	Modified:
+  +5 -7		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/07/03 16:56:43 UTC	(20060703-5688)
+  Log:
+  operserv modrestart: make this work somewhat. still causes wallops floods.
+  
+
+  Changes:	Modified:
+  +41 -27	trunk/modules/operserv/modrestart.c (File Modified) 
+
+
+jilles      2006/07/03 16:25:03 UTC	(20060703-5686)
+  Log:
+  Use MODULE_USE_SYMBOL everywhere.
+  This commit brought to you by:
+  sed -i.bak 's/\([^[:space:]]*\) = module_locate_symbol(\(".*"\), \(".*"\));/MODULE_USE_SYMBOL(\1, \2, \3);/'
+  and manual editing to put them first everywhere.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/contrib/cs_count.c (File Modified) 
+  +2 -2		trunk/contrib/cs_ping.c (File Modified) 
+  +1 -1		trunk/contrib/fc_dice.c (File Modified) 
+  +3 -2		trunk/contrib/ns_enforce.c (File Modified) 
+  +3 -2		trunk/contrib/ns_generatepass.c (File Modified) 
+  +1 -1		trunk/contrib/os_pingspam.c (File Modified) 
+  +3 -2		trunk/contrib/us_generatepass.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/akick.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/ban.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/clear.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/clear_bans.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/clear_users.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/close.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/drop.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/flags.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/ftransfer.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/getkey.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/halfop.c (File Modified) 
+  +4 -3		trunk/modules/chanserv/help.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/hold.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/info.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/invite.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/kick.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/list.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/mark.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/op.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/recover.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/register.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/set.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/status.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/taxonomy.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/template.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/topic.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/version.c (File Modified) 
+  +3 -3		trunk/modules/chanserv/voice.c (File Modified) 
+  +1 -1		trunk/modules/chanserv/why.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/xop.c (File Modified) 
+  +3 -3		trunk/modules/global/main.c (File Modified) 
+  +2 -2		trunk/modules/helpserv/help.c (File Modified) 
+  +1 -1		trunk/modules/helpserv/helper.c (File Modified) 
+  +1 -1		trunk/modules/helpserv/override.c (File Modified) 
+  +3 -2		trunk/modules/memoserv/delete.c (File Modified) 
+  +3 -3		trunk/modules/memoserv/forward.c (File Modified) 
+  +2 -2		trunk/modules/memoserv/help.c (File Modified) 
+  +4 -4		trunk/modules/memoserv/ignore.c (File Modified) 
+  +3 -3		trunk/modules/memoserv/list.c (File Modified) 
+  +3 -3		trunk/modules/memoserv/read.c (File Modified) 
+  +3 -3		trunk/modules/memoserv/send.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/drop.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/freeze.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/ghost.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/help.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/hold.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/identify.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/info.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/list.c (File Modified) 
+  +2 -2		trunk/modules/nickserv/listchans.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/listmail.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/logout.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/mark.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/register.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/resetpass.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/return.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/sendpass.c (File Modified) 
+  +2 -2		trunk/modules/nickserv/set.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/status.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/taxonomy.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/verify.c (File Modified) 
+  +3 -2		trunk/modules/nickserv/vhost.c (File Modified) 
+  +2 -2		trunk/modules/operserv/akill.c (File Modified) 
+  +2 -2		trunk/modules/operserv/help.c (File Modified) 
+  +2 -2		trunk/modules/operserv/ignore.c (File Modified) 
+  +2 -2		trunk/modules/operserv/inject.c (File Modified) 
+  +3 -2		trunk/modules/operserv/jupe.c (File Modified) 
+  +2 -2		trunk/modules/operserv/mode.c (File Modified) 
+  +3 -2		trunk/modules/operserv/modinspect.c (File Modified) 
+  +3 -2		trunk/modules/operserv/modlist.c (File Modified) 
+  +3 -2		trunk/modules/operserv/modload.c (File Modified) 
+  +3 -2		trunk/modules/operserv/modrestart.c (File Modified) 
+  +3 -2		trunk/modules/operserv/modunload.c (File Modified) 
+  +3 -2		trunk/modules/operserv/noop.c (File Modified) 
+  +2 -2		trunk/modules/operserv/raw.c (File Modified) 
+  +2 -2		trunk/modules/operserv/rehash.c (File Modified) 
+  +2 -2		trunk/modules/operserv/restart.c (File Modified) 
+  +2 -2		trunk/modules/operserv/shutdown.c (File Modified) 
+  +2 -2		trunk/modules/operserv/specs.c (File Modified) 
+  +2 -2		trunk/modules/operserv/update.c (File Modified) 
+  +3 -2		trunk/modules/operserv/uptime.c (File Modified) 
+  +1 -1		trunk/modules/saslserv/crypt.c (File Modified) 
+  +1 -1		trunk/modules/saslserv/dh-blowfish.c (File Modified) 
+  +3 -2		trunk/modules/saslserv/help.c (File Modified) 
+  +1 -1		trunk/modules/saslserv/plain.c (File Modified) 
+  +1 -1		trunk/modules/saslserv/sasl.c (File Modified) 
+  +3 -2		trunk/modules/userserv/drop.c (File Modified) 
+  +3 -2		trunk/modules/userserv/freeze.c (File Modified) 
+  +3 -2		trunk/modules/userserv/help.c (File Modified) 
+  +3 -2		trunk/modules/userserv/hold.c (File Modified) 
+  +3 -2		trunk/modules/userserv/info.c (File Modified) 
+  +3 -2		trunk/modules/userserv/list.c (File Modified) 
+  +2 -2		trunk/modules/userserv/listchans.c (File Modified) 
+  +3 -2		trunk/modules/userserv/listmail.c (File Modified) 
+  +3 -2		trunk/modules/userserv/login.c (File Modified) 
+  +3 -2		trunk/modules/userserv/logout.c (File Modified) 
+  +3 -2		trunk/modules/userserv/mark.c (File Modified) 
+  +3 -2		trunk/modules/userserv/register.c (File Modified) 
+  +3 -2		trunk/modules/userserv/resetpass.c (File Modified) 
+  +3 -2		trunk/modules/userserv/return.c (File Modified) 
+  +3 -2		trunk/modules/userserv/sendpass.c (File Modified) 
+  +2 -2		trunk/modules/userserv/set.c (File Modified) 
+  +3 -2		trunk/modules/userserv/status.c (File Modified) 
+  +3 -2		trunk/modules/userserv/taxonomy.c (File Modified) 
+  +3 -2		trunk/modules/userserv/verify.c (File Modified) 
+  +3 -2		trunk/modules/userserv/vhost.c (File Modified) 
+
+
+jilles      2006/07/03 16:12:09 UTC	(20060703-5684)
+  Log:
+  Make it possible for a module init function to indicate failure
+  (m->mflags = MODTYPE_FAIL). If this happens the module will be
+  unloaded without calling the deinit function.
+  Added a macro MODULE_USE_SYMBOL to call module_locate_symbol()
+  and abort the module load on failure.
+  Other changes: the loaded module is now not in the modules list
+  when modinit is called, wallops/log for depending modules unload
+  in reverse order.
+  
+
+  Changes:	Modified:
+  +12 -0	trunk/include/module.h (File Modified) 
+  +22 -14	trunk/src/module.c (File Modified) 
+
+
+jilles      2006/07/03 00:27:40 UTC	(20060703-5682)
+  Log:
+  NickServ DROP: delete the command on unload instead of adding it another time
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/nickserv/drop.c (File Modified) 
+
+
+jilles      2006/07/02 22:34:35 UTC	(20060702-5680)
+  Log:
+  module_locate_symbol(): do LG_ERROR logging on failure
+  so you don't need gdb to find out why it crashed
+  (most uses of module_locate_symbol() do not check if
+  it failed).
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/src/module.c (File Modified) 
+
+
+jilles      2006/07/02 22:24:00 UTC	(20060702-5678)
+  Log:
+  NickServ/UserServ SET: move logged-in check to ns_cmd_set()/us_cmd_set().
+  Checks in individual set commands kept but messages removed.
+  
+
+  Changes:	Modified:
+  +10 -24	trunk/modules/nickserv/set.c (File Modified) 
+  +10 -24	trunk/modules/userserv/set.c (File Modified) 
+
+
+jilles      2006/07/02 21:42:21 UTC	(20060702-5676)
+  Log:
+  Fix comment preceding command_delete_many().
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/src/commandtree.c (File Modified) 
+
+
+jilles      2006/07/02 21:20:32 UTC	(20060702-5674)
+  Log:
+  - Add extmodes description
+  - Add mode lock storage description
+  
+
+  Changes:	Modified:
+  +22 -7	trunk/doc/MODES (File Modified) 
+
+
+jilles      2006/07/02 18:37:23 UTC	(20060702-5672)
+  Log:
+  Add mode locking of non-standard simple modes with parameters.
+  This is stored in private:mlockext, examples:
+  +jf 2:30 #overflow -> "j2:30 f#overflow"
+  -j+f #overflow -> "j f#overflow"
+  
+
+  Changes:	Modified:
+  +71 -7	trunk/modules/chanserv/info.c (File Modified) 
+  +87 -18	trunk/modules/chanserv/set.c (File Modified) 
+  +47 -0	trunk/src/cmode.c (File Modified) 
+
+
+gxti        2006/07/02 18:35:45 UTC	(20060702-5670)
+  Log:
+  Also pull pubkey from autotools (duh).
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/saslserv/Makefile.in (File Modified) 
+
+
+gxti        2006/07/02 18:34:02 UTC	(20060702-5668)
+  Log:
+  Remove pubkey auth because it's broken and pointless.
+  Also, remove saslserv's command framework as it is no longer used.
+  
+
+  Changes:	Modified:
+  +1 -6		trunk/modules/saslserv/main.c (File Modified) 
+  +0 -502	trunk/modules/saslserv/pubkey.c (File Deleted) 
+
+
+gxti        2006/07/02 17:47:52 UTC	(20060702-5666)
+  Log:
+  Various DH-BLOWFISH fixes.
+  
+
+  Changes:	Modified:
+  +1 -9		trunk/modules/saslserv/dh-blowfish.c (File Modified) 
+
+
+jilles      2006/07/02 16:31:26 UTC	(20060702-5664)
+  Log:
+  charybdis: remove version number in ircd name
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/charybdis.c (File Modified) 
+
+
+jilles      2006/07/02 14:39:16 UTC	(20060702-5662)
+  Log:
+  charybdis +f callback: oops, checked access in source instead
+  of destination channel
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/protocol/charybdis.c (File Modified) 
+
+
+jilles      2006/07/02 13:01:33 UTC	(20060702-5660)
+  Log:
+  channel_mode(): don't check extmode parameters if the mode came from ircd
+  as there is no good way to deal with an invalid parameter.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/cmode.c (File Modified) 
+
+
+nenolod     2006/07/02 05:10:39 UTC	(20060702-5658)
+  Log:
+  - header/footer should be present on help `functions'
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/src/help.c (File Modified) 
+
+
+nenolod     2006/07/02 05:09:02 UTC	(20060702-5656)
+  Log:
+  - handle command_(add|delete)_many() a bit more sanely
+  
+
+  Changes:	Modified:
+  +6 -6		trunk/src/commandtree.c (File Modified) 
+
+
+nenolod     2006/07/02 05:05:34 UTC	(20060702-5654)
+  Log:
+  - HELP SET
+  
+
+  Changes:	Modified:
+  +0 -35	trunk/modules/nickserv/help.c (File Modified) 
+  +16 -0	trunk/modules/nickserv/set.c (File Modified) 
+
+
+nenolod     2006/07/02 04:38:41 UTC	(20060702-5652)
+  Log:
+  - ditto for userserv
+  
+
+  Changes:	Modified:
+  +211 -275	trunk/modules/userserv/set.c (File Modified) 
+
+
+nenolod     2006/07/02 04:28:25 UTC	(20060702-5650)
+  Log:
+  - change multiple string entities to single strings.
+  - remove redundant account lookups (we already had this information)
+  - remove a lot of other redundant shit
+  - remove use of set_command_, use command_t's instead.
+  
+
+  Changes:	Modified:
+  +150 -227	trunk/modules/nickserv/set.c (File Modified) 
+
+
+nenolod     2006/07/02 04:21:38 UTC	(20060702-5648)
+  Log:
+  - add command_delete_many().
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/commandtree.h (File Modified) 
+  +22 -1	trunk/src/commandtree.c (File Modified) 
+
+
+jilles      2006/07/02 01:38:39 UTC	(20060702-5646)
+  Log:
+  - remove last mention of unreal from example.conf
+  - remove unreal protocol module include file
+  - mark PROTOCOL_UNREAL constant obsolete
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/dist/example.conf (File Modified) 
+  +1 -1		trunk/dist/example.userserv.conf (File Modified) 
+  +1 -1		trunk/include/pmodule.h (File Modified) 
+  +0 -35	trunk/include/protocol/unreal.h (File Deleted) 
+
+
+jilles      2006/07/02 01:32:36 UTC	(20060702-5644)
+  Log:
+  Comment changes to users.h: don't mention which ircds use vhost. Add some other explanation.
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/include/users.h (File Modified) 
+
+
+nenolod     2006/07/02 00:57:52 UTC	(20060702-5642)
+  Log:
+  - remove unrealircd support -- it's never really worked very well, and nobody seems to care enough about it
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/dist/example.conf (File Modified) 
+  +0 -1		trunk/dist/example.userserv.conf (File Modified) 
+  +0 -5		trunk/doc/IRCD (File Modified) 
+  +1 -2		trunk/protocol/Makefile.in (File Modified) 
+  +0 -940	trunk/protocol/unreal.c (File Deleted) 
+
+
+jilles      2006/07/02 00:48:37 UTC	(20060702-5640)
+  Log:
+  Add some consts.
+  There will remain a warning about const in src/cmode.c which is hard to remove.
+  
+
+  Changes:	Modified:
+  +9 -10	trunk/include/extern.h (File Modified) 
+  +8 -8		trunk/src/cmode.c (File Modified) 
+  +11 -11	trunk/src/node.c (File Modified) 
+
+
+jilles      2006/07/02 00:21:54 UTC	(20060702-5638)
+  Log:
+  Use channel_mode_va() to make the code less ugly.
+  
+
+  Changes:	Modified:
+  +2 -8		trunk/protocol/inspircd.c (File Modified) 
+
+
+jilles      2006/07/02 00:08:33 UTC	(20060702-5636)
+  Log:
+  ChanServ UNBAN: remove unnecessary additional declaration of chanban_t *cb (2 times).
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/modules/chanserv/ban.c (File Modified) 
+
+
+jilles      2006/07/02 00:05:59 UTC	(20060702-5634)
+  Log:
+  flatfile_db_save(): cast argument to %ld from time_t to long
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/backend/flatfile.c (File Modified) 
+
+
+jilles      2006/07/01 23:55:36 UTC	(20060701-5632)
+  Log:
+  Add a comment to hook_channel_req_t, it is not
+  possible to use mychan_t here.
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/include/atheme.h (File Modified) 
+
+
+jilles      2006/07/01 23:52:50 UTC	(20060701-5630)
+  Log:
+  Make mc in hook_channel_req_t of type struct mychan_ * instead of void *.
+  
+
+  Changes:	Modified:
+  +1 -2		trunk/include/atheme.h (File Modified) 
+
+
+jilles      2006/07/01 23:38:42 UTC	(20060701-5628)
+  Log:
+  Add callbacks for non-standard type C channel modes
+  (forwarding, join throttling, etc).
+  
+
+  Changes:	Modified:
+  +9 -0		trunk/include/atheme.h (File Modified) 
+  +1 -1		trunk/include/phandler.h (File Modified) 
+  +1 -1		trunk/protocol/asuka.c (File Modified) 
+  +1 -1		trunk/protocol/bahamut.c (File Modified) 
+  +1 -1		trunk/protocol/bircd.c (File Modified) 
+  +64 -3	trunk/protocol/charybdis.c (File Modified) 
+  +1 -1		trunk/protocol/dreamforge.c (File Modified) 
+  +1 -1		trunk/protocol/hybrid.c (File Modified) 
+  +47 -4	trunk/protocol/hyperion.c (File Modified) 
+  +54 -4	trunk/protocol/inspircd.c (File Modified) 
+  +1 -1		trunk/protocol/ircnet.c (File Modified) 
+  +1 -1		trunk/protocol/nefarious.c (File Modified) 
+  +1 -1		trunk/protocol/plexus.c (File Modified) 
+  +28 -2	trunk/protocol/ptlink.c (File Modified) 
+  +1 -1		trunk/protocol/ratbox.c (File Modified) 
+  +1 -1		trunk/protocol/shadowircd.c (File Modified) 
+  +1 -1		trunk/protocol/solidircd.c (File Modified) 
+  +1 -1		trunk/protocol/sorcery.c (File Modified) 
+  +1 -1		trunk/protocol/ultimate3.c (File Modified) 
+  +1 -1		trunk/protocol/undernet.c (File Modified) 
+  +28 -2	trunk/protocol/unreal.c (File Modified) 
+  +2 -0		trunk/src/cmode.c (File Modified) 
+  +1 -1		trunk/src/pmodule.c (File Modified) 
+
+
+jilles      2006/07/01 21:25:55 UTC	(20060701-5626)
+  Log:
+  Remove an obsolete comment.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/include/phandler.h (File Modified) 
+
+
+jilles      2006/07/01 21:01:30 UTC	(20060701-5624)
+  Log:
+  flatfile load: don't set an mlocked key if it is empty (after
+  stripping), starts with a colon or contains a comma.
+  Such keys are invalid and this makes it possible (with
+  a database version bump) to add stuff on the MC line.
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/backend/flatfile.c (File Modified) 
+
+
+jilles      2006/07/01 16:09:29 UTC	(20060701-5622)
+  Log:
+  Only log out people whose account is dropped or whose
+  (bursted) account does not exist if we have an
+  authentication service.
+  
+
+  Changes:	Modified:
+  +9 -6		trunk/src/node.c (File Modified) 
+  +4 -2		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/07/01 15:56:15 UTC	(20060701-5620)
+  Log:
+  Add int authservice_loaded, counts the number of
+  authentication services (nickserv, userserv,
+  saslserv) loaded.
+  This will be used for not changing services logins
+  and accepting new logins if no authentication service
+  is loaded.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/pmodule.h (File Modified) 
+  +2 -0		trunk/modules/nickserv/main.c (File Modified) 
+  +2 -0		trunk/modules/saslserv/main.c (File Modified) 
+  +2 -0		trunk/modules/userserv/main.c (File Modified) 
+  +1 -0		trunk/src/pmodule.c (File Modified) 
+
+
+jilles      2006/07/01 00:25:48 UTC	(20060701-5610)
+  Log:
+  INSTALL document:
+  - some reorganization w/r ircd issues
+  - charybdis/ratbox/inspircd/asuka/bircd/nefarious/undernet
+    put as "recommended" ircds
+  
+
+  Changes:	Modified:
+  +7 -6		trunk/INSTALL (File Modified) 
+
+
+jilles      2006/07/01 00:13:01 UTC	(20060701-5608)
+  Log:
+  protocol module list in example confs:
+  - ircnet ircd support is 2.11 only (not 2.10)
+  - plexus support is 3.x only (not 2.x)
+  - mention ptlink
+  
+
+  Changes:	Modified:
+  +3 -2		trunk/dist/example.conf (File Modified) 
+  +3 -2		trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/06/30 23:53:18 UTC	(20060630-5606)
+  Log:
+  Remove version number (1.x) in description of
+  charybdis protocol module as we support 2.x
+  also.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/dist/example.conf (File Modified) 
+  +1 -1		trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/06/30 23:32:12 UTC	(20060630-5604)
+  Log:
+  user_mode():
+  - default to '+' instead of '-' if none given (very rare)
+  - use MTYPE_ADD, MTYPE_DEL constants
+  
+
+  Changes:	Modified:
+  +7 -7		trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/30 00:29:17 UTC	(20060630-5602)
+  Log:
+  unreal m_sjoin(): Add some channel_mode_va(NULL, c, 1, "+");
+  
+
+  Changes:	Modified:
+  +4 -0		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/06/29 22:19:27 UTC	(20060629-5600)
+  Log:
+  Revert accidental hyb7/ratbox -> hyb7/hybrid change in comment.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/hybrid.c (File Modified) 
+
+
+jilles      2006/06/29 13:00:14 UTC	(20060629-5596)
+  Log:
+  ChanServ FLAGS: allow /cs flags <target> to see one access entry.
+  Requested by w00t.
+  This adds some duplicate code, cs_cmd_flags() can use some refactoring.
+  
+
+  Changes:	Modified:
+  +30 -1	trunk/modules/chanserv/flags.c (File Modified) 
+
+
+jilles      2006/06/29 12:24:51 UTC	(20060629-5594)
+  Log:
+  add missing descriptions for ircd->uses_protect and ircd->uses_owner
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/doc/MODES (File Modified) 
+
+
+jilles      2006/06/29 12:23:30 UTC	(20060629-5592)
+  Log:
+  ircnet m_njoin(): cause mlock checks when creating a channel
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/protocol/ircnet.c (File Modified) 
+
+
+jilles      2006/06/28 22:51:01 UTC	(20060628-5590)
+  Log:
+  dreamforge/sorcery:
+  - add a warning that missing U:lines may cause storms
+    of mode changes
+  - add a warning that these ircds do not protect services
+    on channels against kick/deop
+  
+
+  Changes:	Modified:
+  +14 -2	trunk/doc/IRCD (File Modified) 
+
+
+jilles      2006/06/28 21:48:10 UTC	(20060628-5588)
+  Log:
+  dreamforge/sorcery:
+  Do not assume all modes have a TS; only modes from servers
+  and U:lined clients may have a TS and even then not always.
+  channel_mode() does not mind an extraneous parameter.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/dreamforge.c (File Modified) 
+  +1 -1		trunk/protocol/sorcery.c (File Modified) 
+
+
+jilles      2006/06/28 21:38:18 UTC	(20060628-5586)
+  Log:
+  dreamforge:
+  - when creating a channel, op the service and set a TS (r5584)
+  - allow JOIN messages with multiple channels (r5584)
+  - do not process a QUIT message with a prefix designating one
+    of our services (fake direction), these are generated on
+    kills on services
+  
+
+  Changes:	Modified:
+  +24 -10	trunk/protocol/dreamforge.c (File Modified) 
+
+
+jilles      2006/06/28 19:09:55 UTC	(20060628-5584)
+  Log:
+  sorcery:
+  - fix NICK message
+  - remove umode +r stuff
+  - when creating a channel, op the service and set a TS
+  - allow JOIN messages with multiple channels
+  
+  don't ask
+  
+
+  Changes:	Modified:
+  +19 -38	trunk/protocol/sorcery.c (File Modified) 
+
+
+jilles      2006/06/28 17:49:51 UTC	(20060628-5582)
+  Log:
+  - remove chunky monkey references from example confs
+  - remove chunky monkey protocol include file
+  - add "obsolete" comment to PROTOCOL_MONKEY constant
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/dist/example.conf (File Modified) 
+  +0 -1		trunk/dist/example.userserv.conf (File Modified) 
+  +1 -1		trunk/include/pmodule.h (File Modified) 
+  +0 -22	trunk/include/protocol/monkey.h (File Deleted) 
+
+
+jilles      2006/06/28 15:48:24 UTC	(20060628-5580)
+  Log:
+  ChanServ UNBAN: allow unbanning things on the ban list
+  which are not valid n!u@h masks; an existing nick takes
+  precedence (removes all bans matching that user).
+  
+
+  Changes:	Modified:
+  +28 -30	trunk/modules/chanserv/ban.c (File Modified) 
+
+
+jilles      2006/06/28 14:46:11 UTC	(20060628-5578)
+  Log:
+  Update documentation for the ptlink protocol module.
+  
+
+  Changes:	Modified:
+  +14 -1	trunk/doc/IRCD (File Modified) 
+
+
+jilles      2006/06/28 14:25:29 UTC	(20060628-5576)
+  Log:
+  ptlink doesn't do services stamps, don't send them on SVSMODE
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/protocol/ptlink.c (File Modified) 
+
+
+jilles      2006/06/28 14:14:09 UTC	(20060628-5574)
+  Log:
+  ptlink:
+  - set services umode +p so they hide channels from lusers
+  - send version number in SERVER command (appears in /map)
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/protocol/ptlink.c (File Modified) 
+
+
+jilles      2006/06/28 13:45:38 UTC	(20060628-5572)
+  Log:
+  ptlink:
+  - fix vhost changes if username was not changed
+  - fix akill reasons
+  
+
+  Changes:	Modified:
+  +3 -2		trunk/protocol/ptlink.c (File Modified) 
+
+
+jilles      2006/06/28 13:16:40 UTC	(20060628-5570)
+  Log:
+  ptlink:
+  - fix NICK/NNICK message
+  - support NJOIN (burst SJOIN, no idea why they need a separate message)
+  - add vhost support
+  - recognize protect (admin) and halfop channel statuses but do not
+    send them
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/include/protocol/ptlink.h (File Modified) 
+  +52 -10	trunk/protocol/ptlink.c (File Modified) 
+
+
+jilles      2006/06/28 00:45:08 UTC	(20060628-5568)
+  Log:
+  P10: Remove the TS on MODE commands.
+  This is repropagated as 0 to other servers for U:lined
+  servers, so not useful.
+  
+
+  Changes:	Modified:
+  +9 -10	trunk/protocol/asuka.c (File Modified) 
+  +7 -8		trunk/protocol/bircd.c (File Modified) 
+  +7 -8		trunk/protocol/nefarious.c (File Modified) 
+  +7 -8		trunk/protocol/undernet.c (File Modified) 
+
+
+jilles      2006/06/28 00:15:34 UTC	(20060628-5566)
+  Log:
+  Remove the Chunky Monkey protocol module.
+  I don't think anyone uses this: the ircd project
+  is incomplete and dead. Also, the protocol is
+  too similar to bahamut to be interesting.
+  
+
+  Changes:	Modified:
+  +0 -10	trunk/doc/IRCD (File Modified) 
+  +0 -1		trunk/protocol/Makefile.in (File Modified) 
+  +0 -771	trunk/protocol/monkey.c (File Deleted) 
+
+
+jilles      2006/06/26 23:56:33 UTC	(20060626-5564)
+  Log:
+  ChanServ REGISTER: Don't allow users with an unverified
+  email address to register channels.
+  Requested by Martin
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/modules/chanserv/register.c (File Modified) 
+
+
+jilles      2006/06/25 01:11:16 UTC	(20060625-5562)
+  Log:
+  ChanServ CLEAR USERS:
+  More sensible modestacker handling, make sure the stacker
+  is flushed before we start kicking.
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/modules/chanserv/clear_users.c (File Modified) 
+
+
+jilles      2006/06/25 00:46:21 UTC	(20060625-5560)
+  Log:
+  chanserv/main: more == TRUE removal
+  
+
+  Changes:	Modified:
+  +5 -5		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/06/25 00:42:38 UTC	(20060625-5558)
+  Log:
+  channel_mode(): get rid of some ugliness (blah == TRUE etc).
+  
+
+  Changes:	Modified:
+  +4 -10	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/25 00:27:47 UTC	(20060625-5556)
+  Log:
+  NickServ IDENTIFY, UserServ LOGIN: use new modestacker api
+  
+
+  Changes:	Modified:
+  +5 -5		trunk/modules/nickserv/identify.c (File Modified) 
+  +5 -5		trunk/modules/userserv/login.c (File Modified) 
+
+
+jilles      2006/06/25 00:20:34 UTC	(20060625-5554)
+  Log:
+  ChanServ: use new modestacker api
+  
+
+  Changes:	Modified:
+  +8 -8		trunk/modules/chanserv/ban.c (File Modified) 
+  +1 -5		trunk/modules/chanserv/clear_bans.c (File Modified) 
+  +2 -5		trunk/modules/chanserv/clear_users.c (File Modified) 
+  +4 -4		trunk/modules/chanserv/halfop.c (File Modified) 
+  +9 -19	trunk/modules/chanserv/main.c (File Modified) 
+  +4 -4		trunk/modules/chanserv/op.c (File Modified) 
+  +4 -4		trunk/modules/chanserv/voice.c (File Modified) 
+  +6 -6		trunk/modules/chanserv/xop.c (File Modified) 
+
+
+jilles      2006/06/25 00:05:27 UTC	(20060625-5552)
+  Log:
+  Use UID if appropriate when opping/halfopping/voicing
+  users added to a xOP list.
+  
+
+  Changes:	Modified:
+  +6 -6		trunk/modules/chanserv/xop.c (File Modified) 
+
+
+jilles      2006/06/24 23:29:30 UTC	(20060624-5550)
+  Log:
+  check_modes(): clarify a bit more
+  
+
+  Changes:	Modified:
+  +6 -8		trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/24 23:22:40 UTC	(20060624-5548)
+  Log:
+  check_modes():
+  - Use new modestacker api
+  - Simplify somewhat, pretty-printing mode changes is the
+    modestacker's task, not ours
+  
+
+  Changes:	Modified:
+  +10 -27	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/24 23:08:30 UTC	(20060624-5546)
+  Log:
+  Add a command line option -l to change the log file.
+  
+  Submitted by e-axe.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/extern.h (File Modified) 
+  +12 -2	trunk/src/atheme.c (File Modified) 
+  +1 -1		trunk/src/function.c (File Modified) 
+
+
+jilles      2006/06/24 23:02:17 UTC	(20060624-5544)
+  Log:
+  check_modes(): Do not send out a mode if sendnow is false,
+  a key is on the channel and a different key is mlocked.
+  (This does not currently trigger because check_modes() is
+  only called with false on channels which have their
+  modes cleared.)
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/24 22:54:44 UTC	(20060624-5542)
+  Log:
+  channel_mode(): use new modestacker api
+  
+
+  Changes:	Modified:
+  +13 -38	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/24 22:24:37 UTC	(20060624-5540)
+  Log:
+  ChanServ RECOVER: use new modestacker api
+  
+
+  Changes:	Modified:
+  +11 -13	trunk/modules/chanserv/recover.c (File Modified) 
+
+
+jilles      2006/06/24 22:20:47 UTC	(20060624-5538)
+  Log:
+  Add a new modestacker API, modestack_mode_*(),
+  modestack_flush_channel(), modestack_forget_channel().
+  This will allow more compile time checking and less
+  futzing around with strings (e.g. constructing "-h").
+  
+
+  Changes:	Modified:
+  +7 -1		trunk/include/extern.h (File Modified) 
+  +64 -0	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/24 21:02:10 UTC	(20060624-5536)
+  Log:
+  hyperion doesn't have channel mode +p.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/protocol/hyperion.c (File Modified) 
+
+
+jilles      2006/06/24 18:30:43 UTC	(20060624-5534)
+  Log:
+  Make sure to also deprotect not logged in users if appropriate.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/06/24 18:19:51 UTC	(20060624-5532)
+  Log:
+  ChanServ CLOSE: simplify using channel_mode_va().
+  
+
+  Changes:	Modified:
+  +3 -23	trunk/modules/chanserv/close.c (File Modified) 
+
+
+jilles      2006/06/24 17:30:52 UTC	(20060624-5530)
+  Log:
+  Make flush_cmode_callback() static.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/include/extern.h (File Modified) 
+  +1 -1		trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/24 17:13:38 UTC	(20060624-5528)
+  Log:
+  Rewrite the mode stacker. This removes the Cygnus code,
+  improves compatibility and omits redundant type C modes.
+  There is no possibility for tracking pending modes for
+  multiple channels anymore, with a 0 second timeout this
+  seems only really useful for dreamforge-style ircds,
+  which are obsolete.
+  There is quite a lot of debug output; this can be removed
+  later. The API is still the ugly cmode() thing, I plan
+  to replace that by something more sensible.
+  
+
+  Changes:	Modified:
+  +1 -2		trunk/README (File Modified) 
+  +379 -235	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/23 18:25:01 UTC	(20060623-5526)
+  Log:
+  Don't allow mlocking a key starting with a colon or containing a comma.
+  
+
+  Changes:	Modified:
+  +5 -0		trunk/modules/chanserv/set.c (File Modified) 
+
+
+jilles      2006/06/23 17:26:26 UTC	(20060623-5524)
+  Log:
+  - Don't allow mlocking a key longer than 23 characters,
+    ircd will truncate it and we'll be changing keys all
+    the time.
+  - Fix some memory leaks in /cs set mlock.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/common.h (File Modified) 
+  +10 -3	trunk/modules/chanserv/set.c (File Modified) 
+
+
+jilles      2006/06/23 16:18:08 UTC	(20060623-5522)
+  Log:
+  P10: make this look more sane with channel_mode_va().
+  also cause mlock checks when JOIN creates a channel.
+  
+
+  Changes:	Modified:
+  +5 -7		trunk/protocol/asuka.c (File Modified) 
+  +5 -7		trunk/protocol/bircd.c (File Modified) 
+  +5 -7		trunk/protocol/nefarious.c (File Modified) 
+  +5 -7		trunk/protocol/undernet.c (File Modified) 
+
+
+jilles      2006/06/23 16:03:29 UTC	(20060623-5520)
+  Log:
+  channel_mode(): when sending -k while the channel has no
+  key set, explicitly put "*" instead of relying on printf
+  to treat "%s", NULL properly.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/23 15:59:54 UTC	(20060623-5518)
+  Log:
+  ChanServ RECOVER:
+  Use channel_mode_va() to simplify this a bit and update
+  the tracking for type C modes.
+  
+
+  Changes:	Modified:
+  +6 -18	trunk/modules/chanserv/recover.c (File Modified) 
+
+
+jilles      2006/06/23 15:56:02 UTC	(20060623-5516)
+  Log:
+  Add channel_mode_va(), a simple wrapper for channel_mode()
+  allowing the parv array to be passed as varargs.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/extern.h (File Modified) 
+  +24 -0	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/23 15:25:09 UTC	(20060623-5514)
+  Log:
+  Add tracking for non-standard simple modes with parameters (type C).
+  At this time /cs recover will desync them.
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/include/channels.h (File Modified) 
+  +38 -1	trunk/src/cmode.c (File Modified) 
+
+
+w00t        2006/06/23 15:06:08 UTC	(20060623-5512)
+  Log:
+  Added hook on server EOB, fixes dual notice issue caused by r5508 changes noted by jilles
+
+  Changes:	Modified:
+  +24 -3	trunk/protocol/inspircd.c (File Modified) 
+
+
+w00t        2006/06/23 09:19:12 UTC	(20060623-5508)
+  Log:
+  Forward port 5506, once I learned how 'patch' worked again.
+
+  Changes:	Modified:
+  +42 -23	trunk/protocol/inspircd.c (File Modified) 
+
+
+jilles      2006/06/22 14:41:49 UTC	(20060622-5502)
+  Log:
+  Add some text about user and channel modes.
+  Does not describe the in-the-works changes to type C modes.
+  
+
+  Changes:	Modified:
+  +64 -0	trunk/doc/MODES (File Added) 
+
+
+jilles      2006/06/22 13:36:19 UTC	(20060622-5500)
+  Log:
+  Unreal: deal with client SJOIN creating a channel
+  Not tested
+  
+
+  Changes:	Modified:
+  +6 -2		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/06/22 13:30:35 UTC	(20060622-5498)
+  Log:
+  All m_sjoin(), TS6 m_join():
+  Give channel_mode() all parameters (but not the nicklist)
+  instead of only the first two. This also simplifies the code.
+  
+
+  Changes:	Modified:
+  +1 -10	trunk/protocol/bahamut.c (File Modified) 
+  +2 -20	trunk/protocol/charybdis.c (File Modified) 
+  +2 -20	trunk/protocol/hybrid.c (File Modified) 
+  +1 -10	trunk/protocol/hyperion.c (File Modified) 
+  +1 -10	trunk/protocol/monkey.c (File Modified) 
+  +1 -10	trunk/protocol/plexus.c (File Modified) 
+  +1 -10	trunk/protocol/ptlink.c (File Modified) 
+  +2 -20	trunk/protocol/ratbox.c (File Modified) 
+  +1 -10	trunk/protocol/shadowircd.c (File Modified) 
+  +1 -10	trunk/protocol/solidircd.c (File Modified) 
+  +1 -10	trunk/protocol/ultimate3.c (File Modified) 
+  +1 -10	trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/06/22 12:59:17 UTC	(20060622-5496)
+  Log:
+  Use clear_simple_modes() to free the key (and in future
+  also the non-standard simple modes with parameters).
+  
+
+  Changes:	Modified:
+  +1 -2		trunk/src/node.c (File Modified) 
+
+
+jilles      2006/06/22 12:11:13 UTC	(20060622-5494)
+  Log:
+  Remove obsolete unused struct flag.
+  
+
+  Changes:	Modified:
+  +0 -8		trunk/src/function.c (File Modified) 
+
+
+jilles      2006/06/21 21:23:05 UTC	(20060621-5492)
+  Log:
+  Use clear_simple_modes() wherever appropriate.
+  
+
+  Changes:	Modified:
+  +2 -5		trunk/modules/chanserv/main.c (File Modified) 
+  +1 -5		trunk/protocol/asuka.c (File Modified) 
+  +1 -6		trunk/protocol/bahamut.c (File Modified) 
+  +1 -5		trunk/protocol/bircd.c (File Modified) 
+  +2 -11	trunk/protocol/charybdis.c (File Modified) 
+  +2 -11	trunk/protocol/hybrid.c (File Modified) 
+  +1 -5		trunk/protocol/hyperion.c (File Modified) 
+  +2 -10	trunk/protocol/monkey.c (File Modified) 
+  +1 -5		trunk/protocol/nefarious.c (File Modified) 
+  +1 -5		trunk/protocol/plexus.c (File Modified) 
+  +1 -5		trunk/protocol/ptlink.c (File Modified) 
+  +2 -11	trunk/protocol/ratbox.c (File Modified) 
+  +1 -5		trunk/protocol/shadowircd.c (File Modified) 
+  +1 -6		trunk/protocol/solidircd.c (File Modified) 
+  +2 -10	trunk/protocol/ultimate3.c (File Modified) 
+  +1 -5		trunk/protocol/undernet.c (File Modified) 
+  +1 -5		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/06/21 21:02:07 UTC	(20060621-5490)
+  Log:
+  Add void clear_simple_modes(channel_t *c) to clear
+  all simple modes (+imnpstkl etc) on a channel.
+  Not used yet.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/extern.h (File Modified) 
+  +13 -0	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/21 15:17:23 UTC	(20060621-5484)
+  Log:
+  channel_delete(): free key if it was set
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/src/node.c (File Modified) 
+
+
+jilles      2006/06/21 14:50:23 UTC	(20060621-5482)
+  Log:
+  inspircd: don't op remote users JOINing a new channel
+  
+
+  Changes:	Modified:
+  +7 -13	trunk/protocol/inspircd.c (File Modified) 
+
+
+jilles      2006/06/21 14:40:09 UTC	(20060621-5480)
+  Log:
+  Don't complain about notices from servers in debug log.
+  
+
+  Changes:	Modified:
+  +4 -1		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/06/21 14:04:41 UTC	(20060621-5478)
+  Log:
+  Fix umode +i tracking.
+  
+
+  Changes:	Modified:
+  +10 -2	trunk/src/cmode.c (File Modified) 
+  +2 -0		trunk/src/node.c (File Modified) 
+
+
+jilles      2006/06/21 14:01:08 UTC	(20060621-5476)
+  Log:
+  Decrement oper count if an oper quits.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/src/node.c (File Modified) 
+
+
+jilles      2006/06/21 00:07:24 UTC	(20060621-5472)
+  Log:
+  Show more detailed version information in atheme -v.
+  
+
+  Changes:	Modified:
+  +4 -2		trunk/src/atheme.c (File Modified) 
+
+
+jilles      2006/06/20 23:55:15 UTC	(20060620-5470)
+  Log:
+  Yeah don't reference mc if it's NULL.
+  Found by Lauren.
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/20 23:31:25 UTC	(20060620-5468)
+  Log:
+  Send errors in the conf file to the log file instead of stderr.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/confparse.c (File Modified) 
+
+
+jilles      2006/06/20 23:24:29 UTC	(20060620-5466)
+  Log:
+  Split out conf_parse() some.
+  When rehashing, do reading and low-level parsing of the
+  conf file before clearing, so we can abort the rehash
+  cleanly if that fails.
+  Errors detected by conf_check(), or errors not checked for
+  at all, may still lead to strange behaviour.
+  
+
+  Changes:	Modified:
+  +35 -15	trunk/src/conf.c (File Modified) 
+
+
+jilles      2006/06/20 23:00:21 UTC	(20060620-5464)
+  Log:
+  Don't shut down if the language file has invalid syntax
+  or if the config file has invalid syntax on a rehash;
+  however, in the latter case operclasses are lost so the
+  next rehash has to be done with a signal.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/include/extern.h (File Modified) 
+  +9 -2		trunk/src/atheme.c (File Modified) 
+  +6 -8		trunk/src/conf.c (File Modified) 
+
+
+jilles      2006/06/20 22:34:47 UTC	(20060620-5462)
+  Log:
+  Add getkey command to chanserv, returns the current
+  channel key (+k). Needs +i flag, like invite (both +i
+  and +k are modes to keep outsiders out).
+  Also works when the requester is on channel, since some
+  ircds only allow channel operators to see the key.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/dist/example.conf (File Modified) 
+  +2 -0		trunk/dist/example.userserv.conf (File Modified) 
+  +1 -1		trunk/help/cservice/flags (File Modified) 
+  +9 -0		trunk/help/cservice/getkey (File Added) 
+  +1 -0		trunk/modules/chanserv/Makefile.in (File Modified) 
+  +88 -0	trunk/modules/chanserv/getkey.c (File Added) 
+
+
+jilles      2006/06/20 19:08:22 UTC	(20060620-5460)
+  Log:
+  Limit mode lock checks to the following cases:
+  - first mode change or non-akicked join after channel
+    creation or TS change
+  - mode change that alters simple modes
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/include/account.h (File Modified) 
+  +22 -1	trunk/modules/chanserv/main.c (File Modified) 
+  +29 -2	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/06/20 19:01:32 UTC	(20060620-5458)
+  Log:
+  inspircd m_fjoin(), P10 m_burst(), m_create():
+  make sure we call channel_mode() if a new channel is created,
+  otherwise mlock is only checked when a non-akicked user joins
+  
+
+  Changes:	Modified:
+  +19 -0	trunk/protocol/asuka.c (File Modified) 
+  +19 -0	trunk/protocol/bircd.c (File Modified) 
+  +8 -0		trunk/protocol/inspircd.c (File Modified) 
+  +19 -0	trunk/protocol/nefarious.c (File Modified) 
+  +19 -0	trunk/protocol/undernet.c (File Modified) 
+
+
+jilles      2006/06/20 16:47:01 UTC	(20060620-5456)
+  Log:
+  Add channel_tschange hook for TS changes due to protocol
+  messages. When this is called it is safe to send mode
+  changes as services will already have been reopped if
+  necessary; for the rest, old modes have been cleared
+  (if necessary) and new modes have not been set yet.
+  This does not matter for my intended use (scheduling
+  mlock checks) though.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/doc/HOOKS (File Modified) 
+  +1 -0		trunk/protocol/asuka.c (File Modified) 
+  +2 -0		trunk/protocol/bahamut.c (File Modified) 
+  +1 -0		trunk/protocol/bircd.c (File Modified) 
+  +4 -0		trunk/protocol/charybdis.c (File Modified) 
+  +4 -0		trunk/protocol/hybrid.c (File Modified) 
+  +1 -0		trunk/protocol/hyperion.c (File Modified) 
+  +1 -0		trunk/protocol/inspircd.c (File Modified) 
+  +2 -0		trunk/protocol/monkey.c (File Modified) 
+  +1 -0		trunk/protocol/nefarious.c (File Modified) 
+  +1 -0		trunk/protocol/plexus.c (File Modified) 
+  +1 -0		trunk/protocol/ptlink.c (File Modified) 
+  +4 -0		trunk/protocol/ratbox.c (File Modified) 
+  +1 -0		trunk/protocol/shadowircd.c (File Modified) 
+  +2 -0		trunk/protocol/solidircd.c (File Modified) 
+  +2 -0		trunk/protocol/ultimate3.c (File Modified) 
+  +1 -0		trunk/protocol/undernet.c (File Modified) 
+  +3 -0		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/06/19 14:49:19 UTC	(20060619-5454)
+  Log:
+  Get rid of compile warning about redundant comparison in src/base64.c.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/src/base64.c (File Modified) 
+
+
+jilles      2006/06/19 11:49:33 UTC	(20060619-5432)
+  Log:
+  Rerun autoconf.
+  
+
+  Changes:	Modified:
+  +14 -14	trunk/configure (File Modified) 
+
+
+jilles      2006/06/19 11:49:03 UTC	(20060619-5430)
+  Log:
+  Version bump for trunk to 1.2.0.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/configure.ac (File Modified) 
+
+
+jilles      2006/06/19 10:04:20 UTC	(20060619-5426)
+  Log:
+  Put netwide EOB support in the core (a few protocol modules
+  already used this internally). This allows distinguishing
+  between existing users coming back from a netsplit and new
+  users. This adds a new hook server_eob with parameter
+  server_t *s.
+  
+  P10 and ircnet use the protocol's specific burst detection,
+  the others emulate it using PING/PONG. Note that in some
+  protocols the burst detection only works locally, so it is
+  not useful here.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/doc/HOOKS (File Modified) 
+  +1 -0		trunk/include/extern.h (File Modified) 
+  +2 -2		trunk/include/servers.h (File Modified) 
+  +15 -2	trunk/protocol/asuka.c (File Modified) 
+  +17 -1	trunk/protocol/bahamut.c (File Modified) 
+  +15 -2	trunk/protocol/bircd.c (File Modified) 
+  +4 -5		trunk/protocol/charybdis.c (File Modified) 
+  +17 -1	trunk/protocol/dreamforge.c (File Modified) 
+  +4 -5		trunk/protocol/hybrid.c (File Modified) 
+  +17 -1	trunk/protocol/hyperion.c (File Modified) 
+  +17 -1	trunk/protocol/inspircd.c (File Modified) 
+  +2 -10	trunk/protocol/ircnet.c (File Modified) 
+  +17 -1	trunk/protocol/monkey.c (File Modified) 
+  +15 -2	trunk/protocol/nefarious.c (File Modified) 
+  +17 -1	trunk/protocol/plexus.c (File Modified) 
+  +15 -0	trunk/protocol/ptlink.c (File Modified) 
+  +4 -5		trunk/protocol/ratbox.c (File Modified) 
+  +17 -1	trunk/protocol/shadowircd.c (File Modified) 
+  +17 -1	trunk/protocol/solidircd.c (File Modified) 
+  +17 -1	trunk/protocol/sorcery.c (File Modified) 
+  +17 -1	trunk/protocol/ultimate3.c (File Modified) 
+  +15 -2	trunk/protocol/undernet.c (File Modified) 
+  +17 -1	trunk/protocol/unreal.c (File Modified) 
+  +21 -0	trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/06/19 00:00:25 UTC	(20060619-5424)
+  Log:
+  join(): if a service creates a registered channel and
+  chanserv::changets is enabled, create it with the
+  registration time as TS. This stops chanserv's
+  channel_add hook changing the TS and causing trouble.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/06/18 23:26:55 UTC	(20060618-5422)
+  Log:
+  Remove the special case for +k in changets: put +k in
+  the new modes like normal.
+  I don't see enough benefit in doing it later, also
+  because that makes it harder to optimize mlock checks.
+  
+
+  Changes:	Modified:
+  +2 -3		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/06/18 19:02:46 UTC	(20060618-5420)
+  Log:
+  Remove duplicate constant for +z and use the unreal module's one.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/include/protocol/inspircd.h (File Modified) 
+  +1 -1		trunk/protocol/inspircd.c (File Modified) 
+
+
+jilles      2006/06/18 15:14:17 UTC	(20060618-5418)
+  Log:
+  Revert gratuitous changes to comment formatting,
+  these cause grief every time I port something over.
+  
+
+  Changes:	Modified:
+  +30 -63	trunk/protocol/ultimate3.c (File Modified) 
+
+
+jilles      2006/06/18 13:19:45 UTC	(20060618-5416)
+  Log:
+  Make skipping the colon on the prefix somewhat more rational.
+  
+
+  Changes:	Modified:
+  +2 -6		trunk/src/parse.c (File Modified) 
+
+
+brain       2006/06/18 12:51:17 UTC	(20060618-5414)
+  Log:
+  Put back gline and FNC stuff, there was a difference between our svn and athemes.
+  
+
+  Changes:	Modified:
+  +11 -2	trunk/protocol/inspircd.c (File Modified) 
+
+
+brain       2006/06/18 12:48:44 UTC	(20060618-5412)
+  Log:
+  Add support for channel mode +T, remove constant for channel mode +A (inspircd does not have this mode, throwback to unreal.c)
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/include/protocol/inspircd.h (File Modified) 
+  +3 -11	trunk/protocol/inspircd.c (File Modified) 
+
+
+brain       2006/06/18 03:28:26 UTC	(20060618-5410)
+  Log:
+  Fixed bug reported by Martin, linked +P and +z (they had the same constants in inspircd.h)
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/include/protocol/inspircd.h (File Modified) 
+
+
+jilles      2006/06/18 01:16:45 UTC	(20060618-5408)
+  Log:
+  More precise description of what "activity" of a channel means.
+  expiry == 0 means stuff doesn't expire
+  
+
+  Changes:	Modified:
+  +14 -5	trunk/modules/chanserv/help.c (File Modified) 
+
+
+jilles      2006/06/18 00:50:13 UTC	(20060618-5406)
+  Log:
+  Check last used for channels slightly more often
+  to prevent Last used showing up for active channels
+  (no join/part but user with appropriate flags online).
+  
+
+  Changes:	Modified:
+  +4 -2		trunk/src/node.c (File Modified) 
+
+
+jilles      2006/06/18 00:41:31 UTC	(20060618-5404)
+  Log:
+  Remove XXX comment before expire_check(), it was fixed quite some time ago.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/src/node.c (File Modified) 
+
+
+jilles      2006/06/18 00:38:10 UTC	(20060618-5402)
+  Log:
+  Make last used time for channels more accurate
+  (update it in expire_check more often, and on
+  part/quit). Show it in /cs info if more than
+  a day ago.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/modules/chanserv/info.c (File Modified) 
+  +3 -0		trunk/modules/chanserv/main.c (File Modified) 
+  +6 -1		trunk/src/node.c (File Modified) 
+  +3 -0		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/06/18 00:01:56 UTC	(20060618-5400)
+  Log:
+  chanserv count contrib module:
+  make this work better in the flags world
+  show 'other' for entries not in any xOP list
+  show counts for each flag also
+  
+
+  Changes:	Modified:
+  +22 -2	trunk/contrib/cs_count.c (File Modified) 
+  +6 -2		trunk/help/cservice/count (File Modified) 
+
+
+jilles      2006/06/17 23:09:35 UTC	(20060617-5398)
+  Log:
+  Don't clear key, limit and non-standard simple modes if
+  the requester is on channel (they can do it themselves).
+  
+
+  Changes:	Modified:
+  +28 -25	trunk/modules/chanserv/recover.c (File Modified) 
+
+
+jilles      2006/06/17 22:47:00 UTC	(20060617-5396)
+  Log:
+  ChanServ RECOVER: Unset non-standard simple modes with
+  parameter, such as join throttling. This should really
+  only unset modes that could keep people out but it
+  does not.
+  
+
+  Changes:	Modified:
+  +14 -0	trunk/modules/chanserv/recover.c (File Modified) 
+
+
+jilles      2006/06/17 12:56:36 UTC	(20060617-5394)
+  Log:
+  Clarify that local operators (in some ircds) are not
+  IRCops from atheme's point of view.
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/doc/PRIVILEGES (File Modified) 
+
+
+w00t        2006/06/17 07:28:37 UTC	(20060617-5392)
+  Log:
+  Not all AKILLs on inspircd should be permanent.
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/inspircd.c (File Modified) 
+
+
+w00t        2006/06/17 04:50:19 UTC	(20060617-5390)
+  Log:
+  - Remove OS KLINE -- it's only been deprecated since 0.2 or so.
+
+  Changes:	Modified:
+  +2 -5		trunk/modules/operserv/akill.c (File Modified) 
+
+
+w00t        2006/06/17 01:35:32 UTC	(20060617-5388)
+  Log:
+  - Add suppport for forced nick changes to InspIRCd protocol module through use of SVSNICK. Sent from server, not 'source', as InspIRCd requires a server send SVSNICK.
+
+  Changes:	Modified:
+  +9 -0		trunk/protocol/inspircd.c (File Modified) 
+
+
+jilles      2006/06/15 17:01:40 UTC	(20060615-5386)
+  Log:
+  Better chanserv::changets description.
+  
+
+  Changes:	Modified:
+  +12 -6	trunk/dist/example.conf (File Modified) 
+  +12 -6	trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/06/15 12:43:01 UTC	(20060615-5384)
+  Log:
+  P10: Fix global notices.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/asuka.c (File Modified) 
+  +1 -1		trunk/protocol/bircd.c (File Modified) 
+  +1 -1		trunk/protocol/nefarious.c (File Modified) 
+  +1 -1		trunk/protocol/undernet.c (File Modified) 
+
+
+jilles      2006/06/14 19:13:04 UTC	(20060614-5382)
+  Log:
+  Fix compile breakage reported by Lauren.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/inspircd.c (File Modified) 
+
+
+brain       2006/06/14 14:40:41 UTC	(20060614-5380)
+  Log:
+  Add cmode +z (ssl only)
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/protocol/inspircd.h (File Modified) 
+  +1 -0		trunk/protocol/inspircd.c (File Modified) 
+
+
+jilles      2006/06/14 11:42:30 UTC	(20060614-5378)
+  Log:
+  Forced commit to note that the previous commit (r5376)
+  changed MEMOLEN from 129 to 300.
+  (svn doesn't seem to support forced commits so I removed
+  a space somewhere)
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/include/common.h (File Modified) 
+
+
+nenolod     2006/06/13 07:45:49 UTC	(20060613-5376)
+  Log:
+  - ZOMG WTF
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/include/common.h (File Modified) 
+
+
+jilles      2006/06/12 15:57:40 UTC	(20060612-5374)
+  Log:
+  - Add another necessary comment line for DH-BLOWFISH
+  - Add DH-BLOWFISH to example.userserv.conf also
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/dist/example.conf (File Modified) 
+  +2 -0		trunk/dist/example.userserv.conf (File Modified) 
+
+
+jilles      2006/06/11 23:09:50 UTC	(20060611-5372)
+  Log:
+  Port over r5370 from bahamut to solidircd protocol module:
+  stuff to lower channel TS
+  
+
+  Changes:	Modified:
+  +61 -37	trunk/protocol/solidircd.c (File Modified) 
+
+
+jilles      2006/06/11 23:02:20 UTC	(20060611-5370)
+  Log:
+  bahamut: stuff to lower channel TS
+  
+
+  Changes:	Modified:
+  +61 -37	trunk/protocol/bahamut.c (File Modified) 
+
+
+jilles      2006/06/11 22:05:33 UTC	(20060611-5368)
+  Log:
+  Also clear +l when lowering a TS.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/06/11 20:45:14 UTC	(20060611-5366)
+  Log:
+  Port over r5356 and r5364 from charybdis to ratbox and hybrid protocol modules:
+  stuff to lower channel TS
+  
+
+  Changes:	Modified:
+  +65 -9	trunk/protocol/hybrid.c (File Modified) 
+  +65 -9	trunk/protocol/ratbox.c (File Modified) 
+
+
+jilles      2006/06/11 20:28:33 UTC	(20060611-5364)
+  Log:
+  If chanserv::changets is enabled, change the TS of recreated
+  registered channels to their registration time, if that is
+  older than their current TS. This removes all simple modes
+  and statuses (and depending on the ircd also bans and/or topic)
+  from the channel. The simple modes are replaced by +nt
+  modified by the channel mode lock (+k is set later, when
+  someone joins).
+  
+  Currently only for the charybdis protocol module but
+  ratbox, hybrid and bahamut will follow soon.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/include/phandler.h (File Modified) 
+  +23 -4	trunk/modules/chanserv/main.c (File Modified) 
+  +11 -0	trunk/protocol/charybdis.c (File Modified) 
+  +7 -0		trunk/src/phandler.c (File Modified) 
+
+
+jilles      2006/06/11 15:30:47 UTC	(20060611-5362)
+  Log:
+  Rename cs_keeptopic_newchan() to cs_newchan() as we
+  will do TS changes here soon.
+  
+
+  Changes:	Modified:
+  +4 -4		trunk/modules/chanserv/main.c (File Modified) 
+
+
+jilles      2006/06/11 15:12:16 UTC	(20060611-5360)
+  Log:
+  Document svslogin_sts and sasl_sts.
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/include/phandler.h (File Modified) 
+
+
+jilles      2006/06/11 15:07:07 UTC	(20060611-5358)
+  Log:
+  Add chanserv::changets config option. Does not do anything yet.
+  Make sure to 'make clean' when updating across this, otherwise
+  you may get segfaults.
+  
+
+  Changes:	Modified:
+  +9 -0		trunk/dist/example.conf (File Modified) 
+  +9 -0		trunk/dist/example.userserv.conf (File Modified) 
+  +2 -0		trunk/include/services.h (File Modified) 
+  +9 -0		trunk/src/conf.c (File Modified) 
+
+
+jilles      2006/06/11 14:09:04 UTC	(20060611-5356)
+  Log:
+  Enhance TS support to ignore modes with a younger TS.
+  This will allow us to lower a channel's TS.
+  We do not mark users as deopped (drop modes from them)
+  so this will not work 100% with TS5.
+  
+
+  Changes:	Modified:
+  +54 -9	trunk/protocol/charybdis.c (File Modified) 
+
+
+jilles      2006/06/09 18:35:06 UTC	(20060609-5354)
+  Log:
+  If we send a wallops because the log file could not
+  be opened, first set the variable so we don't
+  immediately wallops again and then do the wallops.
+  wallops() could try to log in certain cases.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/function.c (File Modified) 
+
+
+jilles      2006/06/09 16:38:48 UTC	(20060609-5352)
+  Log:
+  All protocol modules: allow PART with multiple channels separated by commas.
+  Not all ircds actually send these but this keeps the m_part functions
+  the same everywhere.
+  
+
+  Changes:	Modified:
+  +12 -2	trunk/protocol/asuka.c (File Modified) 
+  +12 -2	trunk/protocol/bahamut.c (File Modified) 
+  +12 -2	trunk/protocol/bircd.c (File Modified) 
+  +12 -2	trunk/protocol/charybdis.c (File Modified) 
+  +12 -2	trunk/protocol/dreamforge.c (File Modified) 
+  +12 -2	trunk/protocol/hybrid.c (File Modified) 
+  +12 -2	trunk/protocol/hyperion.c (File Modified) 
+  +12 -2	trunk/protocol/inspircd.c (File Modified) 
+  +12 -2	trunk/protocol/ircnet.c (File Modified) 
+  +12 -2	trunk/protocol/monkey.c (File Modified) 
+  +12 -2	trunk/protocol/nefarious.c (File Modified) 
+  +12 -2	trunk/protocol/plexus.c (File Modified) 
+  +12 -2	trunk/protocol/ptlink.c (File Modified) 
+  +12 -2	trunk/protocol/ratbox.c (File Modified) 
+  +12 -2	trunk/protocol/shadowircd.c (File Modified) 
+  +12 -2	trunk/protocol/solidircd.c (File Modified) 
+  +12 -2	trunk/protocol/sorcery.c (File Modified) 
+  +12 -2	trunk/protocol/ultimate3.c (File Modified) 
+  +12 -2	trunk/protocol/undernet.c (File Modified) 
+  +12 -2	trunk/protocol/unreal.c (File Modified) 
+
+
+gxti        2006/06/09 03:36:14 UTC	(20060609-5350)
+  Log:
+  Add saslserv/dh-blowfish.so to example config (commented out).
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/dist/example.conf (File Modified) 
+
+
+jilles      2006/06/04 18:58:21 UTC	(20060604-5348)
+  Log:
+  Make disabling sasl in ./setup work.
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/setup (File Modified) 
+
+
+jilles      2006/06/04 18:26:42 UTC	(20060604-5346)
+  Log:
+  Show number of active connections in /stats t.
+  
+
+  Changes:	Modified:
+  +17 -0	trunk/libatheme/connection.c (File Modified) 
+  +1 -0		trunk/libatheme/connection.h (File Modified) 
+  +1 -0		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/06/04 17:48:03 UTC	(20060604-5344)
+  Log:
+  flatfile load: show errno in logs if open failed
+  
+
+  Changes:	Modified:
+  +4 -3		trunk/backend/flatfile.c (File Modified) 
+
+
+jilles      2006/06/04 13:04:04 UTC	(20060604-5342)
+  Log:
+  flatfile save:
+  - show errno in logs and wallops
+  - check if any write or close failed and if so log and
+    wallops and do not overwrite the correct database with
+    the incomplete file
+  
+
+  Changes:	Modified:
+  +18 -6	trunk/backend/flatfile.c (File Modified) 
+
+
+brain       2006/06/03 21:51:17 UTC	(20060603-5340)
+  Log:
+  Added note about requiring m_globops on inspircd
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/doc/IRCD (File Modified) 
+
+
+jilles      2006/06/03 17:41:25 UTC	(20060603-5338)
+  Log:
+  Nefarious: remove +x vhost on logout.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/protocol/nefarious.c (File Modified) 
+
+
+jilles      2006/06/03 17:03:36 UTC	(20060603-5336)
+  Log:
+  Add nefarious section.
+  
+
+  Changes:	Modified:
+  +23 -0	trunk/doc/IRCD (File Modified) 
+
+
+jilles      2006/06/03 16:37:20 UTC	(20060603-5334)
+  Log:
+  - Add Id keyword to cs_kickdots.c
+  - Add cs_kickdots to contrib Makefile
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/contrib/Makefile.in (File Modified) 
+  + -		trunk/contrib/cs_kickdots.c  (Property Modified)
+
+
+jilles      2006/06/03 15:01:06 UTC	(20060603-5332)
+  Log:
+  Nefarious:
+  - don't send an account timestamp as we don't recognize
+    what's sent back if we do
+  - recognize that logout works
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/protocol/nefarious.c (File Modified) 
+
+
+gxti        2006/05/31 02:25:21 UTC	(20060531-5330)
+  Log:
+  Provide a command to list mechanisms supported by the script.
+  
+
+  Changes:	Modified:
+  +5 -0		trunk/contrib/cap_sasl.pl (File Modified) 
+
+
+gxti        2006/05/30 04:01:34 UTC	(20060530-5328)
+  Log:
+  Incorporate SSL-enabled SASL mechanisms into build system.
+  Autotools regenerated.
+  
+
+  Changes:	Modified:
+  +254 -4	trunk/configure (File Modified) 
+  +24 -0	trunk/configure.ac (File Modified) 
+  +1 -0		trunk/include/atheme.h (File Modified) 
+  +9 -0		trunk/include/sysconf.h.in (File Modified) 
+  +2 -5		trunk/modules/saslserv/Makefile.in (File Modified) 
+  +3 -0		trunk/modules/saslserv/dh-blowfish.c (File Modified) 
+  +3 -0		trunk/modules/saslserv/pubkey.c (File Modified) 
+
+
+gxti        2006/05/29 23:45:45 UTC	(20060529-5326)
+  Log:
+  Documentation added for SaslServ PKEY.
+  New sasl module dh-blowfish.c for encrypted password auth (not yet in build system).
+  cap_sasl.pl added to tree under contrib/ with multi-mech support.
+  
+
+  Changes:	Modified:
+  +267 -0	trunk/contrib/cap_sasl.pl (File Added) 
+  + -		trunk/help/saslserv/ (File Added) 
+  +15 -0	trunk/help/saslserv/pkey (File Added) 
+  +170 -0	trunk/modules/saslserv/dh-blowfish.c (File Added) 
+
+
+jilles      2006/05/27 23:32:52 UTC	(20060527-5324)
+  Log:
+  Don't flag an error when closing the connection at shutdown.
+  (Unless SO_ERROR has some error, then we want that.)
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/src/atheme.c (File Modified) 
+
+
+jilles      2006/05/27 23:23:59 UTC	(20060527-5321)
+  Log:
+  connection_close(): Get the error from the socket using getsockopt SO_ERROR.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/configure.ac (File Modified) 
+  +15 -2	trunk/libatheme/connection.c (File Modified) 
+
+
+jilles      2006/05/27 23:01:49 UTC	(20060527-5319)
+  Log:
+  Null out curr_uplink->conn if it's closed.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/src/uplink.c (File Modified) 
+
+
+jilles      2006/05/27 22:53:31 UTC	(20060527-5317)
+  Log:
+  Apparently connection_close(NULL) is not supposed to crash,
+  so make it so.
+  
+
+  Changes:	Modified:
+  +4 -4		trunk/libatheme/connection.c (File Modified) 
+
+
+brain       2006/05/26 20:11:58 UTC	(20060526-5315)
+  Log:
+  InspIRCd: Add support for modelock of +P and +G
+  UnrealIRCd: Add support for modelock of +G
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/include/protocol/inspircd.h (File Modified) 
+  +1 -0		trunk/include/protocol/unreal.h (File Modified) 
+  +2 -0		trunk/protocol/inspircd.c (File Modified) 
+  +1 -0		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/05/25 15:18:32 UTC	(20060525-5313)
+  Log:
+  select/poll:
+  Iterate twice over the connection list, once for checking
+  for reading and once for checking for writing, as the
+  functions we call may destroy the connection and remove
+  it from the list.
+  
+
+  Changes:	Modified:
+  +20 -7	trunk/libatheme/poll.c (File Modified) 
+  +10 -2	trunk/libatheme/select.c (File Modified) 
+
+
+gxti        2006/05/25 03:28:33 UTC	(20060525-5311)
+  Log:
+  DSA auth! It's aliiiiiive!
+  
+
+  Changes:	Modified:
+  +24 -8	trunk/modules/saslserv/pubkey.c (File Modified) 
+
+
+jilles      2006/05/25 01:50:44 UTC	(20060525-5309)
+  Log:
+  Don't use non-standard strnlen() here.
+  It is not necessary anyway as sasl.c gives '\0'-terminated data.
+  
+
+  Changes:	Modified:
+  +4 -4		trunk/modules/saslserv/plain.c (File Modified) 
+
+
+jilles      2006/05/25 01:12:42 UTC	(20060525-5307)
+  Log:
+  - Make saslserv() static as we don't need it outside main.c
+  - Fix /msg (null) help <command> in help
+  - Don't use abbreviated command listing as saslserv will
+    have few commands.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/saslserv/help.c (File Modified) 
+  +3 -1		trunk/modules/saslserv/main.c (File Modified) 
+
+
+jilles      2006/05/25 01:02:29 UTC	(20060525-5305)
+  Log:
+  Compile fix.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/saslserv/help.c (File Modified) 
+
+
+gxti        2006/05/24 04:03:06 UTC	(20060524-5303)
+  Log:
+  SaslServ command/help framework added (no docs yet).
+  Pulled pubkey from makefile due to incompleteness and deps.
+  Pubkey now works somewhat with RSA, not with DSA just yet.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/saslserv/Makefile.in (File Modified) 
+  +71 -0	trunk/modules/saslserv/help.c (File Added) 
+  +4 -1		trunk/modules/saslserv/main.c (File Modified) 
+  +133 -104	trunk/modules/saslserv/pubkey.c (File Modified) 
+
+
+gxti        2006/05/24 04:01:35 UTC	(20060524-5301)
+  Log:
+  PLAIN auth now a little cleaner/safer.
+  
+
+  Changes:	Modified:
+  +6 -6		trunk/modules/saslserv/plain.c (File Modified) 
+
+
+jilles      2006/05/23 22:11:24 UTC	(20060523-5299)
+  Log:
+  Rerun autoconf.
+  
+
+  Changes:	Modified:
+  +6 -6		trunk/configure (File Modified) 
+
+
+jilles      2006/05/23 22:10:54 UTC	(20060523-5297)
+  Log:
+  Change effect of --disable-sasl: it now prevents make
+  from entering modules/saslserv/ at all. This way the
+  list of sasl source files can live in modules/saslserv/Makefile.in
+  instead of in configure.ac.
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/configure.ac (File Modified) 
+  +1 -1		trunk/modules/Makefile.in (File Modified) 
+  +3 -3		trunk/modules/saslserv/Makefile.in (File Modified) 
+
+
+jilles      2006/05/23 22:01:30 UTC	(20060523-5295)
+  Log:
+  Rerun autoconf and autoheader.
+  
+
+  Changes:	Modified:
+  +4 -4		trunk/configure (File Modified) 
+  +1 -1		trunk/include/sysconf.h.in (File Modified) 
+
+
+jilles      2006/05/23 22:00:58 UTC	(20060523-5293)
+  Log:
+  Make explicit --enable-sasl work.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/configure.ac (File Modified) 
+
+
+jilles      2006/05/23 21:48:03 UTC	(20060523-5291)
+  Log:
+  Fix Id keyword and remove C++ comments.
+  
+
+  Changes:	Modified:
+  +5 -5		trunk/modules/saslserv/pubkey.c (File Modified) (Property Modified)
+
+
+gxti        2006/05/23 21:18:47 UTC	(20060523-5289)
+  Log:
+  Added helpfile for ChanServ SET PROPERTY.
+  
+
+  Changes:	Modified:
+  +13 -0	trunk/help/cservice/set_property (File Added) 
+
+
+gxti        2006/05/22 22:36:37 UTC	(20060522-5287)
+  Log:
+  Minor grammatical fix.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/help/oservice/akill (File Modified) 
+
+
+gxti        2006/05/22 01:21:37 UTC	(20060522-5285)
+  Log:
+  Precursory DSA/RSA-SHA1 mechanism (pubkey.so).
+  
+
+  Changes:	Modified:
+  +4 -1		trunk/modules/saslserv/Makefile.in (File Modified) 
+  +454 -0	trunk/modules/saslserv/pubkey.c (File Added) 
+
+
+nenolod     2006/05/22 00:37:43 UTC	(20060522-5283)
+  Log:
+  no explanation necessary...
+
+  Changes:	Modified:
+  +35 -0	trunk/contrib/cs_kickdots.c (File Added) 
+
+
+jilles      2006/05/21 00:21:33 UTC	(20060521-5281)
+  Log:
+  Moved netadmin to general:admin and hid it under a #define USE_NETADMIN.
+  We don't endorse stuff like this but if people really want it then so
+  be it.
+  
+
+  Changes:	Modified:
+  +14 -12	trunk/protocol/plexus.c (File Modified) 
+
+
+nenolod     2006/05/20 23:37:18 UTC	(20060520-5279)
+  Log:
+  - Improve support for PleXusIRCd 3.x, patch by eggy.
+  
+
+  Changes:	Modified:
+  +17 -7	trunk/protocol/plexus.c (File Modified) 
+
+
+jilles      2006/05/19 17:07:13 UTC	(20060519-5277)
+  Log:
+  NickServ GHOST: fix "Invalid password for (null)".
+  Reported by damian.
+  
+
+  Changes:	Modified:
+  +11 -4	trunk/modules/nickserv/ghost.c (File Modified) 
+
+
+nenolod     2006/05/17 17:20:05 UTC	(20060517-5275)
+  Log:
+  - version bump: 1.1.1
+  
+
+  Changes:	Modified:
+  +11 -11	trunk/configure (File Modified) 
+  +1 -1		trunk/configure.ac (File Modified) 
+
+
+jilles      2006/05/17 13:21:13 UTC	(20060517-5273)
+  Log:
+  Rename msg variable to avoid warning about shadowing.
+  
+
+  Changes:	Modified:
+  +5 -5		trunk/protocol/charybdis.c (File Modified) 
+
+
+jilles      2006/05/17 13:12:39 UTC	(20060517-5271)
+  Log:
+  Ratbox/charybdis/hybrid: Do not try to TB an
+  empty topic, this can cause trouble.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/charybdis.c (File Modified) 
+  +1 -1		trunk/protocol/hybrid.c (File Modified) 
+  +1 -1		trunk/protocol/ratbox.c (File Modified) 
+
+
 nenolod     2006/05/16 12:55:16 UTC	(20060516-5269)
   Log:
   - updates in regards to PleXus 3.

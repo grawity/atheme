@@ -4,7 +4,7 @@
  *
  * This is the main header file, usually the only one #include'd
  *
- * $Id: atheme.h 5107 2006-04-17 17:48:00Z gxti $
+ * $Id: atheme.h 5632 2006-07-01 23:55:36Z jilles $
  */
 
 #ifndef ATHEME_H
@@ -25,6 +25,7 @@
 #include "xmlrpc.h"
 #include "base64.h"
 #include "md5.h"
+#include "sysconf.h"
 
 #ifdef USE_SASL
 # include "sasl.h"
@@ -62,12 +63,15 @@ typedef struct {
 
 typedef struct {
 	user_t *u;
-	void *mc; /* XXX this should be mychan_t * but we can't use that here
-		   * -- jilles */
+	struct mychan_ *mc; /* No, there is no easy way to make this a
+			     * mychan_t (can't redefine a typedef) -- jilles */
 } hook_channel_req_t;
 
 typedef struct tld_ tld_t;
 typedef struct kline_ kline_t;
+
+struct mychan_;
+struct myuser_;
 
 typedef struct me me_t;
 
@@ -187,6 +191,12 @@ struct cmode_
 {
         char mode;
         uint32_t value;
+};
+
+struct extmode
+{
+	char mode;
+	boolean_t (*check)(const char *, channel_t *, struct mychan_ *, user_t *, struct myuser_ *);
 };
 
 /* tld list struct */

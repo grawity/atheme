@@ -4,7 +4,7 @@
  *
  * Generates a new password, either n digits long (w/ userserv arg), or 7 digits
  *
- * $Id: us_generatepass.c 4491 2006-01-05 00:06:26Z jilles $
+ * $Id: us_generatepass.c 5804 2006-07-09 14:37:47Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"userserv/generatepass", FALSE, _modinit, _moddeinit,
-	"$Id: us_generatepass.c 4491 2006-01-05 00:06:26Z jilles $",
+	"$Id: us_generatepass.c 5804 2006-07-09 14:37:47Z jilles $",
 	"Epiphanic Networks <http://www.epiphanic.org>"
 );
 
@@ -26,9 +26,10 @@ list_t *us_helptree;
 
 void _modinit(module_t *m)
 {
-	us_cmdtree = module_locate_symbol("userserv/main", "us_cmdtree");
+	MODULE_USE_SYMBOL(us_cmdtree, "userserv/main", "us_cmdtree");
+	MODULE_USE_SYMBOL(us_helptree, "userserv/main", "us_helptree");
+
 	command_add(&us_generatepass, us_cmdtree);
-	us_helptree = module_locate_symbol("userserv/main", "us_helptree");
 	help_addentry(us_helptree, "GENERATEPASS", "help/userserv/generatepass", NULL);
 	
 	/* You'll need to create a helpfile and put in help/userserv */
@@ -42,13 +43,14 @@ void _moddeinit()
 
 static void us_cmd_generatepass(char *origin)
 {
-	int n;
-	char *newpass = strtok(NULL, " ");
+	int n = 0;
+	char *arg = strtok(NULL, " ");
+	char *newpass;
    
-	if (newpass)
-		n = atoi(newpass);
-	
-	if (!n)
+	if (arg)
+		n = atoi(arg);
+
+	if (n <= 0 || n > 127)
 		n = 7;
 
 	newpass = gen_pw(n);

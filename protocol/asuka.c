@@ -6,19 +6,19 @@
  * Some sources used: Run's documentation, beware's description,
  * raw data sent by asuka.
  *
- * $Id: asuka.c 5131 2006-04-29 19:09:24Z jilles $
+ * $Id: asuka.c 5628 2006-07-01 23:38:42Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/asuka.h"
 
-DECLARE_MODULE_V1("protocol/asuka", TRUE, _modinit, NULL, "$Id: asuka.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/asuka", TRUE, _modinit, NULL, "$Id: asuka.c 5628 2006-07-01 23:38:42Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
 ircd_t Asuka = {
         "Asuka 1.2.1 and later",        /* IRCd name */
-        "$$",                           /* TLD Prefix, used by Global. */
+        "$",                            /* TLD Prefix, used by Global. */
         TRUE,                           /* Whether or not we use IRCNet/TS6 UID */
         FALSE,                          /* Whether or not we use RCOMMAND */
         FALSE,                          /* Whether or not we support channel owners. */
@@ -55,7 +55,7 @@ struct cmode_ asuka_mode_list[] = {
   { '\0', 0 }
 };
 
-struct cmode_ asuka_ignore_mode_list[] = {
+struct extmode asuka_ignore_mode_list[] = {
   { '\0', 0 }
 };
 
@@ -142,12 +142,12 @@ static void asuka_join_sts(channel_t *c, user_t *u, boolean_t isnew, char *modes
 	{
 		sts("%s C %s %ld", u->uid, c->name, c->ts);
 		if (modes[0] && modes[1])
-			sts("%s M %s %s %ld", u->uid, c->name, modes, c->ts);
+			sts("%s M %s %s", u->uid, c->name, modes);
 	}
 	else
 	{
 		sts("%s J %s %ld", u->uid, c->name, c->ts);
-		sts("%s M %s +o %s %ld", me.numeric, c->name, u->uid, c->ts);
+		sts("%s M %s +o %s", me.numeric, c->name, u->uid);
 	}
 }
 
@@ -208,7 +208,7 @@ static void asuka_notice(char *from, char *target, char *fmt, ...)
 		/* asuka sucks */
 		/* remove that stupid +N mode before it blocks our notice
 		 * -- jilles */
-		sts("%s M %s -N %ld", u ? u->uid : me.numeric, channel->name, channel->ts);
+		sts("%s M %s -N", u ? u->uid : me.numeric, channel->name);
 		channel->modes &= ~CMODE_NONOTICE;
 	}
 
@@ -222,7 +222,7 @@ static void asuka_wallchops(user_t *sender, channel_t *channel, char *message)
 		/* asuka sucks */
 		/* remove that stupid +N mode before it blocks our notice
 		 * -- jilles */
-		sts("%s M %s -N %ld", sender->uid, channel->name, channel->ts);
+		sts("%s M %s -N", sender->uid, channel->name);
 		channel->modes &= ~CMODE_NONOTICE;
 	}
 	sts("%s WC %s :%s", sender->uid, channel->name, message);
@@ -322,9 +322,9 @@ static void asuka_mode_sts(char *sender, char *target, char *modes)
 		return;
 
 	if (chanuser_find(cptr, fptr))
-		sts("%s M %s %s %ld", fptr->uid, target, modes, cptr->ts);
+		sts("%s M %s %s", fptr->uid, target, modes);
 	else
-		sts("%s M %s %s %ld", me.numeric, target, modes, cptr->ts);
+		sts("%s M %s %s", me.numeric, target, modes);
 }
 
 /* ping wrapper */
@@ -464,6 +464,13 @@ static void m_create(char *origin, uint8_t parc, char *parv[])
 	{
 		channel_t *c = channel_add(chanv[i], atoi(parv[1]));
 
+		/* Tell the core to check mode locks now,
+		 * otherwise it may only happen after the next
+		 * join if everyone is akicked.
+		 * P10 does not allow any redundant modes
+		 * so this will not look ugly. -- jilles */
+		channel_mode_va(NULL, c, 1, "+");
+
 		buf[0] = '@';
 		buf[1] = '\0';
 
@@ -506,7 +513,10 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 		channel_t *c = channel_find(chanv[i]);
 
 		if (!c)
+		{
 			c = channel_add(chanv[i], atoi(parv[1]));
+			channel_mode_va(NULL, c, 1, "+");
+		}
 
 		chanuser_add(c, origin);
 	}
@@ -552,11 +562,7 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 		chanuser_t *cu;
 		node_t *n;
 
-		c->modes = 0;
-		c->limit = 0;
-		if (c->key)
-			free(c->key);
-		c->key = NULL;
+		clear_simple_modes(c);
 		chanban_clear(c);
 		handle_topic(c, "", 0, "");
 		LIST_FOREACH(n, c->members.head)
@@ -565,7 +571,7 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 			if (cu->user->server == me.me)
 			{
 				/* it's a service, reop */
-				sts("%s M %s +o %s %ld", me.numeric, c->name, CLIENT_NAME(cu->user), ts);
+				sts("%s M %s +o %s", me.numeric, c->name, CLIENT_NAME(cu->user));
 				cu->modes = CMODE_OP;
 			}
 			else
@@ -574,6 +580,14 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 
 		slog(LG_INFO, "m_burst(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 		c->ts = ts;
+		hook_call_event("channel_tschange", c);
+	}
+	if (parc < 3 || parv[2][0] != '+')
+	{
+		/* Tell the core to check mode locks now,
+		 * otherwise it may only happen after the next
+		 * join if everyone is akicked. -- jilles */
+		channel_mode_va(NULL, c, 1, "+");
 	}
 
 	j = 2;
@@ -629,9 +643,19 @@ static void m_burst(char *origin, uint8_t parc, char *parv[])
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
 {
-	slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, parv[0]);
+	uint8_t chanc;
+	char *chanv[256];
+	int i;
 
-	chanuser_delete(channel_find(parv[0]), user_find(origin));
+	if (parc < 1)
+		return;
+	chanc = sjtoken(parv[0], ',', chanv);
+	for (i = 0; i < chanc; i++)
+	{
+		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, chanv[i]);
+
+		chanuser_delete(channel_find(chanv[i]), user_find(origin));
+	}
 }
 
 static void m_nick(char *origin, uint8_t parc, char *parv[])
@@ -858,10 +882,9 @@ static void m_clearmode(char *origin, uint8_t parc, char *parv[])
 				if (cu->user->server == me.me)
 				{
 					/* it's a service, reop */
-					sts("%s M %s +o %s %ld", me.numeric,
+					sts("%s M %s +o %s", me.numeric,
 							chan->name,
-							cu->user->uid,
-							chan->ts);
+							cu->user->uid);
 				}
 				else
 					cu->modes &= ~CMODE_OP;
@@ -936,14 +959,25 @@ static void m_squit(char *origin, uint8_t parc, char *parv[])
 /* SERVER ircu.devel.atheme.org 1 1119902586 1119908830 J10 ABAP] + :lets lol */
 static void m_server(char *origin, uint8_t parc, char *parv[])
 {
+	server_t *s;
+
 	/* We dont care about the max connections. */
 	parv[5][2] = '\0';
 
-	slog(LG_DEBUG, "m_server(): new server: %s, id %s", parv[0], parv[5]);
-	server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, parv[5], parv[7]);
+	slog(LG_DEBUG, "m_server(): new server: %s, id %s, %s",
+			parv[0], parv[5],
+			parv[4][0] == 'P' ? "eob" : "bursting");
+	s = server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, parv[5], parv[7]);
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
+
+	/* SF_EOB may only be set when we have all users on the server.
+	 * so store the fact that they are EOB in another flag.
+	 * handle_eob() will set SF_EOB when the uplink has finished bursting.
+	 * -- jilles */
+	if (parv[4][0] == 'P')
+		s->flags |= SF_EOB2;
 
 	me.recvsvr = TRUE;
 }
@@ -1000,6 +1034,8 @@ static void m_error(char *origin, uint8_t parc, char *parv[])
 static void m_eos(char *origin, uint8_t parc, char *parv[])
 {
 	server_t *source = server_find(origin);
+
+	handle_eob(source);
 
 	/* acknowledge a local END_OF_BURST */
 	if (source->uplink == me.me)

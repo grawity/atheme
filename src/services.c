@@ -4,7 +4,7 @@
  *
  * This file contains client interaction routines.
  *
- * $Id: services.c 5261 2006-05-07 21:47:38Z jilles $
+ * $Id: services.c 5716 2006-07-04 04:19:46Z gxti $
  */
 
 #include "atheme.h"
@@ -94,9 +94,9 @@ void join(char *chan, char *nick)
 	c = channel_find(chan);
 	if (c == NULL)
 	{
-		c = channel_add(chan, CURRTIME);
+		mc = mychan_find(chan);
+		c = channel_add(chan, chansvs.changets && mc != NULL && mc->registered > 0 ? mc->registered : CURRTIME);
 		c->modes |= CMODE_NOEXT | CMODE_TOPIC;
-		mc = mychan_find(c->name);
 		if (mc != NULL)
 			check_modes(mc, FALSE);
 		isnew = TRUE;
@@ -218,6 +218,9 @@ void verbose(mychan_t *mychan, char *fmt, ...)
 	va_list ap;
 	char buf[BUFSIZE];
 
+	if (mychan->chan == NULL)
+		return;
+
 	va_start(ap, fmt);
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
@@ -253,6 +256,7 @@ void snoop(char *fmt, ...)
 void handle_nickchange(user_t *u)
 {
 	myuser_t *mu;
+    node_t *n;
 
 	if (u == NULL)
 		return;
@@ -267,6 +271,20 @@ void handle_nickchange(user_t *u)
 	/* They're logged in, don't send them spam -- jilles */
 	if (u->myuser)
 		u->flags |= UF_SEENINFO;
+
+	/* Also don't send it if they came back from a split -- jilles */
+	if (!(u->server->flags & SF_EOB))
+		u->flags |= UF_SEENINFO;
+
+    /* If the user recently completed SASL login, omit -- gxti */
+    if(*u->uid)
+    {
+        LIST_FOREACH(n, saslsvs.pending.head)
+        {
+            if(!strcmp((char*)n->data, u->uid))
+                return;
+        }
+    }
 
 	if (!(mu = myuser_find(u->nick)))
 	{
@@ -327,9 +345,11 @@ void handle_burstlogin(user_t *u, char *login)
 	mu = myuser_find(login);
 	if (mu == NULL)
 	{
-		/* account dropped during split... log them out */
+		/* account dropped during split...
+		 * if we have an authentication service, log them out */
 		slog(LG_DEBUG, "handle_burstlogin(): got nonexistent login %s for user %s", login, u->nick);
-		ircd_on_logout(u->nick, login, NULL);
+		if (authservice_loaded)
+			ircd_on_logout(u->nick, login, NULL);
 		return;
 	}
 	if (u->myuser != NULL)	/* already logged in, hmm */

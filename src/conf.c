@@ -4,7 +4,7 @@
  *
  * This file contains the routines that deal with the configuration.
  *
- * $Id: conf.c 5065 2006-04-14 03:55:44Z w00t $
+ * $Id: conf.c 5466 2006-06-20 23:24:29Z jilles $
  */
 
 #include "atheme.h"
@@ -65,6 +65,7 @@ static int c_ci_vop(CONFIGENTRY *);
 static int c_ci_hop(CONFIGENTRY *);
 static int c_ci_aop(CONFIGENTRY *);
 static int c_ci_sop(CONFIGENTRY *);
+static int c_ci_changets(CONFIGENTRY *);
 
 /* GService client information. */
 static int c_gl_nick(CONFIGENTRY *);
@@ -176,23 +177,14 @@ list_t conf_ss_table;
 
 /* *INDENT-ON* */
 
-void conf_parse(char *file)
+static void conf_process(CONFIGFILE *cfp)
 {
-	CONFIGFILE *cfptr, *cfp;
+	CONFIGFILE *cfptr;
 	CONFIGENTRY *ce;
 	node_t *tn;
 	struct ConfTable *ct = NULL;
 
-	cfptr = cfp = config_load(file);
-
-	if (cfp == NULL)
-	{
-		slog(LG_INFO, "conf_parse(): unable to open configuration file: %s", strerror(errno));
-
-		exit(EXIT_FAILURE);
-	}
-
-	for (; cfptr; cfptr = cfptr->cf_next)
+	for (cfptr = cfp; cfptr; cfptr = cfptr->cf_next)
 	{
 		for (ce = cfptr->cf_entries; ce; ce = ce->ce_next)
 		{
@@ -210,7 +202,21 @@ void conf_parse(char *file)
 				slog(LG_INFO, "%s:%d: invalid configuration option: %s", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_varname);
 		}
 	}
+}
 
+boolean_t conf_parse(char *file)
+{
+	CONFIGFILE *cfp;
+
+	cfp = config_load(file);
+	if (cfp == NULL)
+	{
+		slog(LG_ERROR, "conf_parse(): unable to load configuration file: %s", strerror(errno));
+
+		return FALSE;
+	}
+
+	conf_process(cfp);
 	config_free(cfp);
 
 	if (!pmodule_loaded)
@@ -220,6 +226,7 @@ void conf_parse(char *file)
 	}
 
 	hook_call_event("config_ready", NULL);
+	return TRUE;
 }
 
 void conf_init(void)
@@ -266,6 +273,7 @@ void conf_init(void)
 	chansvs.ca_hop = CA_HOP_DEF;
 	chansvs.ca_aop = CA_AOP_DEF;
 	chansvs.ca_sop = CA_SOP_DEF;
+	chansvs.changets = FALSE;
 
 	if (!(runflags & RF_REHASHING))
 	{
@@ -505,6 +513,7 @@ void init_newconf(void)
 	add_conf_item("HOP", &conf_ci_table, c_ci_hop);
 	add_conf_item("AOP", &conf_ci_table, c_ci_aop);
 	add_conf_item("SOP", &conf_ci_table, c_ci_sop);
+	add_conf_item("CHANGETS", &conf_ci_table, c_ci_changets);
 
 	/* global{} block */
 	add_conf_item("NICK", &conf_gl_table, c_gl_nick);
@@ -1223,6 +1232,12 @@ static int c_ci_sop(CONFIGENTRY *ce)
 	return 0;
 }
 
+static int c_ci_changets(CONFIGENTRY *ce)
+{
+	chansvs.changets = TRUE;
+	return 0;
+}
+
 static int c_gi_chan(CONFIGENTRY *ce)
 {
 	if (ce->ce_vardata == NULL)
@@ -1748,10 +1763,20 @@ boolean_t conf_rehash(void)
 {
 	struct me *hold_me = scalloc(sizeof(struct me), 1);	/* and keep_me_warm; */
 	char *oldsnoop;
+	CONFIGFILE *cfp;
 
 	/* we're rehashing */
 	slog(LG_INFO, "conf_rehash(): rehashing");
 	runflags |= RF_REHASHING;
+
+	errno = 0;
+	cfp = config_load(config_file);
+	if (cfp == NULL)
+	{
+		slog(LG_INFO, "conf_rehash(): unable to load configuration file: %s, aborting rehash", strerror(errno));
+		runflags &= ~RF_REHASHING;
+		return FALSE;
+	}
 
 	copy_me(&me, hold_me);
 
@@ -1764,7 +1789,9 @@ boolean_t conf_rehash(void)
 	mark_all_illegal();
 
 	/* now reload */
-	conf_parse(config_file);
+	conf_process(cfp);
+	config_free(cfp);
+	hook_call_event("config_ready", NULL);
 
 	/* now recheck */
 	if (!conf_check())
@@ -1783,6 +1810,7 @@ boolean_t conf_rehash(void)
 		free(hold_me);
 		free(oldsnoop);
 
+		runflags &= ~RF_REHASHING;
 		return FALSE;
 	}
 
@@ -1805,7 +1833,6 @@ boolean_t conf_rehash(void)
 	free(oldsnoop);
 
 	runflags &= ~RF_REHASHING;
-
 	return TRUE;
 }
 

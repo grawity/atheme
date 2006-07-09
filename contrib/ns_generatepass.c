@@ -4,7 +4,7 @@
  *
  * Generates a new password, either n digits long (w/ nickserv arg), or 7 digits
  *
- * $Id: ns_generatepass.c 4491 2006-01-05 00:06:26Z jilles $
+ * $Id: ns_generatepass.c 5804 2006-07-09 14:37:47Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/generatepass", FALSE, _modinit, _moddeinit,
-	"$Id: ns_generatepass.c 4491 2006-01-05 00:06:26Z jilles $",
+	"$Id: ns_generatepass.c 5804 2006-07-09 14:37:47Z jilles $",
 	"Epiphanic Networks <http://www.epiphanic.org>"
 );
 
@@ -26,9 +26,10 @@ list_t *ns_helptree;
 
 void _modinit(module_t *m)
 {
-	ns_cmdtree = module_locate_symbol("nickserv/main", "ns_cmdtree");
+	MODULE_USE_SYMBOL(ns_cmdtree, "nickserv/main", "ns_cmdtree");
+	MODULE_USE_SYMBOL(ns_helptree, "nickserv/main", "ns_helptree");
+
 	command_add(&ns_generatepass, ns_cmdtree);
-	ns_helptree = module_locate_symbol("nickserv/main", "ns_helptree");
 	help_addentry(ns_helptree, "GENERATEPASS", "help/nickserv/generatepass", NULL);
 	
 	/* You'll need to create a helpfile and put in help/nickserv */
@@ -42,13 +43,14 @@ void _moddeinit()
 
 static void ns_cmd_generatepass(char *origin)
 {
-	int n;
-	char *newpass = strtok(NULL, " ");
+	int n = 0;
+	char *arg = strtok(NULL, " ");
+	char *newpass;
    
-	if (newpass)
-		n = atoi(newpass);
-	
-	if (!n)
+	if (arg)
+		n = atoi(arg);
+
+	if (n <= 0 || n > 127)
 		n = 7;
 
 	newpass = gen_pw(n);

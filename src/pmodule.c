@@ -4,7 +4,7 @@
  *
  * Protocol handling stuff.
  *
- * $Id: pmodule.c 3989 2005-11-29 00:42:00Z nenolod $
+ * $Id: pmodule.c 5628 2006-07-01 23:38:42Z jilles $
  */
 
 #include "atheme.h"
@@ -13,12 +13,13 @@ list_t pcommands[HASHSIZE];
 BlockHeap *pcommand_heap;
 BlockHeap *messagetree_heap;
 struct cmode_ *mode_list;
-struct cmode_ *ignore_mode_list;
+struct extmode *ignore_mode_list;
 struct cmode_ *status_mode_list;
 struct cmode_ *prefix_mode_list;
 ircd_t *ircd;
 boolean_t pmodule_loaded = FALSE;
 boolean_t backend_loaded = FALSE;
+int authservice_loaded = 0;
 
 void pcommand_init(void)
 {

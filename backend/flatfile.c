@@ -5,7 +5,7 @@
  * This file contains the implementation of the Atheme 0.1
  * flatfile database format, with metadata extensions.
  *
- * $Id: flatfile.c 4839 2006-02-17 23:37:21Z jilles $
+ * $Id: flatfile.c 5634 2006-07-02 00:05:59Z jilles $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 DECLARE_MODULE_V1
 (
 	"backend/flatfile", TRUE, _modinit, NULL,
-	"$Id: flatfile.c 4839 2006-02-17 23:37:21Z jilles $",
+	"$Id: flatfile.c 5634 2006-07-02 00:05:59Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -28,12 +28,16 @@ static void flatfile_db_save(void *arg)
 	node_t *n, *tn, *tn2;
 	FILE *f;
 	uint32_t i, muout = 0, mcout = 0, caout = 0, kout = 0;
+	int errno1, was_errored = 0;
+
+	errno = 0;
 
 	/* write to a temporary file first */
 	if (!(f = fopen("etc/atheme.db.new", "w")))
 	{
-		slog(LG_ERROR, "db_save(): cannot write to atheme.db.new");
-		wallops("\2DATABASE ERROR\2: db_save(): cannot write to atheme.db.new");
+		errno1 = errno;
+		slog(LG_ERROR, "db_save(): cannot create atheme.db.new: %s", strerror(errno1));
+		wallops("\2DATABASE ERROR\2: db_save(): cannot create atheme.db.new: %s", strerror(errno1));
 		return;
 	}
 
@@ -166,7 +170,7 @@ static void flatfile_db_save(void *arg)
 		svsignore = (svsignore_t *)n->data;
 
 		/* SI <mask> <settime> <setby> <reason> */
-		fprintf(f, "SI %s %ld %s %s\n", svsignore->mask, svsignore->settime, svsignore->setby, svsignore->reason);
+		fprintf(f, "SI %s %ld %s %s\n", svsignore->mask, (long)svsignore->settime, svsignore->setby, svsignore->reason);
 	}
 
 
@@ -185,8 +189,15 @@ static void flatfile_db_save(void *arg)
 	/* DE <muout> <mcout> <caout> <kout> */
 	fprintf(f, "DE %d %d %d %d\n", muout, mcout, caout, kout);
 
-	fclose(f);
-
+	was_errored = ferror(f);
+	was_errored |= fclose(f);
+	if (was_errored)
+	{
+		errno1 = errno;
+		slog(LG_ERROR, "db_save(): cannot write to atheme.db.new: %s", strerror(errno1));
+		wallops("\2DATABASE ERROR\2: db_save(): cannot write to atheme.db.new: %s", strerror(errno1));
+		return;
+	}
 	/* now, replace the old database with the new one, using an atomic rename */
 	
 #ifdef _WIN32
@@ -195,8 +206,9 @@ static void flatfile_db_save(void *arg)
 	
 	if ((rename("etc/atheme.db.new", "etc/atheme.db")) < 0)
 	{
-		slog(LG_ERROR, "db_save(): cannot rename atheme.db.new to atheme.db");
-		wallops("\2DATABASE ERROR\2: db_save(): cannot rename atheme.db.new to atheme.db");
+		errno1 = errno;
+		slog(LG_ERROR, "db_save(): cannot rename atheme.db.new to atheme.db: %s", strerror(errno1));
+		wallops("\2DATABASE ERROR\2: db_save(): cannot rename atheme.db.new to atheme.db: %s", strerror(errno1));
 		return;
 	}
 }
@@ -209,12 +221,13 @@ static void flatfile_db_load(void)
 	kline_t *k;
 	svsignore_t *svsignore;
 	uint32_t i = 0, linecnt = 0, muin = 0, mcin = 0, cain = 0, kin = 0;
-	FILE *f = fopen("etc/atheme.db", "r");
+	FILE *f;
 	char *item, *s, dBuf[BUFSIZE];
 
-	if (!f)
+	f = fopen("etc/atheme.db", "r");
+	if (f == NULL)
 	{
-		slog(LG_ERROR, "db_load(): can't open atheme.db for reading");
+		slog(LG_ERROR, "db_load(): can't open atheme.db for reading: %s", strerror(errno));
 		return;
 	}
 
@@ -395,7 +408,8 @@ static void flatfile_db_load(void)
 				if ((s = strtok(NULL, " ")))
 				{
 					strip(s);
-					mc->mlock_key = sstrdup(s);
+					if (*s != '\0' && *s != ':' && !strchr(s, ','))
+						mc->mlock_key = sstrdup(s);
 				}
 			}
 		}

@@ -42,6 +42,15 @@
 /* Define to 1 if you have the `mmap' function. */
 #undef HAVE_MMAP
 
+/* Define to 1 if openssl is available */
+#undef HAVE_OPENSSL
+
+/* Define to 1 if you have the <openssl/err.h> header file. */
+#undef HAVE_OPENSSL_ERR_H
+
+/* Define to 1 if you have the <openssl/ssl.h> header file. */
+#undef HAVE_OPENSSL_SSL_H
+
 /* Define if the shl_load function is available. */
 #undef HAVE_SHL_LOAD
 
@@ -142,7 +151,7 @@
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME
 
-/* Define to 1 if you want GNU SASL. */
+/* Define to 1 if you want builtin SASL. */
 #undef USE_SASL
 
 /* Enable GNU extensions on systems that have them.  */
@@ -173,6 +182,9 @@
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
+
+/* Define to `unsigned int' if <sys/types.h> does not define. */
+#undef socklen_t
 
 /* Define to `unsigned short' if <sys/types.h> does not define. */
 #undef uint16_t

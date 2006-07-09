@@ -4,7 +4,7 @@
  *
  * This file contains code for the ChanServ CLEAR USERS function.
  *
- * $Id: clear_users.c 4745 2006-01-31 02:26:19Z nenolod $
+ * $Id: clear_users.c 5686 2006-07-03 16:25:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/clear_users", FALSE, _modinit, _moddeinit,
-	"$Id: clear_users.c 4745 2006-01-31 02:26:19Z nenolod $",
+	"$Id: clear_users.c 5686 2006-07-03 16:25:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -25,10 +25,10 @@ list_t *cs_helptree;
 
 void _modinit(module_t *m)
 {
-	cs_clear_cmds = module_locate_symbol("chanserv/clear", "cs_clear_cmds");
-	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
-	fcommand_add(&cs_clear_users, cs_clear_cmds);
+	MODULE_USE_SYMBOL(cs_clear_cmds, "chanserv/clear", "cs_clear_cmds");
+	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
+	fcommand_add(&cs_clear_users, cs_clear_cmds);
 	help_addentry(cs_helptree, "CLEAR USERS", "help/cservice/clear_users", NULL);
 }
 
@@ -82,7 +82,8 @@ static void cs_cmd_clear_users(char *origin, char *channel)
 	/* stop a race condition where users can rejoin */
 	oldlimit = c->limit;
 	if (oldlimit != 1)
-		mode_sts(chansvs.nick, c->name, "+l 1");
+		modestack_mode_limit(chansvs.nick, c->name, MTYPE_ADD, 1);
+	modestack_flush_channel(c->name);
 
 	LIST_FOREACH_SAFE(n, tn, c->members.head)
 	{
@@ -112,12 +113,9 @@ static void cs_cmd_clear_users(char *origin, char *channel)
 		if (c != NULL)
 		{
 			if (oldlimit == 0)
-				cmode(chansvs.nick, c->name, "-l");
+				modestack_mode_limit(chansvs.nick, c->name, MTYPE_DEL, 0);
 			else if (oldlimit != 1)
-			{
-				snprintf(fullreason, sizeof fullreason, "%d", oldlimit);
-				cmode(chansvs.nick, c->name, "+l", fullreason);
-			}
+				modestack_mode_limit(chansvs.nick, c->name, MTYPE_ADD, oldlimit);
 		}
 	}
 

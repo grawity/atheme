@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for spanning-tree inspircd, b6 or later.
  *
- * $Id: inspircd.c 5131 2006-04-29 19:09:24Z jilles $
+ * $Id: inspircd.c 5638 2006-07-02 00:21:54Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/inspircd.h"
 
-DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd.c 5131 2006-04-29 19:09:24Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
+DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd.c 5638 2006-07-02 00:21:54Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
 
 /* *INDENT-OFF* */
 
@@ -54,13 +54,21 @@ struct cmode_ inspircd_mode_list[] = {
   { 'V', CMODE_NOINVITE },
   { 'C', CMODE_NOCTCP   },
   { 'N', CMODE_STICKY   },
+  { 'G', CMODE_CENSOR   },
+  { 'P', CMODE_NOCAPS   },
+  { 'z', CMODE_SSLONLY	},
+  { 'T', CMODE_NONOTICE },
   { '\0', 0 }
 };
 
-struct cmode_ inspircd_ignore_mode_list[] = {
-  { 'f', 0 },
-  { 'j', 0 },
-  { 'L', 0 },
+static boolean_t check_flood(const char *, channel_t *, mychan_t *, user_t *, myuser_t *);
+static boolean_t check_jointhrottle(const char *, channel_t *, mychan_t *, user_t *, myuser_t *);
+static boolean_t check_forward(const char *, channel_t *, mychan_t *, user_t *, myuser_t *);
+
+struct extmode inspircd_ignore_mode_list[] = {
+  { 'f', check_flood },
+  { 'j', check_jointhrottle },
+  { 'L', check_forward },
   { '\0', 0 }
 };
 
@@ -84,6 +92,52 @@ struct cmode_ inspircd_prefix_mode_list[] = {
 };
 
 /* *INDENT-ON* */
+
+static boolean_t check_flood(const char *value, channel_t *c, mychan_t *mc, user_t *u, myuser_t *mu)
+{
+
+	return *value == '*' ? check_jointhrottle(value + 1, c, mc, u, mu) : check_jointhrottle(value, c, mc, u, mu);
+}
+
+static boolean_t check_jointhrottle(const char *value, channel_t *c, mychan_t *mc, user_t *u, myuser_t *mu)
+{
+	const char *p, *arg2;
+
+	p = value, arg2 = NULL;
+	while (*p != '\0')
+	{
+		if (*p == ':')
+		{
+			if (arg2 != NULL)
+				return FALSE;
+			arg2 = p + 1;
+		}
+		else if (!isdigit(*p))
+			return FALSE;
+		p++;
+	}
+	if (arg2 == NULL)
+		return FALSE;
+	if (p - arg2 > 10 || arg2 - value - 1 > 10 || !atoi(value) || !atoi(arg2))
+		return FALSE;
+	return TRUE;
+}
+
+static boolean_t check_forward(const char *value, channel_t *c, mychan_t *mc, user_t *u, myuser_t *mu)
+{
+	channel_t *target_c;
+	mychan_t *target_mc;
+
+	if (*value != '#' || strlen(value) > 50)
+		return FALSE;
+	if (u == NULL && mu == NULL)
+		return TRUE;
+	target_c = channel_find(value);
+	target_mc = mychan_find(value);
+	if (target_c == NULL && target_mc == NULL)
+		return FALSE;
+	return TRUE;
+}
 
 /* login to our uplink */
 static uint8_t inspircd_server_login(void)
@@ -279,7 +333,7 @@ static void inspircd_kline_sts(char *server, char *user, char *host, long durati
 		return;
 
 	/* :services-dev.chatspike.net ADDLINE G test@test.com Brain 1133994664 0 :You are banned from this network */
-	sts(":%s ADDLINE G %s@%s %s %ld 0 :%s", me.name, user, host, opersvs.nick, time(NULL), reason);
+	sts(":%s ADDLINE G %s@%s %s %ld %ld :%s", me.name, user, host, opersvs.nick, time(NULL), duration, reason);
 }
 
 /* server-to-server UNKLINE wrapper */
@@ -330,14 +384,7 @@ static void inspircd_on_login(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return;
 
-	/* Can only do this for nickserv, and can only record identified
-	 * state if logged in to correct nick, sorry -- jilles
-	 */
-	if (nicksvs.me == NULL || irccasecmp(origin, user))
-		return;
-
-	/* In InspIRCd, SVSMODE shows the +r if not already set */
-	sts(":%s SVSMODE %s +r", nicksvs.nick, origin);
+	sts(":%s METADATA %s accountname :%s", me.name, origin, user);
 }
 
 /* protocol-specific stuff to do on logout */
@@ -346,10 +393,7 @@ static boolean_t inspircd_on_logout(char *origin, char *user, char *wantedhost)
 	if (!me.connected)
 		return FALSE;
 
-	if (nicksvs.me == NULL || irccasecmp(origin, user))
-		return FALSE;
-
-	sts(":%s SVSMODE %s -r", nicksvs.nick, origin);
+	sts(":%s METADATA %s accountname :", me.name, origin);
 	return FALSE;
 }
 
@@ -368,6 +412,14 @@ static void inspircd_sethost_sts(char *source, char *target, char *host)
 
 	sts(":%s CHGHOST %s %s", source, target, host);
 }
+
+static void inspircd_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
+{
+	/* svsnick can only be sent by a server */
+	sts(":%s SVSNICK %s %s %lu", me.name, u->nick, newnick,
+		(unsigned long)(CURRTIME - 60));
+}
+
 
 /* invite a user to a channel */
 static void inspircd_invite_sts(user_t *sender, user_t *target, channel_t *channel)
@@ -403,10 +455,19 @@ static void m_ping(char *origin, uint8_t parc, char *parv[])
 
 static void m_pong(char *origin, uint8_t parc, char *parv[])
 {
+	server_t *s;
+
 	/* someone replied to our PING */
-	if (origin != NULL && strcasecmp(me.actual, origin))
+	if (origin == NULL)
 		return;
 
+	s = server_find(origin);
+	if (s == NULL)
+		return;
+	handle_eob(s);
+
+	if (irccasecmp(me.actual, origin))
+		return;
 	me.uplinkpong = CURRTIME;
 
 	/* -> :test.projectxero.net PONG test.projectxero.net :shrike.malkier.net */
@@ -458,16 +519,22 @@ static void m_fjoin(char *origin, uint8_t parc, char *parv[])
 		{
 			slog(LG_DEBUG, "m_fjoin(): new channel: %s", parv[0]);
 			c = channel_add(parv[0], ts);
+			/* Tell the core to check mode locks now,
+			 * otherwise it may only happen after the next
+			 * join if everyone is akicked.
+			 * Inspircd does not allow any redundant modes
+			 * so this will not look ugly. -- jilles */
+			channel_mode_va(NULL, c, 1, "+");
 		}
 
 		if (ts < c->ts)
 		{
 			/* the TS changed.  a TS change requires us to do
 			 * bugger all except update the TS, because in InspIRCd,
-			 * remote servers enforce the TS change (this means that
-			 * rogue servers cant really get around it) - Brain
+			 * remote servers enforce the TS change - Brain
 			 */
 			c->ts = ts;
+			hook_call_event("channel_tschange", c);
 		}
 
 		for (i = 2; i < parc; i++)
@@ -477,9 +544,19 @@ static void m_fjoin(char *origin, uint8_t parc, char *parv[])
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
 {
-	slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, parv[0]);
+	uint8_t chanc;
+	char *chanv[256];
+	int i;
 
-	chanuser_delete(channel_find(parv[0]), user_find(origin));
+	if (parc < 1)
+		return;
+	chanc = sjtoken(parv[0], ',', chanv);
+	for (i = 0; i < chanc; i++)
+	{
+		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, chanv[i]);
+
+		chanuser_delete(channel_find(chanv[i]), user_find(origin));
+	}
 }
 
 static void m_nick(char *origin, uint8_t parc, char *parv[])
@@ -501,16 +578,13 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		/* char *nick, char *user, char *host, char *vhost, char *ip, char *uid, char *gecos, server_t *server, uint32_t ts */
 		u = user_add(parv[1], parv[4], parv[2], parv[3], parv[6], NULL, parv[7], s, atol(parv[0]));
-
 		user_mode(u, parv[5]);
 
-		/* Assumes ircd clears +r on nick changes (r2882 or newer) */
-		if (strchr(parv[5], 'r'))
-			handle_burstlogin(u, parv[1]);
-
-		handle_nickchange(u);
+		/* If server is not yet EOB we will do this later.
+		 * This avoids useless "please identify" -- jilles */
+		if (s->flags & SF_EOB)
+			handle_nickchange(u);
 	}
-
 	/* if it's only 1 then it's a nickname change */
 	else if (parc == 1)
 	{
@@ -525,11 +599,6 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 
 		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
 
-		/* fix up +r if necessary -- jilles */
-		if (nicksvs.me != NULL && u->myuser != NULL && !(u->myuser->flags & MU_WAITAUTH) && irccasecmp(u->nick, parv[0]) && !irccasecmp(parv[0], u->myuser->name))
-			/* changed nick to registered one, reset +r */
-			sts(":%s SVSMODE %s +r", nicksvs.nick, parv[0]);
-
 		/* remove the current one from the list */
 		n = node_find(u, &userlist[u->hash]);
 		node_del(n, &userlist[u->hash]);
@@ -543,7 +612,11 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 		u->hash = UHASH((unsigned char *)u->nick);
 		node_add(u, n, &userlist[u->hash]);
 
-		handle_nickchange(u);
+		/* It could happen that our PING arrived late and the
+		 * server didn't acknowledge EOB yet even though it is
+		 * EOB; don't send double notices in that case -- jilles */
+		if (u->server->flags & SF_EOB)
+			handle_nickchange(u);
 	}
 	else
 	{
@@ -639,6 +712,13 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
+	else
+	{
+		/* elicit PONG for EOB detection; pinging uplink is
+		 * already done elsewhere -- jilles
+		 */
+		sts(":%s PING %s %s", me.name, me.name, parv[0]);
+	}
 }
 
 static void m_join(char *origin, uint8_t parc, char *parv[])
@@ -647,27 +727,18 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 	channel_t *c;
 	chanuser_t *cu;
 	node_t *n, *tn;
-	char* modev[2];
 
 	if (!u)
 		return;
 
-	modev[0] = "+o";
-	modev[1] = origin;
 	c = channel_find(parv[0]);
 	if (!c)
 	{
-		slog(LG_DEBUG, "m_join(): new channel: %s", parv[0]);
+		slog(LG_DEBUG, "m_join(): new channel: %s (TS and modes lost)", parv[0]);
 		c = channel_add(parv[0], CURRTIME);
-		chanuser_add(c, origin);
-		channel_mode(NULL, c, 2, modev);
+		channel_mode_va(NULL, c, 1, "+");
 	}
-	else
-	{
-		chanuser_add(c, origin);
-	}
-
-		
+	chanuser_add(c, origin);
 }
 
 static void m_sajoin(char *origin, uint8_t parc, char *parv[])
@@ -725,6 +796,55 @@ static void m_fhost(char *origin, uint8_t parc, char *parv[])
 	strlcpy(u->vhost, parv[0], HOSTLEN);
 }
 
+/*
+ * :<source server> METADATA <channel|user> <key> :<value>
+ * The sole piece of metadata we're interested in is 'accountname', set by Services,
+ * and kept by ircd.
+ *
+ * :services.barafranca METADATA w00t accountname :w00t
+ */
+
+static void m_metadata(char *origin, uint8_t parc, char *parv[])
+{
+	user_t *u;
+
+	if (!irccasecmp(parv[1], "accountname"))
+	{
+		/* find user */
+		u = user_find(parv[0]);
+
+		if (u == NULL)
+			return;
+
+		handle_burstlogin(u, parv[2]);
+	}
+}
+
+static void m_capab(char *origin, uint8_t parc, char *parv[])
+{
+	if (!strstr(parv[0], "m_services_account.so"))
+	{
+		fprintf(stderr, "atheme: you didn't load m_services_account into inspircd. atheme support requires this module. exiting.\n");
+		exit(EXIT_FAILURE);		
+	}
+	else if (!strstr(parv[0], "m_globops.so"))
+	{
+		fprintf(stderr, "atheme: you didn't load m_globops into inspircd. atheme support requires this module. exiting.\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/* Server ended their burst: warn all their users if necessary -- jilles */
+static void server_eob(server_t *s)
+{
+	node_t *n;
+
+	LIST_FOREACH(n, s->userlist.head)
+	{
+		handle_nickchange((user_t *)n->data);
+	}
+}
+
 void _modinit(module_t * m)
 {
 	/* Symbol relocation voodoo. */
@@ -748,6 +868,7 @@ void _modinit(module_t * m)
 	ircd_on_logout = &inspircd_on_logout;
 	jupe = &inspircd_jupe;
 	sethost_sts = &inspircd_sethost_sts;
+	fnc_sts = &inspircd_fnc_sts;
 	invite_sts = &inspircd_invite_sts;
 
 	mode_list = inspircd_mode_list;
@@ -782,6 +903,11 @@ void _modinit(module_t * m)
 	pcommand_add("FHOST", m_fhost);
 	pcommand_add("IDLE", m_idle);
 	pcommand_add("OPERTYPE", m_opertype);
+	pcommand_add("METADATA", m_metadata);
+	pcommand_add("CAPAB", m_capab);
+
+	hook_add_event("server_eob");
+	hook_add_hook("server_eob", (void (*)(void *))server_eob);
 
 	m->mflags = MODTYPE_CORE;
 

@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the NickServ HELP command.
  *
- * $Id: help.c 5145 2006-05-01 14:17:57Z jilles $
+ * $Id: help.c 5686 2006-07-03 16:25:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/help", FALSE, _modinit, _moddeinit,
-	"$Id: help.c 5145 2006-05-01 14:17:57Z jilles $",
+	"$Id: help.c 5686 2006-07-03 16:25:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -24,8 +24,9 @@ command_t ns_help = { "HELP", "Displays contextual help information.", AC_NONE, 
 
 void _modinit(module_t *m)
 {
-	ns_cmdtree = module_locate_symbol("nickserv/main", "ns_cmdtree");
-	ns_helptree = module_locate_symbol("nickserv/main", "ns_helptree");
+	MODULE_USE_SYMBOL(ns_cmdtree, "nickserv/main", "ns_cmdtree");
+	MODULE_USE_SYMBOL(ns_helptree, "nickserv/main", "ns_helptree");
+
 	command_add(&ns_help, ns_cmdtree);
 	help_addentry(ns_helptree, "HELP", "help/help", NULL);
 }
@@ -64,41 +65,6 @@ void ns_cmd_help(char *origin)
 	{
 		notice(nicksvs.nick, origin, "***** \2%s Help\2 *****", nicksvs.nick);
 		command_help(nicksvs.nick, origin, ns_cmdtree);
-		notice(nicksvs.nick, origin, "***** \2End of Help\2 *****");
-		return;
-	}
-
-	if (!strcasecmp("SET", command))
-	{
-		notice(nicksvs.nick, origin, "***** \2%s Help\2 *****", nicksvs.nick);
-		notice(nicksvs.nick, origin, "Help for \2SET\2:");
-		notice(nicksvs.nick, origin, " ");
-		notice(nicksvs.nick, origin, "SET allows you to set various control flags");
-		notice(nicksvs.nick, origin, "for nicknames that change the way certain operations");
-		notice(nicksvs.nick, origin, "are performed on them.");
-		notice(nicksvs.nick, origin, " ");
-		notice(nicksvs.nick, origin, "The following commands are available.");
-		notice(nicksvs.nick, origin, "\2EMAIL\2         Changes the email address associated with a nickname.");
-		notice(nicksvs.nick, origin, "\2EMAILMEMOS\2    Forwards incoming memos to your email address.");
-		notice(nicksvs.nick, origin, "\2HIDEMAIL\2      Hides a nickname's email address");
-		notice(nicksvs.nick, origin, "\2NOMEMO\2        Disable memo receive service.");
-		notice(nicksvs.nick, origin, "\2NOOP\2       Prevents services from automatically setting modes associated with access lists.");
-		notice(nicksvs.nick, origin, "\2NEVEROP\2          Prevents you from being added to access lists.");
-		notice(nicksvs.nick, origin, "\2PASSWORD\2      Change the password of a nickname.");
-		notice(nicksvs.nick, origin, "\2PROPERTY\2      Manipulates metadata entries associated with a nickname.");
-		notice(nicksvs.nick, origin, " ");
-
-#if 0		/* currently unused */
-		if (is_soper(u->myuser))
-		{
-			notice(nicksvs.nick, origin, "The following SRA commands are available.");
-			notice(nicksvs.nick, origin, "\2HOLD\2          Prevents services from expiring a nickname.");
-			notice(nicksvs.nick, origin, " ");
-		}
-#endif
-
-		notice(nicksvs.nick, origin, "For more specific help use \2HELP SET \37command\37\2.");
-
 		notice(nicksvs.nick, origin, "***** \2End of Help\2 *****");
 		return;
 	}

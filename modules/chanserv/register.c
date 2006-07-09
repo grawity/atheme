@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService REGISTER function.
  *
- * $Id: register.c 5073 2006-04-14 11:16:18Z w00t $
+ * $Id: register.c 5686 2006-07-03 16:25:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/register", FALSE, _modinit, _moddeinit,
-	"$Id: register.c 5073 2006-04-14 11:16:18Z w00t $",
+	"$Id: register.c 5686 2006-07-03 16:25:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -26,8 +26,8 @@ list_t *cs_helptree;
 
 void _modinit(module_t *m)
 {
-	cs_cmdtree = module_locate_symbol("chanserv/main", "cs_cmdtree");
-	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
+	MODULE_USE_SYMBOL(cs_cmdtree, "chanserv/main", "cs_cmdtree");
+	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
         command_add(&cs_register, cs_cmdtree);
 	help_addentry(cs_helptree, "REGISTER", "help/cservice/register", NULL);
@@ -70,6 +70,12 @@ static void cs_cmd_register(char *origin)
 		return;
 	}
 
+	if (u->myuser->flags & MU_WAITAUTH)
+	{
+		notice(memosvs.nick, origin, "You need to verify your email address before you may register channels.");
+		return;
+	}
+	
 	/* make sure it isn't already registered */
 	if ((mc = mychan_find(name)))
 	{

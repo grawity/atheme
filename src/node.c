@@ -5,7 +5,7 @@
  * This file contains data structures, and functions to
  * manipulate them.
  *
- * $Id: node.c 5221 2006-05-03 15:42:14Z jilles $
+ * $Id: node.c 5640 2006-07-02 00:48:37Z jilles $
  */
 
 #include "atheme.h"
@@ -700,6 +700,10 @@ void user_delete(user_t *u)
 	hook_call_event("user_delete", u);
 
 	u->server->users--;
+	if (is_ircop(u))
+		u->server->opers--;
+	if (u->flags & UF_INVIS)
+		u->server->invis--;
 
 	/* remove the user from each channel */
 	LIST_FOREACH_SAFE(n, tn, u->channels.head)
@@ -743,7 +747,7 @@ void user_delete(user_t *u)
 	cnt.user--;
 }
 
-user_t *user_find(char *nick)
+user_t *user_find(const char *nick)
 {
 	user_t *u;
 	node_t *n;
@@ -753,7 +757,7 @@ user_t *user_find(char *nick)
 
 	if (ircd->uses_uid == TRUE)
 	{
-		LIST_FOREACH(n, uidlist[SHASH((unsigned char *)nick)].head)
+		LIST_FOREACH(n, uidlist[SHASH((const unsigned char *)nick)].head)
 		{
 			u = (user_t *)n->data;
 
@@ -762,7 +766,7 @@ user_t *user_find(char *nick)
 		}
 	}
 
-	LIST_FOREACH(n, userlist[SHASH((unsigned char *)nick)].head)
+	LIST_FOREACH(n, userlist[SHASH((const unsigned char *)nick)].head)
 	{
 		u = (user_t *)n->data;
 
@@ -779,12 +783,12 @@ user_t *user_find(char *nick)
 }
 
 /* Use this for user input, to prevent users chasing users by UID -- jilles */
-user_t *user_find_named(char *nick)
+user_t *user_find_named(const char *nick)
 {
 	user_t *u;
 	node_t *n;
 
-	LIST_FOREACH(n, userlist[SHASH((unsigned char *)nick)].head)
+	LIST_FOREACH(n, userlist[SHASH((const unsigned char *)nick)].head)
 	{
 		u = (user_t *)n->data;
 
@@ -912,18 +916,20 @@ void channel_delete(char *name)
 	if ((mc = mychan_find(c->name)))
 		mc->chan = NULL;
 
+	clear_simple_modes(c);
+
 	free(c->name);
 	BlockHeapFree(chan_heap, c);
 
 	cnt.chan--;
 }
 
-channel_t *channel_find(char *name)
+channel_t *channel_find(const char *name)
 {
 	channel_t *c;
 	node_t *n;
 
-	LIST_FOREACH(n, chanlist[shash((unsigned char *) name)].head)
+	LIST_FOREACH(n, chanlist[shash((const unsigned char *) name)].head)
 	{
 		c = (channel_t *)n->data;
 
@@ -938,7 +944,7 @@ channel_t *channel_find(char *name)
  * C H A N  B A N S *
  ********************/
 
-chanban_t *chanban_add(channel_t *chan, char *mask, int type)
+chanban_t *chanban_add(channel_t *chan, const char *mask, int type)
 {
 	chanban_t *c;
 	node_t *n;
@@ -983,7 +989,7 @@ void chanban_delete(chanban_t * c)
 	BlockHeapFree(chanban_heap, c);
 }
 
-chanban_t *chanban_find(channel_t *chan, char *mask, int type)
+chanban_t *chanban_find(channel_t *chan, const char *mask, int type)
 {
 	chanban_t *c;
 	node_t *n;
@@ -1381,14 +1387,17 @@ void myuser_delete(myuser_t *mu)
 	slog(LG_DEBUG, "myuser_delete(): %s", mu->name);
 
 	/* log them out */
-	LIST_FOREACH_SAFE(n, tn, mu->logins.head)
+	if (authservice_loaded)
 	{
-		u = (user_t *)n->data;
-		if (!ircd_on_logout(u->nick, mu->name, NULL))
+		LIST_FOREACH_SAFE(n, tn, mu->logins.head)
 		{
-			u->myuser = NULL;
-			node_del(n, &mu->logins);
-			node_free(n);
+			u = (user_t *)n->data;
+			if (!ircd_on_logout(u->nick, mu->name, NULL))
+			{
+				u->myuser = NULL;
+				node_del(n, &mu->logins);
+				node_free(n);
+			}
 		}
 	}
 	
@@ -1586,12 +1595,12 @@ void mychan_delete(char *name)
 	cnt.mychan--;
 }
 
-mychan_t *mychan_find(char *name)
+mychan_t *mychan_find(const char *name)
 {
 	mychan_t *mc;
 	node_t *n;
 
-	LIST_FOREACH(n, mclist[shash((unsigned char *) name)].head)
+	LIST_FOREACH(n, mclist[shash((const unsigned char *) name)].head)
 	{
 		mc = (mychan_t *)n->data;
 
@@ -2280,7 +2289,6 @@ metadata_t *metadata_find(void *target, int32_t type, char *name)
 	return NULL;
 }
 
-/* XXX This routine does NOT work right. */
 void expire_check(void *arg)
 {
 	uint32_t i;
@@ -2335,15 +2343,22 @@ void expire_check(void *arg)
 		{
 			mc = (mychan_t *)n->data;
 
-			if ((CURRTIME - mc->used) >= config_options.expire)
+			if ((CURRTIME - mc->used) >= 86400 - 3660)
 			{
+				/* keep last used time accurate to
+				 * within a day, making sure an active
+				 * channel will never get "Last used"
+				 * in /cs info -- jilles */
 				if (mychan_isused(mc))
 				{
 					mc->used = CURRTIME;
 					slog(LG_DEBUG, "expire_check(): updating last used time on %s because it appears to be still in use", mc->name);
 					continue;
 				}
+			}
 
+			if ((CURRTIME - mc->used) >= config_options.expire)
+			{
 				if (MU_HOLD & mc->founder->flags)
 					continue;
 

@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService OP functions.
  *
- * $Id: halfop.c 4745 2006-01-31 02:26:19Z nenolod $
+ * $Id: halfop.c 5686 2006-07-03 16:25:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/halfop", FALSE, _modinit, _moddeinit,
-	"$Id: halfop.c 4745 2006-01-31 02:26:19Z nenolod $",
+	"$Id: halfop.c 5686 2006-07-03 16:25:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -37,9 +37,9 @@ list_t *cs_helptree;
 
 void _modinit(module_t *m)
 {
-	cs_cmdtree = module_locate_symbol("chanserv/main", "cs_cmdtree");
-	cs_fcmdtree = module_locate_symbol("chanserv/main", "cs_fcmdtree");
-	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
+	MODULE_USE_SYMBOL(cs_cmdtree, "chanserv/main", "cs_cmdtree");
+	MODULE_USE_SYMBOL(cs_fcmdtree, "chanserv/main", "cs_fcmdtree");
+	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
         command_add(&cs_halfop, cs_cmdtree);
         command_add(&cs_dehalfop, cs_cmdtree);
@@ -136,7 +136,7 @@ static void cs_cmd_halfop(char *origin)
 		return;
 	}
 
-	cmode(chansvs.nick, chan, "+h", CLIENT_NAME(tu));
+	modestack_mode_param(chansvs.nick, chan, MTYPE_ADD, 'h', CLIENT_NAME(tu));
 	cu->modes |= ircd->halfops_mode;
 
 	/* TODO: Add which username had access to perform the command */
@@ -211,7 +211,7 @@ static void cs_cmd_dehalfop(char *origin)
 		return;
 	}
 
-	cmode(chansvs.nick, chan, "-h", CLIENT_NAME(tu));
+	modestack_mode_param(chansvs.nick, chan, MTYPE_DEL, 'h', CLIENT_NAME(tu));
 	cu->modes &= ~ircd->halfops_mode;
 
 	/* TODO: Add which username had access to perform the command */
@@ -289,7 +289,7 @@ static void cs_fcmd_halfop(char *origin, char *chan)
 			continue;
 		}
 
-		cmode(chansvs.nick, chan, "+h", CLIENT_NAME(tu));
+		modestack_mode_param(chansvs.nick, chan, MTYPE_ADD, 'h', CLIENT_NAME(tu));
 		cu->modes |= ircd->halfops_mode;
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s HALFOP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
 	} while ((nick = strtok(NULL, " ")) != NULL);
@@ -353,7 +353,7 @@ static void cs_fcmd_dehalfop(char *origin, char *chan)
 			continue;
 		}
 
-		cmode(chansvs.nick, chan, "-h", CLIENT_NAME(tu));
+		modestack_mode_param(chansvs.nick, chan, MTYPE_DEL, 'h', CLIENT_NAME(tu));
 		cu->modes &= ~ircd->halfops_mode;
 		logcommand(chansvs.me, u, CMDLOG_SET, "%s DEHALFOP %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
 	} while ((nick = strtok(NULL, " ")) != NULL);

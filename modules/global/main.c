@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 4613 2006-01-19 23:52:30Z jilles $
+ * $Id: main.c 5722 2006-07-04 15:30:09Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"global/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 4613 2006-01-19 23:52:30Z jilles $",
+	"$Id: main.c 5722 2006-07-04 15:30:09Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -61,6 +61,7 @@ static void gs_cmd_global(char *origin)
 	tld_t *tld;
 	char *params = strtok(NULL, "");
 	static char *sender = NULL;
+	boolean_t isfirst;
 
 	if (!params)
 	{
@@ -105,6 +106,7 @@ static void gs_cmd_global(char *origin)
 			return;
 		}
 
+		isfirst = TRUE;
 		LIST_FOREACH(n, globlist.head)
 		{
 			global = (struct global_ *)n->data;
@@ -114,8 +116,14 @@ static void gs_cmd_global(char *origin)
 			{
 				tld = (tld_t *)n2->data;
 
-				sts(":%s NOTICE %s*%s :[Network Notice] %s", globsvs.nick, ircd->tldprefix, tld->name, global->text);
+				sts(":%s NOTICE %s*%s :[Network Notice] %s%s%s",
+						globsvs.nick, ircd->tldprefix,
+						tld->name,
+						isfirst ? origin : "",
+						isfirst ? " - " : "",
+						global->text);
 			}
+			isfirst = FALSE;
 			/* log everything */
 			logcommand(globsvs.me, user_find_named(origin), CMDLOG_ADMIN, "GLOBAL %s", global->text);
 		}
@@ -246,6 +254,9 @@ static void global_config_ready(void *unused)
 
 void _modinit(module_t *m)
 {
+	MODULE_USE_SYMBOL(os_cmdtree, "operserv/main", "os_cmdtree");
+	MODULE_USE_SYMBOL(os_helptree, "operserv/main", "os_helptree");
+
         hook_add_event("config_ready");
         hook_add_hook("config_ready", global_config_ready);
 
@@ -255,9 +266,6 @@ void _modinit(module_t *m)
                         globsvs.host, globsvs.real, gservice);
                 globsvs.disp = globsvs.me->disp;
         }
-
-	os_cmdtree = module_locate_symbol("operserv/main", "os_cmdtree");
-	os_helptree = module_locate_symbol("operserv/main", "os_helptree");
 
         command_add(&gs_global, &gs_cmdtree);
 

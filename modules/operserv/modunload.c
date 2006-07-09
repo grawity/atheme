@@ -4,7 +4,7 @@
  *
  * Loads a new module in.
  *
- * $Id: modunload.c 4613 2006-01-19 23:52:30Z jilles $
+ * $Id: modunload.c 5700 2006-07-03 22:56:53Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modunload", FALSE, _modinit, _moddeinit,
-	"$Id: modunload.c 4613 2006-01-19 23:52:30Z jilles $",
+	"$Id: modunload.c 5700 2006-07-03 22:56:53Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -27,8 +27,9 @@ extern list_t modules;
 
 void _modinit(module_t *m)
 {
-	os_cmdtree = module_locate_symbol("operserv/main", "os_cmdtree");	
-	os_helptree = module_locate_symbol("operserv/main", "os_helptree");	
+	MODULE_USE_SYMBOL(os_cmdtree, "operserv/main", "os_cmdtree");	
+	MODULE_USE_SYMBOL(os_helptree, "operserv/main", "os_helptree");	
+
 	command_add(&os_modunload, os_cmdtree);
 	help_addentry(os_helptree, "MODUNLOAD", "help/oservice/modunload", NULL);
 }
@@ -60,6 +61,13 @@ static void os_cmd_modunload(char *origin)
 				origin);
 			notice(opersvs.nick, origin, "\2%s\2 is an permanent module; "
 					"it cannot be unloaded.", module);
+			continue;
+		}
+
+		if (!strcmp(m->header->name, "operserv/main") || !strcmp(m->header->name, "operserv/modload") || !strcmp(m->header->name, "operserv/modunload"))
+		{
+			notice(opersvs.nick, origin, "Refusing to unload \2%s\2.",
+					module);
 			continue;
 		}
 

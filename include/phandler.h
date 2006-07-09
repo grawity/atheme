@@ -3,9 +3,8 @@
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Protocol handlers, both generic and the actual declarations themselves.
- * Declare NOTYET to use the function pointer voodoo.
  *
- * $Id: phandler.h 4935 2006-03-30 16:13:33Z nenolod $
+ * $Id: phandler.h 5628 2006-07-01 23:38:42Z jilles $
  */
 
 #ifndef PHANDLER_H
@@ -60,6 +59,12 @@ E void (*wallops)(char *fmt, ...);
  * modes is a convenience argument giving the simple modes with parameters
  * do not rely upon chanuser_find(c,u) */
 E void (*join_sts)(channel_t *c, user_t *u, boolean_t isnew, char *modes);
+/* lower the TS of a channel, joining it with the given client on the
+ * services server (opped), replacing the current simple modes with the
+ * ones stored in the channel_t and clearing all other statuses
+ * if bans are timestamped on this ircd, call chanban_clear()
+ * if the topic is timestamped on this ircd, clear it */
+E void (*chan_lowerts)(channel_t *c, user_t *u);
 /* kick a user from a channel
  * from is a client on the services server which may or may not be
  * on the channel */
@@ -123,8 +128,10 @@ E void (*sethost_sts)(char *source, char *target, char *host);
  * FNC_FORCE:  force a user off their nick (kill if unsupported)
  */
 E void (*fnc_sts)(user_t *source, user_t *u, char *newnick, int type);
-
+/* change nick, user, host and/or services login name for a user
+ * target may also be a not yet fully introduced UID (for SASL) */
 E void (*svslogin_sts)(char *target, char *nick, char *user, char *host, char *login);
+/* send sasl message */
 E void (*sasl_sts) (char *target, char mode, char *data);
 
 E uint8_t generic_server_login(void);
@@ -133,6 +140,7 @@ E void generic_invite_sts(user_t *source, user_t *target, channel_t *channel);
 E void generic_quit_sts(user_t *u, char *reason);
 E void generic_wallops(char *fmt, ...);
 E void generic_join_sts(channel_t *c, user_t *u, boolean_t isnew, char *modes);
+E void generic_chan_lowerts(channel_t *c, user_t *u);
 E void generic_kick(char *from, char *channel, char *to, char *reason);
 E void generic_msg(char *from, char *target, char *fmt, ...);
 E void generic_notice(char *from, char *target, char *fmt, ...);
@@ -154,7 +162,7 @@ E void generic_svslogin_sts(char *target, char *nick, char *user, char *host, ch
 E void generic_sasl_sts(char *target, char mode, char *data);
 
 E struct cmode_ *mode_list;
-E struct cmode_ *ignore_mode_list;
+E struct extmode *ignore_mode_list;
 E struct cmode_ *status_mode_list;
 E struct cmode_ *prefix_mode_list;
 

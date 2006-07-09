@@ -4,7 +4,7 @@
  *
  * This file contains protocol support for hyperion-based ircd.
  *
- * $Id: hyperion.c 5131 2006-04-29 19:09:24Z jilles $
+ * $Id: hyperion.c 5628 2006-07-01 23:38:42Z jilles $
  */
 
 /* option: use SVSLOGIN/SIGNON to remember users even if they're
@@ -15,7 +15,7 @@
 #include "atheme.h"
 #include "protocol/hyperion.h"
 
-DECLARE_MODULE_V1("protocol/hyperion", TRUE, _modinit, NULL, "$Id: hyperion.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/hyperion", TRUE, _modinit, NULL, "$Id: hyperion.c 5628 2006-07-01 23:38:42Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -47,7 +47,6 @@ struct cmode_ hyperion_mode_list[] = {
   { 'i', CMODE_INVITE },
   { 'm', CMODE_MOD    },
   { 'n', CMODE_NOEXT  },
-  { 'p', CMODE_PRIV   },
   { 's', CMODE_SEC    },
   { 't', CMODE_TOPIC  },
   { 'c', CMODE_NOCOLOR},
@@ -62,10 +61,13 @@ struct cmode_ hyperion_mode_list[] = {
   { '\0', 0 }
 };
 
-struct cmode_ hyperion_ignore_mode_list[] = {
-  { 'D', 0 },
-  { 'J', 0 },
-  { 'f', 0 },
+static boolean_t check_forward(const char *, channel_t *, mychan_t *, user_t *, myuser_t *);
+static boolean_t check_jointhrottle(const char *, channel_t *, mychan_t *, user_t *, myuser_t *);
+
+struct extmode hyperion_ignore_mode_list[] = {
+  /*{ 'D', 0 },*/
+  { 'f', check_forward },
+  { 'J', check_jointhrottle },
   { '\0', 0 }
 };
 
@@ -84,6 +86,46 @@ struct cmode_ hyperion_prefix_mode_list[] = {
 static boolean_t use_svslogin = FALSE;
 
 /* *INDENT-ON* */
+
+static boolean_t check_forward(const char *value, channel_t *c, mychan_t *mc, user_t *u, myuser_t *mu)
+{
+	channel_t *target_c;
+	mychan_t *target_mc;
+
+	if (*value != '#' || strlen(value) > 50)
+		return FALSE;
+	if (u == NULL && mu == NULL)
+		return TRUE;
+	target_c = channel_find(value);
+	target_mc = mychan_find(value);
+	if (target_c == NULL && target_mc == NULL)
+		return FALSE;
+	return TRUE;
+}
+
+static boolean_t check_jointhrottle(const char *value, channel_t *c, mychan_t *mc, user_t *u, myuser_t *mu)
+{
+	const char *p, *arg2;
+
+	p = value, arg2 = NULL;
+	while (*p != '\0')
+	{
+		if (*p == ',')
+		{
+			if (arg2 != NULL)
+				return FALSE;
+			arg2 = p + 1;
+		}
+		else if (!isdigit(*p))
+			return FALSE;
+		p++;
+	}
+	if (arg2 == NULL)
+		return FALSE;
+	if (p - arg2 > 5 || arg2 - value - 1 > 5 || !atoi(value) || !atoi(arg2))
+		return FALSE;
+	return TRUE;
+}
 
 /* login to our uplink */
 static uint8_t hyperion_server_login(void)
@@ -406,8 +448,17 @@ static void m_ping(char *origin, uint8_t parc, char *parv[])
 
 static void m_pong(char *origin, uint8_t parc, char *parv[])
 {
+	server_t *s;
+
 	/* someone replied to our PING */
-	if ((!parv[0]) || (strcasecmp(me.actual, parv[0])))
+	if (!parv[0])
+		return;
+	s = server_find(parv[0]);
+	if (s == NULL)
+		return;
+	handle_eob(s);
+
+	if (irccasecmp(me.actual, parv[0]))
 		return;
 
 	me.uplinkpong = CURRTIME;
@@ -451,8 +502,6 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	/* -> :proteus.malkier.net SJOIN 1073516550 #shrike +tn :@sycobuny @+rakaur */
 
 	channel_t *c;
-	uint8_t modec = 0;
-	char *modev[16];
 	uint8_t userc;
 	char *userv[256];
 	uint8_t i;
@@ -461,13 +510,6 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	if (origin)
 	{
 		/* :origin SJOIN ts chan modestr [key or limits] :users */
-		modev[modec++] = parv[2];
-
-		if (parc > 4)
-			modev[modec++] = parv[3];
-		if (parc > 5)
-			modev[modec++] = parv[4];
-
 		c = channel_find(parv[1]);
 		ts = atol(parv[0]);
 
@@ -488,11 +530,7 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			 * and set the new TS.
 			 */
 
-			c->modes = 0;
-			c->limit = 0;
-			if (c->key)
-				free(c->key);
-			c->key = NULL;
+			clear_simple_modes(c);
 
 			LIST_FOREACH(n, c->members.head)
 			{
@@ -510,9 +548,10 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 
 			c->ts = ts;
+			hook_call_event("channel_tschange", c);
 		}
 
-		channel_mode(NULL, c, modec, modev);
+		channel_mode(NULL, c, parc - 3, parv + 2);
 
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
@@ -523,9 +562,19 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
 {
-	slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, parv[0]);
+	uint8_t chanc;
+	char *chanv[256];
+	int i;
 
-	chanuser_delete(channel_find(parv[0]), user_find(origin));
+	if (parc < 1)
+		return;
+	chanc = sjtoken(parv[0], ',', chanv);
+	for (i = 0; i < chanc; i++)
+	{
+		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, chanv[i]);
+
+		chanuser_delete(channel_find(chanv[i]), user_find(origin));
+	}
 }
 
 static void m_nick(char *origin, uint8_t parc, char *parv[])
@@ -695,6 +744,13 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
+	else
+	{
+		/* elicit PONG for EOB detection; pinging uplink is
+		 * already done elsewhere -- jilles
+		 */
+		sts(":%s PING %s %s", me.name, me.name, parv[0]);
+	}
 }
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])

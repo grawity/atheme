@@ -4,7 +4,7 @@
  *
  * Protocol tasks, such as handle_stats().
  *
- * $Id: ptasks.c 5243 2006-05-04 00:31:41Z jilles $
+ * $Id: ptasks.c 5708 2006-07-03 23:37:53Z jilles $
  */
 
 #include "atheme.h"
@@ -157,6 +157,7 @@ void handle_stats(user_t *u, char req)
 
 		  numeric_sts(me.name, 249, u->nick, "T :event      %7d", claro_state.event);
 		  numeric_sts(me.name, 249, u->nick, "T :node       %7d", claro_state.node);
+		  numeric_sts(me.name, 249, u->nick, "T :connection %7d", connection_count());
 		  numeric_sts(me.name, 249, u->nick, "T :operclass  %7d", cnt.operclass);
 		  numeric_sts(me.name, 249, u->nick, "T :soper      %7d", cnt.soper);
 		  numeric_sts(me.name, 249, u->nick, "T :tld        %7d", cnt.tld);
@@ -315,12 +316,15 @@ void handle_message(char *origin, char *target, boolean_t is_notice, char *messa
 	service_t *sptr;
 	char *vec[3];
 
+	/* no prefix, so from server */
 	if (!origin)
 		return;
 
 	if (!(u = user_find(origin)))
 	{
-		slog(LG_DEBUG, "handle_privmsg(): got message from nonexistant user `%s'", origin);
+		/* don't complain about notices from servers */
+		if (!is_notice || !server_find(origin))
+			slog(LG_DEBUG, "handle_privmsg(): got message from nonexistant user `%s'", origin);
 		return;
 	}
 
@@ -425,6 +429,27 @@ void handle_kill(char *origin, char *victim, char *reason)
 	{
 		slog(LG_DEBUG, "handle_kill(): %s killed user %s (%s)", source, u->nick, reason);
 		user_delete(u);
+	}
+}
+
+void handle_eob(server_t *s)
+{
+	node_t *n;
+	server_t *s2;
+
+	if (s == NULL)
+		return;
+	if (s->flags & SF_EOB)
+		return;
+	slog(LG_DEBUG, "handle_eob(): end of burst from %s", s->name);
+	hook_call_event("server_eob", s);
+	s->flags |= SF_EOB;
+	/* convert P10 style EOB to ircnet/ratbox style */
+	LIST_FOREACH(n, s->children.head)
+	{
+		s2 = n->data;
+		if (s2->flags & SF_EOB2)
+			handle_eob(s2);
 	}
 }
 

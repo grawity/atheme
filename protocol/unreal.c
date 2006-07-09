@@ -4,13 +4,13 @@
  *
  * This file contains protocol support for bahamut-based ircd.
  *
- * $Id: unreal.c 5131 2006-04-29 19:09:24Z jilles $
+ * $Id: unreal.c 5768 2006-07-07 13:39:05Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/unreal.h"
 
-DECLARE_MODULE_V1("protocol/unreal", TRUE, _modinit, NULL, "$Id: unreal.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/unreal", TRUE, _modinit, NULL, "$Id: unreal.c 5768 2006-07-07 13:39:05Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -58,11 +58,14 @@ struct cmode_ unreal_mode_list[] = {
   { 'u', CMODE_HIDING   },
   { 'z', CMODE_SSLONLY  },
   { 'N', CMODE_STICKY   },
+  { 'G', CMODE_CENSOR   },
   { '\0', 0 }
 };
 
-struct cmode_ unreal_ignore_mode_list[] = {
-  { 'j', CMODE_JTHROT },
+static boolean_t check_jointhrottle(const char *, channel_t *, mychan_t *, user_t *, myuser_t *);
+
+struct extmode unreal_ignore_mode_list[] = {
+  { 'j', check_jointhrottle },
   { '\0', 0 }
 };
 
@@ -86,6 +89,30 @@ struct cmode_ unreal_prefix_mode_list[] = {
 };
 
 /* *INDENT-ON* */
+
+static boolean_t check_jointhrottle(const char *value, channel_t *c, mychan_t *mc, user_t *u, myuser_t *mu)
+{
+	const char *p, *arg2;
+
+	p = value, arg2 = NULL;
+	while (*p != '\0')
+	{
+		if (*p == ':')
+		{
+			if (arg2 != NULL)
+				return FALSE;
+			arg2 = p + 1;
+		}
+		else if (!isdigit(*p))
+			return FALSE;
+		p++;
+	}
+	if (arg2 == NULL)
+		return FALSE;
+	if (p - arg2 > 10 || arg2 - value - 1 > 10 || !atoi(value) || !atoi(arg2))
+		return FALSE;
+	return TRUE;
+}
 
 /* login to our uplink */
 static uint8_t unreal_server_login(void)
@@ -357,8 +384,17 @@ static void m_ping(char *origin, uint8_t parc, char *parv[])
 
 static void m_pong(char *origin, uint8_t parc, char *parv[])
 {
+	server_t *s;
+
 	/* someone replied to our PING */
-	if ((!parv[0]) || (strcasecmp(me.actual, parv[0])))
+	if (!parv[0])
+		return;
+	s = server_find(parv[0]);
+	if (s == NULL)
+		return;
+	handle_eob(s);
+
+	if (irccasecmp(me.actual, parv[0]))
 		return;
 
 	me.uplinkpong = CURRTIME;
@@ -407,11 +443,7 @@ static void remove_our_modes(channel_t *c)
 	chanuser_t *cu;
 	node_t *n;
 
-	c->modes = 0;
-	c->limit = 0;
-	if (c->key)
-		free(c->key);
-	c->key = NULL;
+	clear_simple_modes(c);
 
 	LIST_FOREACH(n, c->members.head)
 	{
@@ -431,8 +463,6 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	 */
 
 	channel_t *c;
-	uint8_t modec = 0;
-	char *modev[16];
 	uint8_t userc;
 	char *userv[256];
 	uint8_t i;
@@ -441,13 +471,6 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	if (parc >= 4)
 	{
 		/* :origin SJOIN ts chan modestr [key or limits] :users */
-		modev[modec++] = parv[2];
-
-		if (parc > 4)
-			modev[modec++] = parv[3];
-		if (parc > 5)
-			modev[modec++] = parv[4];
-
 		c = channel_find(parv[1]);
 		ts = atol(parv[0]);
 
@@ -462,9 +485,10 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			remove_our_modes(c);
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 			c->ts = ts;
+			hook_call_event("channel_tschange", c);
 		}
 
-		channel_mode(NULL, c, modec, modev);
+		channel_mode(NULL, c, parc - 3, parv - 2);
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
 		for (i = 0; i < userc; i++)
@@ -485,7 +509,7 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 
 		if (!c)
 		{
-			slog(LG_DEBUG, "m_sjoin(): new channel: %s", parv[1]);
+			slog(LG_DEBUG, "m_sjoin(): new channel: %s (modes lost)", parv[1]);
 			c = channel_add(parv[1], ts);
 		}
 
@@ -494,7 +518,10 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			remove_our_modes(c);
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 			c->ts = ts;
+			hook_call_event("channel_tschange", c);
 		}
+
+		channel_mode_va(NULL, c, 1, "+");
 
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
@@ -511,8 +538,12 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	else if (parc == 2)
 	{
 		c = channel_find(parv[1]);
-		/* XXX what if the channel doesn't exist? -- XXX in which case, doesn't the ircd realise the chan doesn't exist...??*/
 		ts = atol(parv[0]);
+		if (!c)
+		{
+			slog(LG_DEBUG, "m_sjoin(): new channel: %s (modes lost)", parv[1]);
+			c = channel_add(parv[1], ts);
+		}
 
 		if (ts < c->ts)
 		{
@@ -520,7 +551,10 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 			c->ts = ts;
 			/* XXX lost modes! -- XXX - pardon? why do we worry about this? TS reset requires modes reset.. */
+			hook_call_event("channel_tschange", c);
 		}
+
+		channel_mode_va(NULL, c, 1, "+");
 
 		chanuser_add(c, origin);
 	}
@@ -528,9 +562,19 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
 {
-	slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, parv[0]);
+	uint8_t chanc;
+	char *chanv[256];
+	int i;
 
-	chanuser_delete(channel_find(parv[0]), user_find(origin));
+	if (parc < 1)
+		return;
+	chanc = sjtoken(parv[0], ',', chanv);
+	for (i = 0; i < chanc; i++)
+	{
+		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, chanv[i]);
+
+		chanuser_delete(channel_find(chanv[i]), user_find(origin));
+	}
 }
 
 static void m_nick(char *origin, uint8_t parc, char *parv[])
@@ -707,6 +751,13 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
+	else
+	{
+		/* elicit PONG for EOB detection; pinging uplink is
+		 * already done elsewhere -- jilles
+		 */
+		sts(":%s PING %s %s", me.name, me.name, parv[0]);
+	}
 }
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])

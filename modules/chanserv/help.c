@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService HELP command.
  *
- * $Id: help.c 5147 2006-05-01 14:19:40Z nenolod $
+ * $Id: help.c 5788 2006-07-08 22:58:42Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/help", FALSE, _modinit, _moddeinit,
-	"$Id: help.c 5147 2006-05-01 14:19:40Z nenolod $",
+	"$Id: help.c 5788 2006-07-08 22:58:42Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -27,9 +27,10 @@ list_t *cs_cmdtree, *cs_fcmdtree, *cs_helptree;
 
 void _modinit(module_t *m)
 {
-	cs_cmdtree = module_locate_symbol("chanserv/main", "cs_cmdtree");
-        cs_fcmdtree = module_locate_symbol("chanserv/main", "cs_fcmdtree");
-	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
+	MODULE_USE_SYMBOL(cs_cmdtree, "chanserv/main", "cs_cmdtree");
+        MODULE_USE_SYMBOL(cs_fcmdtree, "chanserv/main", "cs_fcmdtree");
+	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
+
 	command_add(&cs_help, cs_cmdtree);
 	fcommand_add(&fc_help, cs_fcmdtree);
 	help_addentry(cs_helptree, "HELP", "help/help", NULL);
@@ -100,11 +101,20 @@ static void cs_cmd_help(char *origin)
 		notice(chansvs.nick, origin, "virtually impossible when a channel is registered with \2%s\2.", chansvs.nick);
 		notice(chansvs.nick, origin, "Registration is a quick and painless process. Once registered,");
 		notice(chansvs.nick, origin, "the founder can maintain complete and total control over the channel.");
-		notice(chansvs.nick, origin, "Please note that channels will expire after %d days of inactivity,", (config_options.expire / 86400));
-		notice(chansvs.nick, origin, "or if there are no eligible channel successors. Successors are");
-		notice(chansvs.nick, origin, "primarily those who have the +R flag set on their account in");
-		notice(chansvs.nick, origin, "the channel, although other people may be chosen depending on");
-		notice(chansvs.nick, origin, "their access level and activity.");
+		if (config_options.expire > 0)
+		{
+			notice(chansvs.nick, origin, "Please note that channels will expire after %d days of inactivity,", (config_options.expire / 86400));
+			notice(chansvs.nick, origin, "or if there are no eligible channel successors.");
+			notice(chansvs.nick, origin, "Activity is defined as a user with one of +vhHoOsrRf being on the channel.");
+		}
+		else
+		{
+			notice(chansvs.nick, origin, "Please note that channels will expire if there are no eligible channel successors.");
+		}
+		notice(chansvs.nick, origin, "Successors are primarily those who have the +R flag");
+		notice(chansvs.nick, origin, "set on their account in the channel, although other");
+		notice(chansvs.nick, origin, "people may be chosen depending on their access");
+		notice(chansvs.nick, origin, "level and activity.");
 		notice(chansvs.nick, origin, " ");
 		notice(chansvs.nick, origin, "For more information on a command, type:");
 		notice(chansvs.nick, origin, "\2/%s%s help <command>\2", (ircd->uses_rcommand == FALSE) ? "msg " : "", chansvs.disp);
@@ -141,6 +151,7 @@ static void cs_cmd_help(char *origin)
 		notice(chansvs.nick, origin, "\2MLOCK\2         Sets channel mode lock.");
 		notice(chansvs.nick, origin, "\2SECURE\2        Prevents unauthorized people from " "gaining operator status.");
 		notice(chansvs.nick, origin, "\2VERBOSE\2       Notifies channel about access list " "modifications.");
+		notice(chansvs.nick, origin, "\2FANTASY\2       Allows or disallows in-channel commands.");
 		notice(chansvs.nick, origin, "\2URL\2           Sets the channel URL.");
 		notice(chansvs.nick, origin, "\2EMAIL\2         Sets the channel e-mail address.");
 		notice(chansvs.nick, origin, "\2ENTRYMSG\2      Sets the channel's entry message.");

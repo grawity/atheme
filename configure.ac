@@ -3,16 +3,16 @@ dnl Rights to this code are documented in doc/LICENSE.
 dnl
 dnl This file is the autoconf stub.
 dnl
-dnl $Id: configure.ac 5151 2006-05-01 14:31:59Z nenolod $
+dnl $Id: configure.ac 5752 2006-07-06 09:52:18Z nenolod $
 
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
 
-AC_INIT(atheme, 1.1.0, bugs@atheme.org)
+AC_INIT(atheme, 1.2.0, bugs@atheme.org)
 
 dnl Sneaky way to get an id into the configure script.
-AC_COPYRIGHT([$Id: configure.ac 5151 2006-05-01 14:31:59Z nenolod $])
+AC_COPYRIGHT([$Id: configure.ac 5752 2006-07-06 09:52:18Z nenolod $])
 
 AC_CONFIG_AUX_DIR(autoconf)
 
@@ -139,6 +139,8 @@ else
   AC_MSG_ERROR([Cannot find a type with size of 64 bits])
 fi
 
+AC_CHECK_TYPE(socklen_t, unsigned int)
+
 echo " "
 echo "Tweaks"
 echo " "
@@ -238,67 +240,48 @@ AC_SUBST(PGINC)
 AC_SUBST(PQLIB)
 
 echo " "
-echo "MySQL support"
-echo " "
-
-MYSQL="yes"
-MYINC=""
-MYSQL_C=""
-
-AC_MSG_CHECKING(for MySQL include directory)
-if test -d /usr/include/mysql; then
-	my_inc_dir="/usr/include/mysql"
-elif test -d /usr/local/include/mysql; then
-	my_inc_dir="/usr/local/include/mysql"
-	LDFLAGS="$LDFLAGS -L/usr/local/lib"
-elif test -d /usr/local/mysql/include; then
-	my_inc_dir="/usr/local/mysql/include"
-	LDFLAGS="$LDFLAGS -L/usr/local/mysql/lib"
-elif test -d /opt/mysql/include; then
-	my_inc_dir="/opt/mysql/include"
-	LDFLAGS="$LDFLAGS -L/opt/mysql/lib"
-else
-	my_inc_dir="no"
-	MYLIB=""
-	MYSQL="no"
-fi
-
-AC_MSG_RESULT($my_inc_dir)
-
-if test "$MYINC" != "no" || test "$my_inc_dir" != "no"; then
-	AC_CHECK_HEADER($my_inc_dir/mysql.h, [
-		MYINC="-I$my_inc_dir"
-		AC_CHECK_LIB(mysqlclient, mysql_real_connect, [MYLIB="-lmysqlclient"
-			MYSQL_C="mysql.c"])
-	])
-else
-	MYSQL="no"
-fi
-
-AC_SUBST(MYSQL_C)
-AC_SUBST(MYINC)
-AC_SUBST(MYLIB)
-
-echo " "
 echo "SASL support"
 echo " "
 
 sasl=yes
 AC_ARG_ENABLE(sasl,
     AC_HELP_STRING([--disable-sasl], [don't use builtin SASL]),
-    [sasl=no])
+    [sasl=$enableval])
 if test "$sasl" != "no" ; then
     AC_DEFINE(USE_SASL, 1, [Define to 1 if you want builtin SASL.])
     SASL=yes
-    SASL_C="sasl.c main.c plain.c crypt.c"
+    SASL_DIR="saslserv"
 else
     SASL=no
-    SASL_C=
+    SASL_DIR=
 fi
 AC_MSG_CHECKING([if SASL should be used])
 AC_MSG_RESULT($SASL)
 
-AC_SUBST(SASL_C)
+AC_SUBST(SASL_DIR)
+
+AC_ARG_ENABLE(ssl,
+	AC_HELP_STRING([--disable-ssl], [don't use OpenSSL to provide more SASL mechanisms]),
+	,
+	enable_ssl=yes)
+
+SSL=no
+if test "$sasl" == "yes" ; then
+	if test "$enable_ssl" = "yes"; then
+		AC_CHECK_LIB(ssl, SSL_read, [
+			AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
+				SSL_LIBS="-lssl -lcrypto"
+				AC_SUBST(SSL_LIBS)
+				SSL=yes
+				])
+			],, -lcrypto)
+		if test "$SSL" = "yes"; then
+			AC_DEFINE(HAVE_OPENSSL,, Define to 1 if openssl is available)
+			LIBS="$LIBS $SSL_LIBS"
+		fi
+	fi
+fi
+
 
 echo " "
 echo "Module support"
@@ -515,6 +498,7 @@ ATHEME_C_GCC_TRY_FLAGS([-Wunused-function -Wunused-label -Wunused-value -Wunused
 ATHEME_C_GCC_TRY_FLAGS([-Wredundant-decls], atheme_cv_c_gcc_w_redundant_decls)
 ATHEME_C_GCC_TRY_FLAGS([-Wfloat-equal], atheme_cv_c_gcc_w_float_equal)
 ATHEME_C_GCC_TRY_FLAGS([-Wformat=2], atheme_cv_c_gcc_w_format)
+ATHEME_C_GCC_TRY_FLAGS([-Wdisabled-optimization], atheme_cv_c_gcc_w_format)
 ATHEME_C_GCC_TRY_FLAGS([-pedantic], atheme_cv_c_gcc_pedantic)
 
 dnl Too unreliable to be useful at this time.
@@ -587,8 +571,8 @@ Configuration:
         Module root directory: `eval echo $d`
         Large network support: ${LARGENET}
         PostgreSQL support   : ${POSTGRESQL}
-        MySQL support        : ${MYSQL}
-        SASL support         : ${sasl}
+        SASL support         : ${SASL}
+        OpenSSL SASL support : ${SSL}
         Socket Engine        : ${SOCKET_ENGINE}
         CFLAGS               : ${CFLAGS}
 

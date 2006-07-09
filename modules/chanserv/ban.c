@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService BAN/UNBAN function.
  *
- * $Id: ban.c 4639 2006-01-21 22:06:41Z jilles $
+ * $Id: ban.c 5686 2006-07-03 16:25:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/ban", FALSE, _modinit, _moddeinit,
-	"$Id: ban.c 4639 2006-01-21 22:06:41Z jilles $",
+	"$Id: ban.c 5686 2006-07-03 16:25:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -35,9 +35,9 @@ list_t *cs_helptree;
 
 void _modinit(module_t *m)
 {
-	cs_cmdtree = module_locate_symbol("chanserv/main", "cs_cmdtree");
-	cs_fcmdtree = module_locate_symbol("chanserv/main", "cs_fcmdtree");
-	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
+	MODULE_USE_SYMBOL(cs_cmdtree, "chanserv/main", "cs_cmdtree");
+	MODULE_USE_SYMBOL(cs_fcmdtree, "chanserv/main", "cs_fcmdtree");
+	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
         command_add(&cs_ban, cs_cmdtree);
 	command_add(&cs_unban, cs_cmdtree);
@@ -107,7 +107,7 @@ static void cs_cmd_ban (char *origin)
 
 	if (validhostmask(target))
 	{
-		cmode(chansvs.nick, c->name, "+b", target);
+		modestack_mode_param(chansvs.nick, c->name, MTYPE_ADD, 'b', target);
 		chanban_add(c, target, 'b');
 		logcommand(chansvs.me, u, CMDLOG_DO, "%s BAN %s", mc->name, target);
 		if (!chanuser_find(mc->chan, u))
@@ -123,7 +123,7 @@ static void cs_cmd_ban (char *origin)
 		strlcat(hostbuf, "*!*@", BUFSIZE);
 		strlcat(hostbuf, tu->vhost, BUFSIZE);
 
-		cmode(chansvs.nick, c->name, "+b", hostbuf);
+		modestack_mode_param(chansvs.nick, c->name, MTYPE_ADD, 'b', hostbuf);
 		chanban_add(c, hostbuf, 'b');
 		logcommand(chansvs.me, u, CMDLOG_DO, "%s BAN %s (for user %s!%s@%s)", mc->name, hostbuf, tu->nick, tu->user, tu->vhost);
 		if (!chanuser_find(mc->chan, u))
@@ -146,6 +146,7 @@ static void cs_cmd_unban (char *origin)
 	mychan_t *mc = mychan_find(channel);
 	user_t *u = user_find_named(origin);
 	user_t *tu;
+	chanban_t *cb;
 
 	if (!target)
 		target = origin;
@@ -181,22 +182,7 @@ static void cs_cmd_unban (char *origin)
 		return;
 	}
 
-	if (validhostmask(target))
-	{
-		chanban_t *cb = chanban_find(c, target, 'b');
-
-		if (cb)
-		{
-			cmode(chansvs.nick, c->name, "-b", target);
-			chanban_delete(cb);
-			logcommand(chansvs.me, u, CMDLOG_DO, "%s UNBAN %s", mc->name, target);
-			if (!chanuser_find(mc->chan, u))
-				notice(chansvs.nick, origin, "Unbanned \2%s\2 on \2%s\2.", target, channel);
-		}
-
-		return;
-	}
-	else if ((tu = user_find_named(target)))
+	if ((tu = user_find_named(target)))
 	{
 		node_t *n, *tn;
 		char hostbuf[BUFSIZE], hostbuf2[BUFSIZE], hostbuf3[BUFSIZE];
@@ -209,7 +195,7 @@ static void cs_cmd_unban (char *origin)
 
 		LIST_FOREACH_SAFE(n, tn, c->bans.head)
 		{
-			chanban_t *cb = n->data;
+			cb = n->data;
 
 			if (cb->type != 'b')
 				continue;
@@ -219,7 +205,7 @@ static void cs_cmd_unban (char *origin)
 			if (!match(cb->mask, hostbuf) || !match(cb->mask, hostbuf2) || !match(cb->mask, hostbuf3))
 			{
 				logcommand(chansvs.me, u, CMDLOG_DO, "%s UNBAN %s (for user %s)", mc->name, cb->mask, hostbuf2);
-				cmode(chansvs.nick, c->name, "-b", cb->mask);
+				modestack_mode_param(chansvs.nick, c->name, MTYPE_DEL, 'b', cb->mask);
 				chanban_delete(cb);
 				count++;
 			}
@@ -229,6 +215,19 @@ static void cs_cmd_unban (char *origin)
 				target, channel, count, (count != 1 ? "s" : ""));
 		else
 			notice(chansvs.nick, origin, "No bans found matching \2%s\2 on \2%s\2.", target, channel);
+		return;
+	}
+	else if ((cb = chanban_find(c, target, 'b')) != NULL || validhostmask(target))
+	{
+		if (cb)
+		{
+			modestack_mode_param(chansvs.nick, c->name, MTYPE_DEL, 'b', target);
+			chanban_delete(cb);
+			logcommand(chansvs.me, u, CMDLOG_DO, "%s UNBAN %s", mc->name, target);
+			if (!chanuser_find(mc->chan, u))
+				notice(chansvs.nick, origin, "Unbanned \2%s\2 on \2%s\2.", target, channel);
+		}
+
 		return;
 	}
         else
@@ -280,7 +279,7 @@ static void cs_fcmd_ban (char *origin, char *channel)
 
 	if (validhostmask(target))
 	{
-		cmode(chansvs.nick, c->name, "+b", target);
+		modestack_mode_param(chansvs.nick, c->name, MTYPE_ADD, 'b', target);
 		chanban_add(c, target, 'b');
 		logcommand(chansvs.me, u, CMDLOG_DO, "%s BAN %s", mc->name, target);
 		return;
@@ -294,7 +293,7 @@ static void cs_fcmd_ban (char *origin, char *channel)
 		strlcat(hostbuf, "*!*@", BUFSIZE);
 		strlcat(hostbuf, tu->vhost, BUFSIZE);
 
-		cmode(chansvs.nick, c->name, "+b", hostbuf);
+		modestack_mode_param(chansvs.nick, c->name, MTYPE_ADD, 'b', hostbuf);
 		chanban_add(c, hostbuf, 'b');
 		logcommand(chansvs.me, u, CMDLOG_DO, "%s BAN %s (for user %s!%s@%s)", mc->name, hostbuf, tu->nick, tu->user, tu->vhost);
 		return;
@@ -314,6 +313,7 @@ static void cs_fcmd_unban (char *origin, char *channel)
 	mychan_t *mc = mychan_find(channel);
 	user_t *u = user_find_named(origin);
 	user_t *tu;
+	chanban_t *cb;
 
 	if (!target)
 		target = origin;
@@ -349,20 +349,7 @@ static void cs_fcmd_unban (char *origin, char *channel)
 		return;
 	}
 
-	if (validhostmask(target))
-	{
-		chanban_t *cb = chanban_find(c, target, 'b');
-
-		if (cb)
-		{
-			cmode(chansvs.nick, c->name, "-b", target);
-			chanban_delete(cb);
-			logcommand(chansvs.me, u, CMDLOG_DO, "%s UNBAN %s", mc->name, target);
-		}
-
-		return;
-	}
-	else if ((tu = user_find_named(target)))
+	if ((tu = user_find_named(target)))
 	{
 		node_t *n, *tn;
 		char hostbuf[BUFSIZE], hostbuf2[BUFSIZE], hostbuf3[BUFSIZE];
@@ -375,7 +362,7 @@ static void cs_fcmd_unban (char *origin, char *channel)
 
 		LIST_FOREACH_SAFE(n, tn, c->bans.head)
 		{
-			chanban_t *cb = n->data;
+			cb = n->data;
 
 			if (cb->type != 'b')
 				continue;
@@ -385,7 +372,7 @@ static void cs_fcmd_unban (char *origin, char *channel)
 			if (!match(cb->mask, hostbuf) || !match(cb->mask, hostbuf2) || !match(cb->mask, hostbuf3))
 			{
 				logcommand(chansvs.me, u, CMDLOG_DO, "%s UNBAN %s (for user %s)", mc->name, cb->mask, hostbuf2);
-				cmode(chansvs.nick, c->name, "-b", cb->mask);
+				modestack_mode_param(chansvs.nick, c->name, MTYPE_DEL, 'b', cb->mask);
 				chanban_delete(cb);
 				count++;
 			}
@@ -395,6 +382,17 @@ static void cs_fcmd_unban (char *origin, char *channel)
 				target, channel, count, (count != 1 ? "s" : ""));
 		else
 			notice(chansvs.nick, origin, "No bans found matching \2%s\2 on \2%s\2.", target, channel);
+		return;
+	}
+	else if ((cb = chanban_find(c, target, 'b')) != NULL || validhostmask(target))
+	{
+		if (cb)
+		{
+			modestack_mode_param(chansvs.nick, c->name, MTYPE_DEL, 'b', target);
+			chanban_delete(cb);
+			logcommand(chansvs.me, u, CMDLOG_DO, "%s UNBAN %s", mc->name, target);
+		}
+
 		return;
 	}
         else

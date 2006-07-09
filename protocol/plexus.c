@@ -4,18 +4,21 @@
  *
  * This file contains protocol support for plexus-based ircd.
  *
- * $Id: plexus.c 5263 2006-05-16 04:22:14Z nenolod $
+ * $Id: plexus.c 5628 2006-07-01 23:38:42Z jilles $
  */
+
+/* option: set the netadmin umode +N */
+/*#define USE_NETADMIN*/
 
 #include "atheme.h"
 #include "protocol/plexus.h"
 
-DECLARE_MODULE_V1("protocol/plexus", TRUE, _modinit, NULL, "$Id: plexus.c 5263 2006-05-16 04:22:14Z nenolod $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/plexus", TRUE, _modinit, NULL, "$Id: plexus.c 5628 2006-07-01 23:38:42Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
 ircd_t PleXusIRCd = {
-        "PleXusIRCd 2.x family",	/* IRCd name */
+        "hybrid-7.2.1+plexus-3.x family",	/* IRCd name */
         "$$",                           /* TLD Prefix, used by Global. */
         FALSE,                          /* Whether or not we use IRCNet/TS6 UID */
         FALSE,                          /* Whether or not we use RCOMMAND */
@@ -55,7 +58,7 @@ struct cmode_ plexus_mode_list[] = {
   { '\0', 0 }
 };
 
-struct cmode_ plexus_ignore_mode_list[] = {
+struct extmode plexus_ignore_mode_list[] = {
   { '\0', 0 }
 };
 
@@ -100,7 +103,7 @@ static uint8_t plexus_server_login(void)
 /* introduce a client */
 static void plexus_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
 {
-	sts("NICK %s 1 %ld +%sS %s %s %s 0 0 :%s", nick, CURRTIME, "io", user, host, me.name, real);
+	sts("NICK %s 1 %ld +%s %s %s %s 0 0 :%s", nick, CURRTIME, "io", user, host, me.name, real);
 }
 
 /* invite a user to a channel */
@@ -300,9 +303,14 @@ static void plexus_on_login(char *origin, char *user, char *wantedhost)
 	u = user_find(origin);
 
 	if (u == NULL)
-		return;
+		return;		/* realistically, this should never happen --nenolod */
 
-	sts(":%s ENCAP * SVSMODE %s %ld +rd %ld", nicksvs.nick, origin, (unsigned long) u->ts, CURRTIME);
+#ifdef USE_NETADMIN
+	if (has_priv(u, PRIV_ADMIN))
+		sts(":%s ENCAP * SVSMODE %s %ld +rdN %ld", nicksvs.nick, origin, (unsigned long) u->ts, CURRTIME);
+	else
+#endif
+		sts(":%s ENCAP * SVSMODE %s %ld +rd %ld", nicksvs.nick, origin, (unsigned long) u->ts, CURRTIME);
 }
 
 /* protocol-specific stuff to do on login */
@@ -319,9 +327,13 @@ static boolean_t plexus_on_logout(char *origin, char *user, char *wantedhost)
 	u = user_find(origin);
 
 	if (u == NULL)
-		return;
+		return FALSE;
 
+#ifdef USE_NETADMIN
+	sts(":%s ENCAP * SVSMODE %s %ld -rN", nicksvs.nick, origin, (unsigned long) u->ts, origin);
+#else
 	sts(":%s ENCAP * SVSMODE %s %ld -r", nicksvs.nick, origin, (unsigned long) u->ts, origin);
+#endif
 	return FALSE;
 }
 
@@ -361,8 +373,17 @@ static void m_ping(char *origin, uint8_t parc, char *parv[])
 
 static void m_pong(char *origin, uint8_t parc, char *parv[])
 {
+	server_t *s;
+
 	/* someone replied to our PING */
-	if ((!parv[0]) || (strcasecmp(me.actual, parv[0])))
+	if (!parv[0])
+		return;
+	s = server_find(parv[0]);
+	if (s == NULL)
+		return;
+	handle_eob(s);
+
+	if (irccasecmp(me.actual, parv[0]))
 		return;
 
 	me.uplinkpong = CURRTIME;
@@ -406,8 +427,6 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	/* -> :proteus.malkier.net SJOIN 1073516550 #shrike +tn :@sycobuny @+rakaur */
 
 	channel_t *c;
-	uint8_t modec = 0;
-	char *modev[16];
 	uint8_t userc;
 	char *userv[256];
 	uint8_t i;
@@ -416,13 +435,6 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	if (origin)
 	{
 		/* :origin SJOIN ts chan modestr [key or limits] :users */
-		modev[modec++] = parv[2];
-
-		if (parc > 4)
-			modev[modec++] = parv[3];
-		if (parc > 5)
-			modev[modec++] = parv[4];
-
 		c = channel_find(parv[1]);
 		ts = atol(parv[0]);
 
@@ -443,11 +455,7 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			 * and set the new TS.
 			 */
 
-			c->modes = 0;
-			c->limit = 0;
-			if (c->key)
-				free(c->key);
-			c->key = NULL;
+			clear_simple_modes(c);
 
 			LIST_FOREACH(n, c->members.head)
 			{
@@ -458,9 +466,10 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 
 			c->ts = ts;
+			hook_call_event("channel_tschange", c);
 		}
 
-		channel_mode(NULL, c, modec, modev);
+		channel_mode(NULL, c, parc - 3, parv + 2);
 
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
@@ -471,9 +480,19 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
 {
-	slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, parv[0]);
+	uint8_t chanc;
+	char *chanv[256];
+	int i;
 
-	chanuser_delete(channel_find(parv[0]), user_find(origin));
+	if (parc < 1)
+		return;
+	chanc = sjtoken(parv[0], ',', chanv);
+	for (i = 0; i < chanc; i++)
+	{
+		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, chanv[i]);
+
+		chanuser_delete(channel_find(chanv[i]), user_find(origin));
+	}
 }
 
 static void m_nick(char *origin, uint8_t parc, char *parv[])
@@ -624,6 +643,13 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
+	else
+	{
+		/* elicit PONG for EOB detection; pinging uplink is
+		 * already done elsewhere -- jilles
+		 */
+		sts(":%s PING %s %s", me.name, me.name, parv[0]);
+	}
 }
 
 static void m_stats(char *origin, uint8_t parc, char *parv[])

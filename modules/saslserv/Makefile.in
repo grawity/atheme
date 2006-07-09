@@ -22,9 +22,9 @@ DOCDIR		= @DOCDIR@
 MODDIR		= @MODDIR@
 SHAREDIR	= @SHAREDIR@
 BIN		= atheme@EXEEXT@
-MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../../include @PGINC@ @MYINC@
+MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../../include @PGINC@
 PICFLAGS	= @PICFLAGS@
-CFLAGS		= @CFLAGS@ -I../../include -I../../libatheme @PGINC@ @MYINC@
+CFLAGS		= @CFLAGS@ -I../../include -I../../libatheme @PGINC@ @SSL_LIBS@
 
 VERSION		= 0.1
 
@@ -34,9 +34,9 @@ CPPFLAGS	= @CPPFLAGS@
 
 default: all
 
-BASE_SRCS =
-	
-SRCS = ${BASE_SRCS} @SASL_C@
+BASE_SRCS = main.c plain.c crypt.c dh-blowfish.c help.c
+
+SRCS = ${BASE_SRCS}
 
 OBJS = ${SRCS:.c=.so}
 
@@ -44,9 +44,11 @@ all: modules
 
 build: all
 
+# Remove the old sasl.so and help.so as loading them can cause trouble
 install: build
 	${INSTALL} -d ${MODDIR}/modules/saslserv
 	${INSTALL} -m 755 *.so ${MODDIR}/modules/saslserv
+	-${RM} -f ${MODDIR}/modules/saslserv/sasl.so ${MODDIR}/modules/saslserv/help.so
 
 modules: $(OBJS)
 

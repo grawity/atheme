@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService RECOVER functions.
  *
- * $Id: recover.c 4681 2006-01-22 22:31:21Z jilles $
+ * $Id: recover.c 5686 2006-07-03 16:25:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/recover", FALSE, _modinit, _moddeinit,
-	"$Id: recover.c 4681 2006-01-22 22:31:21Z jilles $",
+	"$Id: recover.c 5686 2006-07-03 16:25:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -26,8 +26,8 @@ list_t *cs_helptree;
 
 void _modinit(module_t *m)
 {
-	cs_cmdtree = module_locate_symbol("chanserv/main", "cs_cmdtree");
-	cs_helptree = module_locate_symbol("chanserv/main", "cs_helptree");
+	MODULE_USE_SYMBOL(cs_cmdtree, "chanserv/main", "cs_cmdtree");
+	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
         command_add(&cs_recover, cs_cmdtree);
 	help_addentry(cs_helptree, "RECOVER", "help/cservice/recover", NULL);
@@ -49,6 +49,8 @@ static void cs_cmd_recover(char *origin)
 	char hostbuf[BUFSIZE], hostbuf2[BUFSIZE];
 	char e;
 	boolean_t added_exempt = FALSE;
+	int i;
+	char str[3];
 
 	if (!name)
 	{
@@ -97,53 +99,53 @@ static void cs_cmd_recover(char *origin)
 		{
 			if ((CMODE_OP & cu->modes))
 			{
-				cmode(chansvs.nick, mc->chan->name, "-o", CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, 'o', CLIENT_NAME(cu->user));
 				cu->modes &= ~CMODE_OP;
 			}
 			if (ircd->uses_halfops && (ircd->halfops_mode & cu->modes))
 			{
-				char minush[3];
-				strlcpy(minush, ircd->halfops_mchar, 3);
-				minush[0] = '-';
-				cmode(chansvs.nick, mc->chan->name, minush, CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
 				cu->modes &= ~ircd->halfops_mode;
 			}
 		}
 	}
 
-	/* remove modes that keep people out */
-	if (CMODE_LIMIT & mc->chan->modes)
+	if (origin_cu == NULL)
 	{
-		cmode(chansvs.nick, mc->chan->name, "-l", NULL);
-		mc->chan->modes &= ~CMODE_LIMIT;
-		mc->chan->limit = 0;
-	}
+		/* if requester is not on channel,
+		 * remove modes that keep people out */
+		if (CMODE_LIMIT & mc->chan->modes)
+			channel_mode_va(chansvs.me->me, mc->chan, 1, "-l");
+		if (CMODE_KEY & mc->chan->modes)
+			channel_mode_va(chansvs.me->me, mc->chan, 2, "-k", "*");
 
-	if (CMODE_KEY & mc->chan->modes)
-	{
-		cmode(chansvs.nick, mc->chan->name, "-k", mc->chan->key);
-		mc->chan->modes &= ~CMODE_KEY;
-		free(mc->chan->key);
-		mc->chan->key = NULL;
+		/* stuff like join throttling
+		 * XXX only remove modes that could keep people out
+		 * -- jilles */
+		str[0] = '-';
+		str[2] = '\0';
+		for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
+		{
+			str[1] = ignore_mode_list[i].mode;
+			if (mc->chan->extmodes[i] != NULL)
+				channel_mode_va(chansvs.me->me, mc->chan, 1, str);
+		}
 	}
-
-	if (origin_cu != NULL)
+	else
 	{
 		if (!(CMODE_OP & origin_cu->modes))
-			cmode(chansvs.nick, mc->chan->name, "+o", CLIENT_NAME(u));
+			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, 'o', CLIENT_NAME(u));
 		origin_cu->modes |= CMODE_OP;
 	}
 
 	if (origin_cu != NULL || (chanacs_user_flags(mc, u) & (CA_OP | CA_AUTOOP)))
 	{
 
-		cmode(chansvs.nick, mc->chan->name, "+im", NULL);
-		mc->chan->modes |= CMODE_INVITE | CMODE_MOD;
+		channel_mode_va(chansvs.me->me, mc->chan, 1, "+im");
 	}
 	else if (CMODE_INVITE & mc->chan->modes)
 	{
-		cmode(chansvs.nick, mc->chan->name, "-i", NULL);
-		mc->chan->modes &= ~CMODE_INVITE;
+		channel_mode_va(chansvs.me->me, mc->chan, 1, "-i");
 	}
 
 	/* unban the user */
@@ -158,12 +160,10 @@ static void cs_cmd_recover(char *origin)
 			continue;
 		if (!match(cb->mask, hostbuf) || !match(cb->mask, hostbuf2))
 		{
-			cmode(chansvs.nick, mc->chan->name, "-b", cb->mask);
+			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, 'b', cb->mask);
 			chanban_delete(cb);
 		}
 	}
-
-	cmode(NULL); /* flush stacker */
 
 	if (origin_cu == NULL)
 	{
@@ -174,15 +174,18 @@ static void cs_cmd_recover(char *origin)
 			if (!chanban_find(mc->chan, hostbuf2, e))
 			{
 				chanban_add(mc->chan, hostbuf2, e);
-				snprintf(hostbuf, BUFSIZE, "+%c %s", e, hostbuf2);
-				mode_sts(chansvs.nick, mc->chan->name, hostbuf);
+				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, e, hostbuf2);
 				added_exempt = TRUE;
 			}
 		}
-
-		/* invite them back. */
-		invite_sts(chansvs.me->me, u, mc->chan);
 	}
+
+	modestack_flush_channel(mc->chan->name);
+
+	/* invite them back. must have sent +i before this */
+	if (origin_cu == NULL)
+		invite_sts(chansvs.me->me, u, mc->chan);
+
 	if (added_exempt)
 		notice(chansvs.nick, origin, "Recover complete for \2%s\2, ban exception \2%s\2 added.", mc->chan->name, hostbuf2);
 	else

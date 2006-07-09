@@ -4,18 +4,18 @@
  *
  * This file contains protocol support for charybdis-based ircd.
  *
- * $Id: charybdis.c 5131 2006-04-29 19:09:24Z jilles $
+ * $Id: charybdis.c 5664 2006-07-02 16:31:26Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/charybdis.h"
 
-DECLARE_MODULE_V1("protocol/charybdis", TRUE, _modinit, NULL, "$Id: charybdis.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/charybdis", TRUE, _modinit, NULL, "$Id: charybdis.c 5664 2006-07-02 16:31:26Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
 ircd_t Charybdis = {
-        "Charybdis 1.0+pre4",		/* IRCd name */
+        "Charybdis",			/* IRCd name */
         "$$",                           /* TLD Prefix, used by Global. */
         TRUE,                           /* Whether or not we use IRCNet/TS6 UID */
         FALSE,                          /* Whether or not we use RCOMMAND */
@@ -56,9 +56,12 @@ struct cmode_ charybdis_mode_list[] = {
   { '\0', 0 }
 };
 
-struct cmode_ charybdis_ignore_mode_list[] = {
-  { 'f', 0 },
-  { 'j', 0 },
+static boolean_t check_forward(const char *, channel_t *, mychan_t *, user_t *, myuser_t *);
+static boolean_t check_jointhrottle(const char *, channel_t *, mychan_t *, user_t *, myuser_t *);
+
+struct extmode charybdis_ignore_mode_list[] = {
+  { 'f', check_forward },
+  { 'j', check_jointhrottle },
   { '\0', 0 }
 };
 
@@ -83,6 +86,64 @@ static server_t *sid_find(char *name);
 static char ts6sid[3 + 1] = "";
 
 /* *INDENT-ON* */
+
+/* ircd allows forwards to existing channels; the target channel must be
+ * +F or the setter must have ops in it */
+static boolean_t check_forward(const char *value, channel_t *c, mychan_t *mc, user_t *u, myuser_t *mu)
+{
+	channel_t *target_c;
+	mychan_t *target_mc;
+	chanuser_t *target_cu;
+
+	if (*value != '#' || strlen(value) > 50)
+		return FALSE;
+	if (u == NULL && mu == NULL)
+		return TRUE;
+	target_c = channel_find(value);
+	target_mc = mychan_find(value);
+	if (target_c == NULL && target_mc == NULL)
+		return FALSE;
+	if (target_c != NULL && target_c->modes & CMODE_FTARGET)
+		return TRUE;
+	if (target_mc != NULL && target_mc->mlock_on & CMODE_FTARGET)
+		return TRUE;
+	if (u != NULL)
+	{
+		target_cu = chanuser_find(target_c, u);
+		if (target_cu != NULL && target_cu->modes & CMODE_OP)
+			return TRUE;
+		if (chanacs_user_flags(target_mc, u) & CA_SET)
+			return TRUE;
+	}
+	else if (mu != NULL)
+		if (chanacs_find(target_mc, mu, CA_SET))
+			return TRUE;
+	return FALSE;
+}
+
+static boolean_t check_jointhrottle(const char *value, channel_t *c, mychan_t *mc, user_t *u, myuser_t *mu)
+{
+	const char *p, *arg2;
+
+	p = value, arg2 = NULL;
+	while (*p != '\0')
+	{
+		if (*p == ':')
+		{
+			if (arg2 != NULL)
+				return FALSE;
+			arg2 = p + 1;
+		}
+		else if (!isdigit(*p))
+			return FALSE;
+		p++;
+	}
+	if (arg2 == NULL)
+		return FALSE;
+	if (p - arg2 > 10 || arg2 - value - 1 > 10 || !atoi(value) || !atoi(arg2))
+		return FALSE;
+	return TRUE;
+}
 
 /* login to our uplink */
 static uint8_t charybdis_server_login(void)
@@ -163,6 +224,16 @@ static void charybdis_join_sts(channel_t *c, user_t *u, boolean_t isnew, char *m
 	else
 		sts(":%s SJOIN %ld %s + :@%s", ME, c->ts, c->name,
 				CLIENT_NAME(u));
+}
+
+static void charybdis_chan_lowerts(channel_t *c, user_t *u)
+{
+	slog(LG_DEBUG, "charybdis_chan_lowerts(): lowering TS for %s to %ld",
+			c->name, (long)c->ts);
+	sts(":%s SJOIN %ld %s %s :@%s", ME, c->ts, c->name,
+				channel_modes(c, TRUE), CLIENT_NAME(u));
+	if (ircd->uses_uid)
+		chanban_clear(c);
 }
 
 /* kicks a user from a channel */
@@ -314,7 +385,7 @@ static void charybdis_topic_sts(char *channel, char *setter, time_t ts, char *to
 		return;
 
 	/* If restoring an older topic, try to use TB -- jilles */
-	if (use_tb && ts < CURRTIME)
+	if (use_tb && ts < CURRTIME && *topic != '\0')
 	{
 		sts(":%s TB %s %ld %s :%s", ME, channel, ts, setter, topic);
 		return;
@@ -482,11 +553,7 @@ static void m_pong(char *origin, uint8_t parc, char *parv[])
 	s = server_find(parv[0]);
 	if (s == NULL)
 		return;
-	if (!(s->flags & SF_EOB))
-	{
-		s->flags |= SF_EOB;
-		server_eob(s);
-	}
+	handle_eob(s);
 
 	if (irccasecmp(me.actual, parv[0]))
 		return;
@@ -532,13 +599,13 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	/* -> :proteus.malkier.net SJOIN 1073516550 #shrike +tn :@sycobuny @+rakaur */
 
 	channel_t *c;
-	uint8_t modec = 0;
-	char *modev[16];
+	boolean_t keep_new_modes = TRUE;
 	uint8_t userc;
 	char *userv[256];
 	uint8_t i;
 	time_t ts;
 	server_t *source_server;
+	char *p;
 
 	if (origin)
 	{
@@ -546,13 +613,6 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 		source_server = server_find(origin);
 		if (source_server == NULL)
 			return;
-
-		modev[modec++] = parv[2];
-
-		if (parc > 4)
-			modev[modec++] = parv[3];
-		if (parc > 5)
-			modev[modec++] = parv[4];
 
 		c = channel_find(parv[1]);
 		ts = atol(parv[0]);
@@ -563,7 +623,14 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			c = channel_add(parv[1], ts);
 		}
 
-		if (ts < c->ts)
+		if (ts == 0 || c->ts == 0)
+		{
+			if (c->ts != 0)
+				slog(LG_INFO, "m_sjoin(): server %s changing TS on %s from %ld to 0", source_server->name, c->name, (long)c->ts);
+			c->ts = 0;
+			hook_call_event("channel_tschange", c);
+		}
+		else if (ts < c->ts)
 		{
 			chanuser_t *cu;
 			node_t *n;
@@ -577,12 +644,7 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			 * note that JOIN does not do this
 			 */
 
-			c->modes = 0;
-			c->limit = 0;
-			if (c->key)
-				free(c->key);
-			c->key = NULL;
-
+			clear_simple_modes(c);
 			if (source_server->sid != NULL)
 				chanban_clear(c);
 
@@ -603,14 +665,30 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 
 			c->ts = ts;
+			hook_call_event("channel_tschange", c);
 		}
+		else if (ts > c->ts)
+			keep_new_modes = FALSE;
 
-		channel_mode(NULL, c, modec, modev);
+		if (keep_new_modes)
+			channel_mode(NULL, c, parc - 3, parv + 2);
 
 		userc = sjtoken(parv[parc - 1], ' ', userv);
 
-		for (i = 0; i < userc; i++)
-			chanuser_add(c, userv[i]);
+		if (keep_new_modes)
+			for (i = 0; i < userc; i++)
+				chanuser_add(c, userv[i]);
+		else
+			for (i = 0; i < userc; i++)
+			{
+				p = userv[i];
+				while (*p == '@' || *p == '%' || *p == '+')
+					p++;
+				/* XXX for TS5 we should mark them deopped
+				 * if they were opped and drop modes from them
+				 * -- jilles */
+				chanuser_add(c, p);
+			}
 	}
 }
 
@@ -618,11 +696,10 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 {
 	/* -> :1JJAAAAAB JOIN 1127474195 #test +tn */
 	user_t *u = user_find(origin);
+	boolean_t keep_new_modes = TRUE;
 	node_t *n, *tn;
 	channel_t *c;
 	chanuser_t *cu;
-	uint8_t modec = 0;
-	char *modev[16];
 	uint8_t i;
 	time_t ts;
 
@@ -642,13 +719,6 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 	}
 
 	/* :user JOIN ts chan modestr [key or limits] */
-	modev[modec++] = parv[2];
-
-	if (parc > 3)
-		modev[modec++] = parv[3];
-	if (parc > 4)
-		modev[modec++] = parv[4];
-
 	c = channel_find(parv[1]);
 	ts = atol(parv[0]);
 
@@ -658,18 +728,21 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 		c = channel_add(parv[1], ts);
 	}
 
-	if (ts < c->ts)
+	if (ts == 0 || c->ts == 0)
+	{
+		if (c->ts != 0)
+			slog(LG_INFO, "m_join(): server %s changing TS on %s from %ld to 0", u->server->name, c->name, (long)c->ts);
+		c->ts = 0;
+		hook_call_event("channel_tschange", c);
+	}
+	else if (ts < c->ts)
 	{
 		/* the TS changed.  a TS change requires the following things
 		 * to be done to the channel:  reset all modes to nothing, remove
 		 * all status modes on known users on the channel (including ours),
 		 * and set the new TS.
 		 */
-		c->modes = 0;
-		c->limit = 0;
-		if (c->key)
-			free(c->key);
-		c->key = NULL;
+		clear_simple_modes(c);
 
 		LIST_FOREACH(n, c->members.head)
 		{
@@ -686,14 +759,17 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 		}
 		slog(LG_INFO, "m_join(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 		c->ts = ts;
-
-		channel_mode(NULL, c, modec, modev);
+		hook_call_event("channel_tschange", c);
 	}
+	else if (ts > c->ts)
+		keep_new_modes = FALSE;
+
+	if (keep_new_modes)
+		channel_mode(NULL, c, parc - 2, parv + 2);
 
 	chanuser_add(c, origin);
 }
 
-/* XXX: We should follow TS rules here, but i'm lazy. --nenolod */
 static void m_bmask(char *origin, uint8_t parc, char *parv[])
 {
 	uint8_t ac, i;
@@ -707,6 +783,9 @@ static void m_bmask(char *origin, uint8_t parc, char *parv[])
 		slog(LG_DEBUG, "m_bmask(): got bmask for unknown channel");
 		return;
 	}
+
+	if (atol(parv[0]) > c->ts)
+		return;
 	
 	type = *parv[2];
 	if (!strchr(ircd->ban_like_modes, type))
@@ -723,9 +802,19 @@ static void m_bmask(char *origin, uint8_t parc, char *parv[])
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
 {
-	slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, parv[0]);
+	uint8_t chanc;
+	char *chanv[256];
+	int i;
 
-	chanuser_delete(channel_find(parv[0]), user_find(origin));
+	if (parc < 1)
+		return;
+	chanc = sjtoken(parv[0], ',', chanv);
+	for (i = 0; i < chanc; i++)
+	{
+		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, chanv[i]);
+
+		chanuser_delete(channel_find(chanv[i]), user_find(origin));
+	}
 }
 
 static void m_nick(char *origin, uint8_t parc, char *parv[])
@@ -866,6 +955,8 @@ static void m_mode(char *origin, uint8_t parc, char *parv[])
 
 static void m_tmode(char *origin, uint8_t parc, char *parv[])
 {
+	channel_t *c;
+
 	/* -> :1JJAAAAAB TMODE 1127511579 #new +o 2JJAAAAAB */
 	if (!origin)
 	{
@@ -879,9 +970,17 @@ static void m_tmode(char *origin, uint8_t parc, char *parv[])
 		return;
 	}
 
-	/* Ignore TS as we do not lower TSes ourselves */
+	c = channel_find(parv[1]);
+	if (c == NULL)
+	{
+		slog(LG_DEBUG, "m_tmode(): nonexistent channel %s", parv[1]);
+		return;
+	}
 
-	channel_mode(NULL, channel_find(parv[1]), parc - 2, &parv[2]);
+	if (atol(parv[0]) > c->ts)
+		return;
+
+	channel_mode(NULL, c, parc - 2, &parv[2]);
 }
 
 static void m_kick(char *origin, uint8_t parc, char *parv[])
@@ -1074,15 +1173,15 @@ static void m_encap(char *origin, uint8_t parc, char *parv[])
 	else if (!irccasecmp(parv[1], "SASL"))
 	{
 		/* :08C ENCAP * SASL 08CAAAAAE * S d29vTklOSkFTAGRhdGEgaW4gZmlyc3QgbGluZQ== */
-		sasl_message_t msg;
+		sasl_message_t smsg;
 
 		if (parc < 6)
 			return;
 
-		msg.uid = parv[2];
-		msg.mode = *parv[4];
-		msg.buf = parv[5];
-		hook_call_event("sasl_input", &msg);
+		smsg.uid = parv[2];
+		smsg.mode = *parv[4];
+		smsg.buf = parv[5];
+		hook_call_event("sasl_input", &smsg);
 	}
 #endif
 }
@@ -1221,6 +1320,7 @@ void _modinit(module_t * m)
 	quit_sts = &charybdis_quit_sts;
 	wallops = &charybdis_wallops;
 	join_sts = &charybdis_join_sts;
+	chan_lowerts = &charybdis_chan_lowerts;
 	kick = &charybdis_kick;
 	msg = &charybdis_msg;
 	notice_sts = &charybdis_notice;
@@ -1281,6 +1381,9 @@ void _modinit(module_t * m)
 	pcommand_add("SID", m_sid);
 	pcommand_add("MOTD", m_motd);
 	pcommand_add("SIGNON", m_signon);
+
+	hook_add_event("server_eob");
+	hook_add_hook("server_eob", (void (*)(void *))server_eob);
 
 	m->mflags = MODTYPE_CORE;
 

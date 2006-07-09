@@ -4,7 +4,7 @@
  *
  * This file contains misc routines.
  *
- * $Id: function.c 5193 2006-05-03 14:31:53Z jilles $
+ * $Id: function.c 5756 2006-07-06 19:54:45Z jilles $
  */
 
 #include "atheme.h"
@@ -82,13 +82,13 @@ void log_open(void)
 	if (log_file)
 		return;
 
-	if ((log_file = fopen("var/atheme.log", "a")) == NULL)
+	if ((log_file = fopen(log_path, "a")) == NULL)
 	{
 		/* At most one warning per hour */
 		if (me.connected && lastfail + 3600 < CURRTIME)
 		{
-			wallops("Could not open log file (%s), log entries will be missing!", strerror(errno)); 
 			lastfail = CURRTIME;
+			wallops("Could not open log file (%s), log entries will be missing!", strerror(errno)); 
 		}
 		return;
 	}
@@ -374,14 +374,6 @@ char *r_itoa(int num)
 }
 #endif
 
-/* channel modes we support */
-struct flag
-{
-	char mode;
-	int32_t flag;
-	char prefix;
-};
-
 /* convert mode flags to a text mode string */
 char *flags_to_string(int32_t flags)
 {
@@ -541,6 +533,10 @@ boolean_t validhostmask(char *host)
 {
 	/* make sure it has ! and @ */
 	if (!strchr(host, '!') || !strchr(host, '@'))
+		return FALSE;
+
+	/* XXX this NICKLEN is too long */
+	if (strlen(host) > NICKLEN + USERLEN + HOSTLEN + 1)
 		return FALSE;
 
 	return TRUE;

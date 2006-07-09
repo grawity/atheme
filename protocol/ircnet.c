@@ -6,13 +6,13 @@
  * Derived mainly from the documentation (or lack thereof)
  * in my protocol bridge.
  *
- * $Id: ircnet.c 5131 2006-04-29 19:09:24Z jilles $
+ * $Id: ircnet.c 5628 2006-07-01 23:38:42Z jilles $
  */
 
 #include "atheme.h"
 #include "protocol/ircnet.h"
 
-DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 5131 2006-04-29 19:09:24Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 5628 2006-07-01 23:38:42Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -50,7 +50,7 @@ struct cmode_ ircnet_mode_list[] = {
   { '\0', 0 }
 };
 
-struct cmode_ ircnet_ignore_mode_list[] = {
+struct extmode ircnet_ignore_mode_list[] = {
   { '\0', 0 }
 };
 
@@ -399,11 +399,7 @@ static void m_eob(char *origin, uint8_t parc, char *parv[])
 	{
 		slog(LG_DEBUG, "m_eob(): Got EOB from unknown server %s", origin);
 	}
-	if (!(source->flags & SF_EOB))
-	{
-		source->flags |= SF_EOB;
-		slog(LG_DEBUG, "m_eob(): End of burst from %s", source->name);
-	}
+	handle_eob(source);
 	if (parc >= 1)
 	{
 		sidbuf[4] = '\0';
@@ -412,11 +408,7 @@ static void m_eob(char *origin, uint8_t parc, char *parv[])
 		{
 			memcpy(sidbuf, p, 4);
 			serv = server_find(sidbuf);
-			if (serv != NULL && !(serv->flags & SF_EOB))
-			{
-				slog(LG_DEBUG, "m_eob(): End of burst from %s (mass, via %s)", serv->name, source->name);
-				serv->flags |= SF_EOB;
-			}
+			handle_eob(serv);
 			if (p[4] != ',')
 				break;
 			p += 5;
@@ -476,6 +468,8 @@ static void m_njoin(char *origin, uint8_t parc, char *parv[])
 			/* Give channels created during burst an older "TS"
 			 * so they won't be deopped -- jilles */
 			c = channel_add(parv[0], source->flags & SF_EOB ? CURRTIME : CURRTIME - 601);
+			/* Check mode locks */
+			channel_mode_va(NULL, c, 1, "+");
 		}
 
 		userc = sjtoken(parv[parc - 1], ',', userv);
@@ -487,9 +481,19 @@ static void m_njoin(char *origin, uint8_t parc, char *parv[])
 
 static void m_part(char *origin, uint8_t parc, char *parv[])
 {
-	slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, parv[0]);
+	uint8_t chanc;
+	char *chanv[256];
+	int i;
 
-	chanuser_delete(channel_find(parv[0]), user_find(origin));
+	if (parc < 1)
+		return;
+	chanc = sjtoken(parv[0], ',', chanv);
+	for (i = 0; i < chanc; i++)
+	{
+		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, chanv[i]);
+
+		chanuser_delete(channel_find(chanv[i]), user_find(origin));
+	}
 }
 
 static void m_nick(char *origin, uint8_t parc, char *parv[])

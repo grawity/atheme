@@ -1,4 +1,8 @@
-$Id: RELEASE 5828 2006-07-09 18:11:01Z jilles $
+$Id: RELEASE 5844 2006-07-10 13:25:07Z jilles $
+
+Atheme 1.2.1 Release Notes
+==========================
+- Fix a bug in nickserv/userserv set that could cause crashes.
 
 Atheme 1.2 Release Notes
 ========================

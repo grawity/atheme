@@ -1,3 +1,52 @@
+jilles      2006/07/10 13:25:07 UTC	(20060710-5844)
+  Log:
+  Update the release notes.
+  
+
+  Changes:	Modified:
+  +4 -0		branches/release-1.2/doc/RELEASE (File Modified) 
+
+
+jilles      2006/07/10 13:23:43 UTC	(20060710-5842)
+  Log:
+  Rerun autoconf.
+  
+
+  Changes:	Modified:
+  +11 -11	branches/release-1.2/configure (File Modified) 
+
+
+jilles      2006/07/10 13:23:14 UTC	(20060710-5840)
+  Log:
+  Version bump to 1.2.1.
+  
+
+  Changes:	Modified:
+  +1 -1		branches/release-1.2/configure.ac (File Modified) 
+
+
+jilles      2006/07/10 13:17:07 UTC	(20060710-5834)
+  Log:
+  Merged revisions 5830,5832 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r5830 | nenolod | 2006-07-10 12:30:21 +0200 (Mon, 10 Jul 2006) | 2 lines
+    
+    - don't segfault when passed crap
+  ........
+    r5832 | jilles | 2006-07-10 15:06:14 +0200 (Mon, 10 Jul 2006) | 2 lines
+    
+    Port over r5830 from nickserv set to userserv set.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-1.2/  (Property Modified)
+  +36 -0	branches/release-1.2/modules/nickserv/set.c (File Modified) 
+  +36 -0	branches/release-1.2/modules/userserv/set.c (File Modified) 
+
+
 jilles      2006/07/09 18:11:01 UTC	(20060709-5828)
   Log:
   Merged revisions 5826 via svnmerge from 

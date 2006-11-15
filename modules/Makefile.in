@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 5738 2006-07-05 16:37:22Z jilles $
+# $Id: Makefile.in 6907 2006-10-22 23:10:41Z jilles $
 #
 
 CC		= @CC@
@@ -15,7 +15,7 @@ prefix		= @prefix@
 exec_prefix	= @exec_prefix@
 bindir		= @bindir@
 datadir		= @datadir@
-sysconfdir		= @sysconfdir@
+sysconfdir	= @sysconfdir@
 libdir		= @libdir@
 sbindir		= @sbindir@
 DOCDIR		= @DOCDIR@
@@ -25,8 +25,6 @@ BIN		= atheme@EXEEXT@
 MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include @PGINC@
 PICFLAGS	= @PICFLAGS@
 CFLAGS		= @CFLAGS@ -I../include -I../libatheme @PGINC@
-
-VERSION		= 0.1
 
 LIBS		= @LIBS@ @PQLIB@
 LDFLAGS		= @LDFLAGS@
@@ -40,8 +38,8 @@ SRCS = ${BASE_SRCS}
 
 OBJS = ${SRCS:.c=.so}
 
-SUBDIRS = chanserv nickserv global operserv userserv xmlrpc memoserv @SASL_DIR@
-# helpserv
+SUBDIRS = chanserv nickserv global operserv xmlrpc memoserv saslserv
+# userserv helpserv
 
 all: modules
 
@@ -53,6 +51,7 @@ install: build
 		cd $$i; \
 		${MAKE} install || exit; cd ..; \
 	done
+	-${RM} -f $(DESTDIR)${MODDIR}/modules/userserv/main.so
 
 modules:
 	@for i in $(SUBDIRS); do \
@@ -66,7 +65,14 @@ modules:
 .c.so:
 	${CC} ${PICFLAGS} ${CPPFLAGS} ${CFLAGS} $< -o $@
 
-.PHONY: clean distclean
+.PHONY: depend clean distclean
+depend:
+	@for i in $(SUBDIRS); do \
+		echo "depend ==> $$i"; \
+		cd $$i; \
+		touch .depend; \
+		${MAKE} depend; cd ..; \
+	done
 
 clean:
 	@for i in $(SUBDIRS); do \

@@ -1,10 +1,11 @@
 /*
  * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
- * This file contains routines to handle the CService HELP command.
+ * This file contains routines to handle the OService HELP command.
  *
- * $Id: help.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: help.c 6927 2006-10-24 15:22:05Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +13,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/help", FALSE, _modinit, _moddeinit,
-	"$Id: help.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: help.c 6927 2006-10-24 15:22:05Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void os_cmd_help(char *origin);
+static void os_cmd_help(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_help = { "HELP", "Displays contextual help information.",
-			AC_NONE, os_cmd_help };
+command_t os_help = { "HELP", "Displays contextual help information.", AC_NONE, 1, os_cmd_help };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -40,33 +40,33 @@ void _moddeinit()
 }
 
 /* HELP <command> [params] */
-static void os_cmd_help(char *origin)
+static void os_cmd_help(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *command = strtok(NULL, "");
+	char *command = parv[0];
 
-	if (!has_any_privs(user_find_named(origin)))
+	if (!has_any_privs(si))
 	{
-		notice(opersvs.nick, origin, "You are not authorized to use %s.", opersvs.nick);
+		command_fail(si, fault_noprivs, "You are not authorized to use %s.", opersvs.nick);
 		return;
 	}
 
 	if (!command)
 	{
-		notice(opersvs.nick, origin, "***** \2%s Help\2 *****", opersvs.nick);
-		notice(opersvs.nick, origin, "\2%s\2 provides essential network management services, such as", opersvs.nick);
-		notice(opersvs.nick, origin, "routing manipulation and access restriction. Please do not abuse");
-		notice(opersvs.nick, origin, "your access to \2%s\2!", opersvs.nick);
-		notice(opersvs.nick, origin, " ");
-		notice(opersvs.nick, origin, "For information on a command, type:");
-		notice(opersvs.nick, origin, "\2/%s%s help <command>\2", (ircd->uses_rcommand == FALSE) ? "msg " : "", opersvs.disp);
-		notice(opersvs.nick, origin, " ");
+		command_success_nodata(si, "***** \2%s Help\2 *****", opersvs.nick);
+		command_success_nodata(si, "\2%s\2 provides essential network management services, such as", opersvs.nick);
+		command_success_nodata(si, "routing manipulation and access restriction. Please do not abuse");
+		command_success_nodata(si, "your access to \2%s\2!", opersvs.nick);
+		command_success_nodata(si, " ");
+		command_success_nodata(si, "For information on a command, type:");
+		command_success_nodata(si, "\2/%s%s help <command>\2", (ircd->uses_rcommand == FALSE) ? "msg " : "", opersvs.disp);
+		command_success_nodata(si, " ");
 
-		command_help(opersvs.nick, origin, os_cmdtree);
+		command_help(si, os_cmdtree);
 
-		notice(opersvs.nick, origin, "***** \2End of Help\2 *****", opersvs.nick);
+		command_success_nodata(si, "***** \2End of Help\2 *****", opersvs.nick);
 		return;
 	}
 
 	/* take the command through the hash table */
-	help_display(opersvs.nick, opersvs.disp, origin, command, os_helptree);
+	help_display(si, command, os_helptree);
 }

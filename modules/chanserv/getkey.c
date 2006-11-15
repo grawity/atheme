@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService GETKEY functions.
  *
- * $Id: getkey.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: getkey.c 6577 2006-09-30 21:17:34Z jilles $
  */
 
 #include "atheme.h"
@@ -12,15 +12,15 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/getkey", FALSE, _modinit, _moddeinit,
-	"$Id: getkey.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: getkey.c 6577 2006-09-30 21:17:34Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_cmd_getkey(char *origin);
+static void cs_cmd_getkey(sourceinfo_t *si, int parc, char *parv[]);
 
 command_t cs_getkey = { "GETKEY", "Returns the key (+k) of a channel.",
-                        AC_NONE, cs_cmd_getkey };
-                                                                                   
+                        AC_NONE, 1, cs_cmd_getkey };
+
 list_t *cs_cmdtree;
 list_t *cs_helptree;
 
@@ -39,50 +39,49 @@ void _moddeinit()
 	help_delentry(cs_helptree, "GETKEY");
 }
 
-static void cs_cmd_getkey(char *origin)
+static void cs_cmd_getkey(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *chan = strtok(NULL, " ");
+	char *chan = parv[0];
 	mychan_t *mc;
-	user_t *u = user_find_named(origin);
 
 	if (!chan)
 	{
-		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "GETKEY");
-		notice(chansvs.nick, origin, "Syntax: GETKEY <#channel>");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "GETKEY");
+		command_fail(si, fault_needmoreparams, "Syntax: GETKEY <#channel>");
 		return;
 	}
 
 	mc = mychan_find(chan);
 	if (!mc)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not registered.", chan);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", chan);
 		return;
 	}
 
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		notice(chansvs.nick, origin, "Cannot GETKEY: \2%s\2 is closed.", chan);
+		command_fail(si, fault_noprivs, "Cannot GETKEY: \2%s\2 is closed.", chan);
 		return;
 	}
 
-	if (!chanacs_user_has_flag(mc, u, CA_INVITE))
+	if (!chanacs_source_has_flag(mc, si, CA_INVITE))
 	{
-		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
 		return;
 	}
 
 	if (!mc->chan)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is currently empty.", mc->name);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is currently empty.", mc->name);
 		return;
 	}
 
 	if (!mc->chan->key)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not keyed.", mc->name);
+		command_fail(si, fault_nosuch_key, "\2%s\2 is not keyed.", mc->name);
 		return;
 	}
-	logcommand(chansvs.me, u, CMDLOG_GET, "%s GETKEY", mc->name);
-	notice(chansvs.nick, origin, "Channel \2%s\2 key is: %s",
+	logcommand(si, CMDLOG_GET, "%s GETKEY", mc->name);
+	command_success_string(si, mc->chan->key, "Channel \2%s\2 key is: %s",
 			mc->name, mc->chan->key);
 }

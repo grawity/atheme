@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ GHOST function.
  *
- * $Id: ghost.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: ghost.c 6825 2006-10-21 23:32:38Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/ghost", FALSE, _modinit, _moddeinit,
-	"$Id: ghost.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: ghost.c 6825 2006-10-21 23:32:38Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ns_cmd_ghost(char *origin);
+static void ns_cmd_ghost(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_ghost = { "GHOST", "Reclaims use of a nickname.", AC_NONE, ns_cmd_ghost };
+command_t ns_ghost = { "GHOST", "Reclaims use of a nickname.", AC_NONE, 2, ns_cmd_ghost };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -37,18 +37,17 @@ void _moddeinit()
 	help_delentry(ns_helptree, "GHOST");
 }
 
-void ns_cmd_ghost(char *origin)
+void ns_cmd_ghost(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *u = user_find_named(origin);
 	myuser_t *mu;
-	char *target = strtok(NULL, " ");
-	char *password = strtok(NULL, " ");
+	char *target = parv[0];
+	char *password = parv[1];
 	user_t *target_u;
 
 	if (!target)
 	{
-		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "GHOST");
-		notice(nicksvs.nick, origin, "Syntax: GHOST <target> [password]");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "GHOST");
+		command_fail(si, fault_needmoreparams, "Syntax: GHOST <target> [password]");
 		return;
 	}
 
@@ -56,37 +55,37 @@ void ns_cmd_ghost(char *origin)
 	target_u = user_find_named(target);
 	if (!mu && (!target_u || !target_u->myuser))
 	{
-		notice(nicksvs.nick, origin, "\2%s\2 is not a registered nickname.", target);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not a registered nickname.", target);
 		return;
 	}
 
 	if (!target_u)
 	{
-		notice(nicksvs.nick, origin, "\2%s\2 is not online.", target);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not online.", target);
 		return;
 	}
-	else if (target_u == u)
+	else if (target_u == si->su)
 	{
-		notice(nicksvs.nick, origin, "You may not ghost yourself.");
+		command_fail(si, fault_badparams, "You may not ghost yourself.");
 		return;
 	}
 
-	if ((target_u->myuser && target_u->myuser == u->myuser) || /* they're identified under our account */
-			(mu && mu == u->myuser) || /* we're identified under their account */
-			(password && mu && verify_password(mu, password))) /* we have their password */
+	if ((target_u->myuser && target_u->myuser == si->smu) || /* they're identified under our account */
+			(!nicksvs.no_nick_ownership && mu && mu == si->smu) || /* we're identified under their account */
+			(!nicksvs.no_nick_ownership && password && mu && verify_password(mu, password))) /* we have their password */
 	{
 		/* If we're ghosting an unregistered nick, mu will be unset,
 		 * however if it _is_ registered, we still need to set it or
 		 * the wrong user will have their last seen time updated... */
-		if(target_u->myuser && target_u->myuser == u->myuser)
+		if(target_u->myuser && target_u->myuser == si->smu)
 			mu = target_u->myuser;
 
-		skill(nicksvs.nick, target, "GHOST command used by %s!%s@%s", u->nick, u->user, u->vhost);
+		logcommand(si, CMDLOG_DO, "GHOST %s!%s@%s", target_u->nick, target_u->user, target_u->vhost);
+
+		skill(nicksvs.nick, target, "GHOST command used by %s", get_source_mask(si));
 		user_delete(target_u);
 
-		logcommand(nicksvs.me, u, CMDLOG_DO, "GHOST %s", target);
-
-		notice(nicksvs.nick, origin, "\2%s\2 has been ghosted.", target);
+		command_success_nodata(si, "\2%s\2 has been ghosted.", target);
 
 		mu->lastlogin = CURRTIME;
 
@@ -95,12 +94,12 @@ void ns_cmd_ghost(char *origin)
 
 	if (password && mu)
 	{
-		logcommand(nicksvs.me, u, CMDLOG_DO, "failed GHOST %s (bad password)", target);
-		notice(nicksvs.nick, origin, "Invalid password for \2%s\2.", mu->name);
+		logcommand(si, CMDLOG_DO, "failed GHOST %s (bad password)", target);
+		command_fail(si, fault_authfail, "Invalid password for \2%s\2.", mu->name);
 	}
 	else
 	{
-		logcommand(nicksvs.me, u, CMDLOG_DO, "failed GHOST %s (invalid login)", target);
-		notice(nicksvs.nick, origin, "You may not ghost \2%s\2.", target);
+		logcommand(si, CMDLOG_DO, "failed GHOST %s (invalid login)", target);
+		command_fail(si, fault_noprivs, "You may not ghost \2%s\2.", target);
 	}
 }

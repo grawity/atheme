@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Connection and I/O management.
  *
- * $Id: connection.c 5346 2006-06-04 18:26:42Z jilles $
+ * $Id: connection.c 6929 2006-10-24 15:30:53Z jilles $
  */
 
 #include <org.atheme.claro.base>
@@ -75,6 +75,9 @@ connection_t *connection_add(const char *name, int32_t fd, uint32_t flags,
 	cptr->read_handler = read_handler;
 	cptr->write_handler = write_handler;
 
+	/* set connection name */
+	strlcpy(cptr->name, name, HOSTLEN);
+
 	/* XXX */
 	cptr->saddr_size = sizeof(cptr->saddr);
 	getpeername(cptr->fd, &cptr->saddr, &cptr->saddr_size);
@@ -129,9 +132,9 @@ connection_t *connection_find(int32_t fd)
  */
 int connection_count(void)
 {
-
 	return LIST_LENGTH(&connection_list);
 }
+
 /*
  * connection_close()
  *
@@ -146,16 +149,23 @@ int connection_count(void)
  */
 void connection_close(connection_t *cptr)
 {
-	node_t *nptr, *nptr2;
-	datastream_t *sptr; 
+	node_t *nptr;
 	int errno1, errno2;
 #ifdef SO_ERROR
 	socklen_t len = sizeof(errno2);
 #endif
 
-	if (!cptr || cptr->fd <= 0)
+	if (!cptr)
 	{
 		clog(LG_DEBUG, "connection_close(): no connection to close!");
+		return;
+	}
+
+	nptr = node_find(cptr, &connection_list);
+	if (!nptr)
+	{
+		clog(LG_DEBUG, "connection_close(): connection %p is not registered!",
+			cptr);
 		return;
 	}
 
@@ -172,44 +182,111 @@ void connection_close(connection_t *cptr)
 		clog(LG_IOERROR, "connection_close(): connection %s[%d] closed due to error %d (%s)",
 				cptr->name, cptr->fd, errno1, strerror(errno1));
 
+	if (cptr->close_handler)
+		cptr->close_handler(cptr);
+
 	/* close the fd */
 	close(cptr->fd);
-
-	nptr = node_find(cptr, &connection_list);
-
-	if (!nptr)
-	{
-		clog(LG_DEBUG, "connection_close(): connection %s (fd %d) is not registered!",
-			cptr->name, cptr->fd);
-		return;
-	}
 
 	node_del(nptr, &connection_list);
 	node_free(nptr);
 
-	LIST_FOREACH_SAFE(nptr, nptr2, cptr->recvq.head)
-	{
-		sptr = nptr->data;
-
-		node_del(nptr, &cptr->recvq);
-		node_free(nptr);
-
-		free(sptr->buf);
-		free(sptr);
-	}
-
-	LIST_FOREACH_SAFE(nptr, nptr2, cptr->sendq.head)
-	{
-		sptr = nptr->data;
-
-		node_del(nptr, &cptr->sendq);
-		node_free(nptr);
-
-		free(sptr->buf);
-		free(sptr);
-	}
+	sendqrecvq_free(cptr);
 
 	BlockHeapFree(connection_heap, cptr);
+}
+
+/* This one is only safe for use by connection_close_soon(),
+ * it will cause infinite loops otherwise
+ */
+static void empty_handler(connection_t *cptr)
+{
+}
+
+/*
+ * connection_close_soon()
+ *
+ * inputs:
+ *       the connection being closed.
+ *
+ * outputs:
+ *       none
+ *
+ * side effects:
+ *       the connection is marked to be closed soon
+ *       handlers reset
+ *       close_handler called
+ */
+void connection_close_soon(connection_t *cptr)
+{
+	if (cptr == NULL)
+		return;
+	cptr->flags |= CF_DEAD;
+	/* these two cannot be NULL */
+	cptr->read_handler = empty_handler;
+	cptr->write_handler = empty_handler;
+	cptr->recvq_handler = NULL;
+	if (cptr->close_handler)
+		cptr->close_handler(cptr);
+	cptr->close_handler = NULL;
+	cptr->listener = NULL;
+}
+
+/*
+ * connection_close_soon_children()
+ *
+ * inputs:
+ *       a listener.
+ *
+ * outputs:
+ *       none
+ *
+ * side effects:
+ *       connection_close_soon() called on the connection itself and
+ *       for all connections accepted on this listener
+ */
+void connection_close_soon_children(connection_t *cptr)
+{
+	node_t *n;
+	connection_t *cptr2;
+
+	if (cptr == NULL)
+		return;
+
+	if (CF_IS_LISTENING(cptr))
+	{
+		LIST_FOREACH(n, connection_list.head)
+		{
+			cptr2 = n->data;
+			if (cptr2->listener == cptr)
+				connection_close_soon(cptr2);
+		}
+	}
+	connection_close_soon(cptr);
+}
+
+/*
+ * connection_close_all()
+ *
+ * inputs:
+ *       none
+ *
+ * outputs:
+ *       none
+ *
+ * side effects:
+ *       connection_close() called on all registered connections
+ */
+void connection_close_all(void)
+{
+	node_t *n, *tn;
+	connection_t *cptr;
+
+	LIST_FOREACH_SAFE(n, tn, connection_list.head)
+	{
+		cptr = n->data;
+		connection_close(cptr);
+	}
 }
 
 /*
@@ -374,7 +451,7 @@ connection_t *connection_open_listener_tcp(char *host, uint32_t port,
 		return NULL;
 	}
 
-	cptr = connection_add(buf, s, 0, read_handler, NULL);
+	cptr = connection_add(buf, s, CF_LISTENING, read_handler, NULL);
 
 	return cptr;
 }
@@ -414,6 +491,7 @@ connection_t *connection_accept_tcp(connection_t *cptr,
 
 	strlcpy(buf, "incoming connection", BUFSIZE);
 	newptr = connection_add(buf, s, 0, read_handler, write_handler);
+	newptr->listener = cptr;
 	return newptr;
 }
 
@@ -436,6 +514,52 @@ void connection_setselect(connection_t *cptr,
 {
 	cptr->read_handler = read_handler;
 	cptr->write_handler = write_handler;
+}
+
+/*
+ * connection_stats()
+ *
+ * inputs:
+ *       callback function, data for callback function
+ *
+ * outputs:
+ *       none
+ *
+ * side effects:
+ *       callback function is called with a series of lines
+ */
+void connection_stats(void (*stats_cb)(const char *, void *), void *privdata)
+{
+	node_t *n;
+	char buf[160];
+	char buf2[20];
+
+	LIST_FOREACH(n, connection_list.head)
+	{
+		connection_t *c = (connection_t *) n->data;
+
+		snprintf(buf, sizeof buf, "fd %-3d desc '%s'", c->fd, c->flags & CF_UPLINK ? "uplink" : c->flags & CF_LISTENING ? "listener" : "misc");
+		if (c->listener != NULL)
+		{
+			snprintf(buf2, sizeof buf2, " listener %d", c->listener->fd);
+			strlcat(buf, buf2, sizeof buf);
+		}
+		if (c->flags & (CF_CONNECTING | CF_DEAD | CF_NONEWLINE | CF_SEND_EOF | CF_SEND_DEAD))
+		{
+			strlcat(buf, " status", sizeof buf);
+			if (c->flags & CF_CONNECTING)
+				strlcat(buf, " connecting", sizeof buf);
+			if (c->flags & CF_DEAD)
+				strlcat(buf, " dead", sizeof buf);
+			if (c->flags & CF_NONEWLINE)
+				strlcat(buf, " nonewline", sizeof buf);
+			if (c->flags & CF_SEND_DEAD)
+				strlcat(buf, " send_dead", sizeof buf);
+			else if (c->flags & CF_SEND_EOF)
+				strlcat(buf, " send_eof", sizeof buf);
+		}
+		stats_cb(buf, privdata);
+	}
 }
 
 /*
@@ -465,7 +589,7 @@ void connection_write(connection_t *to, char *format, ...)
 	buf[len++] = '\n';
 	buf[len] = '\0';
 
-	sendq_add(to, buf, len, 0);
+	sendq_add(to, buf, len);
 }
 
 /*
@@ -482,5 +606,5 @@ void connection_write(connection_t *to, char *format, ...)
  */
 void connection_write_raw(connection_t *to, char *data)
 {
-	sendq_add(to, data, strlen(data), 0);
+	sendq_add(to, data, strlen(data));
 }

@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ MYACCESS function.
  *
- * $Id: why.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: why.c 6911 2006-10-23 00:23:32Z jilles $
  */
 
 #include "atheme.h"
@@ -12,16 +12,17 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/why", FALSE, _modinit, _moddeinit,
-	"$Id: why.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: why.c 6911 2006-10-23 00:23:32Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_cmd_why(char *origin);
+static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[]);
 
 command_t cs_why = {
 	"WHY",
 	"Explains channel access logic.",
 	AC_NONE,
+	2,
 	cs_cmd_why
 };
 
@@ -38,22 +39,22 @@ void _moddeinit()
 	command_delete(&cs_why, cs_cmdtree);
 }
 
-static void cs_cmd_why(char *origin)
+static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *chan = strtok(NULL, " ");
-	char *targ = strtok(NULL, " ");
+	char *chan = parv[0];
+	char *targ = parv[1];
 	char host[BUFSIZE];
 	mychan_t *mc;
 	user_t *u;
-	user_t *ou = user_find_named(origin);
 	myuser_t *mu;
 	node_t *n;
 	chanacs_t *ca;
+	int operoverride = 0;
 
 	if (!chan || !targ)
 	{
-		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "WHY");
-		notice(chansvs.nick, origin, "Syntax: WHY <channel> <user>");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "WHY");
+		command_fail(si, fault_needmoreparams, "Syntax: WHY <channel> <user>");
 		return;
 	}
 
@@ -62,7 +63,7 @@ static void cs_cmd_why(char *origin)
 
 	if (u == NULL)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not online.",
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not online.",
 			targ);
 		return;
 	}
@@ -71,25 +72,39 @@ static void cs_cmd_why(char *origin)
 
 	if (mc == NULL)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not registered.",
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.",
 			chan);
 		return;
 	}
 	
-	logcommand(chansvs.me, ou, CMDLOG_GET, "%s WHY %s!%s@%s", mc->name, u->nick, u->user, u->vhost);
+	if (!chanacs_source_has_flag(mc, si, CA_ACLVIEW))
+	{
+		if (has_priv(si, PRIV_CHAN_AUSPEX))
+			operoverride = 1;
+		else
+		{
+			command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+			return;
+		}
+	}
 
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is closed.", chan);
+		command_fail(si, fault_noprivs, "\2%s\2 is closed.", chan);
 		return;
 	}
 
 	if (mu == NULL)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not registered.",
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.",
 			targ);
 		return;
 	}
+
+	if (operoverride)
+		logcommand(si, CMDLOG_ADMIN, "%s WHY %s!%s@%s (oper override)", mc->name, u->nick, u->user, u->vhost);
+	else
+		logcommand(si, CMDLOG_GET, "%s WHY %s!%s@%s", mc->name, u->nick, u->user, u->vhost);
 
 	snprintf(host, BUFSIZE, "%s!%s@%s", u->nick, u->user, u->vhost);
 
@@ -101,22 +116,22 @@ static void cs_cmd_why(char *origin)
 			continue;
 
 		if ((ca->level & CA_AUTOVOICE) == CA_AUTOVOICE)
-			notice(chansvs.nick, origin,
+			command_success_nodata(si,
 				"\2%s\2 was granted voice in \2%s\2 because they have identified to the nickname %s which has the autovoice privilege.", 
 				targ, chan, ca->myuser);
 
 		if ((ca->level & CA_AUTOHALFOP) == CA_AUTOHALFOP)
-			notice(chansvs.nick, origin,
+			command_success_nodata(si,
 				"\2%s\2 was granted halfops in \2%s\2 because they have identified to the nickname %s which has the autohalfop privilege.",
 				targ, chan, ca->myuser);
 
 		if ((ca->level & CA_AUTOOP) == CA_AUTOOP)
-			notice(chansvs.nick, origin,
+			command_success_nodata(si,
 				"\2%s\2 was granted channel ops in \2%s\2 because they have identified to the nickname %s which has the autoop privilege.",
 				targ, chan, ca->myuser);
 
 		if ((ca->level & CA_AKICK) == CA_AKICK)
-			notice(chansvs.nick, origin,
+			command_success_nodata(si,
 				"\2%s\2 is autokicked from \2%s\2 because they match the mask \2%s\2 that is on the channel akick list.",
 				targ, chan, ca->host);
 

@@ -4,7 +4,7 @@
  *
  * This file contains code for the Memoserv READ function
  *
- * $Id: read.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: read.c 6627 2006-10-02 09:36:29Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/read", FALSE, _modinit, _moddeinit,
-	"$Id: read.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: read.c 6627 2006-10-02 09:36:29Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ms_cmd_read(char *origin);
+static void ms_cmd_read(sourceinfo_t *si, int parc, char *parv[]);
 
 command_t ms_read = { "READ", "Reads a memo.",
-                        AC_NONE, ms_cmd_read };
+                        AC_NONE, 2, ms_cmd_read };
 
 list_t *ms_cmdtree;
 list_t *ms_helptree;
@@ -39,11 +39,10 @@ void _moddeinit()
 	help_delentry(ms_helptree, "READ");
 }
 
-static void ms_cmd_read(char *origin)
+static void ms_cmd_read(sourceinfo_t *si, int parc, char *parv[])
 {
 	/* Misc structs etc */
-	user_t *u = user_find_named(origin), *tu;
-	myuser_t *mu = u->myuser, *tmu;
+	myuser_t *tmu;
 	mymemo_t *memo, *receipt;
 	node_t *n;
 	uint32_t i = 1, memonum = 0;
@@ -51,50 +50,50 @@ static void ms_cmd_read(char *origin)
 	struct tm tm;
 	
 	/* Grab arg */
-	char *arg1 = strtok(NULL, " ");
+	char *arg1 = parv[0];
 	
 	/* Bad/missing arg -- how do I make sure it's a digit they fed me? */
 	if (!arg1)
 	{
-		notice(memosvs.nick, origin, 
+		command_fail(si, fault_needmoreparams, 
 			STR_INSUFFICIENT_PARAMS, "READ");
 		
-		notice(memosvs.nick, origin, "Syntax: READ <memo number>");
+		command_fail(si, fault_needmoreparams, "Syntax: READ <memo number>");
 		return;
 	}
 	else
 		memonum = atoi(arg1);
 	
 	/* user logged in? */
-	if (mu == NULL)
+	if (si->smu == NULL)
 	{
-		notice(memosvs.nick, origin, "You are not logged in.");
+		command_fail(si, fault_noprivs, "You are not logged in.");
 		return;
 	}
 	
 	/* Check to see if any memos */
-	if (!mu->memos.count)
+	if (!si->smu->memos.count)
 	{
-		notice(memosvs.nick, origin, "You have no memos.");
+		command_fail(si, fault_nosuch_key, "You have no memos.");
 		return;
 	}
 	
 	/* Is arg1 an int? */
 	if (!memonum)
 	{
-		notice(memosvs.nick, origin, "Invalid message index.");
+		command_fail(si, fault_badparams, "Invalid message index.");
 		return;
 	}
 	
 	/* Check to see if memonum is greater than memocount */
-	if (memonum > mu->memos.count)
+	if (memonum > si->smu->memos.count)
 	{
-		notice(memosvs.nick, origin, "Invalid message index.");
+		command_fail(si, fault_nosuch_key, "Invalid message index.");
 		return;
 	}
 
 	/* Go to reading memos */	
-	LIST_FOREACH(n, mu->memos.head)
+	LIST_FOREACH(n, si->smu->memos.head)
 	{
 		if (i == memonum)
 		{
@@ -106,14 +105,14 @@ static void ms_cmd_read(char *origin)
 			if (memo->status == MEMO_NEW)
 			{
 				memo->status = MEMO_READ;
-				mu->memoct_new--;
+				si->smu->memoct_new--;
 				tmu = myuser_find(memo->sender);
 				
 				/* If the sender is logged in, tell them the memo's been read */
 				if (strcasecmp(memosvs.nick,memo->sender) && (tmu != NULL) && (tmu->logins.count > 0))
-					myuser_notice(memosvs.nick, tmu, "%s has read your memo, which was sent at %s", origin, strfbuf);			
+					myuser_notice(memosvs.nick, tmu, "%s has read your memo, which was sent at %s", si->smu->name, strfbuf);
 				else
-				{	
+				{
 					/* If they have an account, their inbox is not full and they aren't memoserv */
 					if ( (tmu != NULL) && (tmu->memos.count < me.mdlimit) && strcasecmp(memosvs.nick,memo->sender))
 					{
@@ -122,7 +121,7 @@ static void ms_cmd_read(char *origin)
 						receipt->sent = CURRTIME;
 						receipt->status = MEMO_NEW;
 						strlcpy(receipt->sender,memosvs.nick,NICKLEN);
-						snprintf(receipt->text, MEMOLEN, "%s has read a memo from you sent at %s", origin, strfbuf);
+						snprintf(receipt->text, MEMOLEN, "%s has read a memo from you sent at %s", si->smu->name, strfbuf);
 						
 						/* Attach to their linked list */
 						n = node_create();
@@ -132,13 +131,13 @@ static void ms_cmd_read(char *origin)
 				}
 			}
 		
-			notice(memosvs.nick, origin, 
+			command_success_nodata(si, 
 				"\2Memo %d - Sent by %s, %s\2",i,memo->sender, strfbuf);
 			
-			notice(memosvs.nick, origin, 
+			command_success_nodata(si, 
 				"------------------------------------------");
 			
-			notice(memosvs.nick, origin, "%s", memo->text);
+			command_success_nodata(si, "%s", memo->text);
 			
 			return;
 		}

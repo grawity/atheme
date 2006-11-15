@@ -4,22 +4,22 @@
  *
  * This file contains the main() routine.
  *
- * $Id: atheme.c 5546 2006-06-24 23:08:30Z jilles $
+ * $Id: atheme.c 6807 2006-10-21 19:43:43Z jilles $
  */
 
 #include "atheme.h"
+#include "uplink.h"
+#include "pmodule.h" /* pcommand_init */
 
 chansvs_t chansvs;
 globsvs_t globsvs;
 opersvs_t opersvs;
 memosvs_t memosvs;
-helpsvs_t helpsvs;
 nicksvs_t nicksvs;
-usersvs_t usersvs;
 saslsvs_t saslsvs;
 
 me_t me;
-cnt_t cnt;
+struct cnt cnt;
 
 char *config_file;
 char *log_path;
@@ -190,6 +190,7 @@ int main(int argc, char *argv[])
 
 	libclaro_init(slog);
 
+	translation_init();
 	init_nodes();
 	init_newconf();
 	servtree_init();
@@ -215,6 +216,7 @@ int main(int argc, char *argv[])
 	}
 
 	authcookie_init();
+	common_ctcp_init();
 
 	if (!backend_loaded)
 	{
@@ -335,7 +337,7 @@ int main(int argc, char *argv[])
 	remove(pidfilename);
 	errno = 0;
 	sendq_flush(curr_uplink->conn);
-	connection_close(curr_uplink->conn);
+	connection_close_all();
 
 	me.connected = FALSE;
 

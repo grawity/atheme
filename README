@@ -4,7 +4,7 @@ Atheme -- a set of services for IRC networks
 This program is free but copyrighted software; see the LICENSE file for
 details.
 
-Information about Atheme may be found at http://www.atheme.org/.
+Information about Atheme may be found at http://www.atheme.net/.
 
 TABLE OF CONTENTS
 -----------------
@@ -19,10 +19,12 @@ TABLE OF CONTENTS
 ----------
 
 Atheme was originally based on Shrike, however, this has almost all been
-rewritten now. Atheme has also borrowed some code from Sentinel.
+rewritten now. Atheme has also borrowed some code from Sentinel and
+ircd-ratbox.
 
 Information about Shrike can be found at http://shrike.malkier.net/.
 Information about Sentinel can be found at http://ircd.botbay.net/sentinel/.
+Information about ircd-ratbox can be found at http://www.ircd-ratbox.org/.
 
 2. PRESENTATION
 ---------------
@@ -80,9 +82,6 @@ terminate immediately. Otherwise, it will run until killed or otherwise stopped.
 If you are stuck, or services are doing something really weird, or you have
 some sort of brilliant idea, we have a channel on IRC! (Surprising, no?)
 To access this channel, connect to irc.atheme.org, and join #atheme.
-
-There are also community forums and a community-oriented module 
-repository located at http://modules.atheme.org/.
 
 6. REPORTING BUGS
 -----------------

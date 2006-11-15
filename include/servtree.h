@@ -4,7 +4,7 @@
  *
  * Headers for service selection tree.
  *
- * $Id: servtree.h 3767 2005-11-10 01:28:36Z jilles $
+ * $Id: servtree.h 6559 2006-09-29 21:15:10Z jilles $
  */
 
 #ifndef SERVTREE_H
@@ -18,19 +18,18 @@ struct service_ {
 	char *disp;
 	char *uid;
 
-	uint32_t hash;
-	node_t *node;
 	user_t *me;
 
-	void (*handler)(char *, uint8_t, char **);
-	void (*notice_handler)(char *, uint8_t, char **);
-};
+	void (*handler)(sourceinfo_t *, int, char **);
+	void (*notice_handler)(sourceinfo_t *, int, char **);
 
-typedef struct service_ service_t;
+	list_t *cmdtree;
+};
 
 E void servtree_init(void);
 E service_t *add_service(char *name, char *user, char *host, char *real,
-        void (*handler)(char *origin, uint8_t parc, char *parv[]));
+        void (*handler)(sourceinfo_t *si, int parc, char *parv[]),
+        list_t *cmdtree);
 E void del_service(service_t *sptr);
 E service_t *find_service(char *name);
 E char *service_name(char *name);

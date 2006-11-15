@@ -1,16 +1,19 @@
 /*
  * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains protocol support for ratbox-based ircd.
  *
- * $Id: ratbox.c 5628 2006-07-01 23:38:42Z jilles $
+ * $Id: ratbox.c 6861 2006-10-22 14:08:20Z jilles $
  */
 
 #include "atheme.h"
+#include "uplink.h"
+#include "pmodule.h"
 #include "protocol/ratbox.h"
 
-DECLARE_MODULE_V1("protocol/ratbox", TRUE, _modinit, NULL, "$Id: ratbox.c 5628 2006-07-01 23:38:42Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ratbox", TRUE, _modinit, NULL, "$Id: ratbox.c 6861 2006-10-22 14:08:20Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -106,18 +109,19 @@ static uint8_t ratbox_server_login(void)
 }
 
 /* introduce a client */
-static void ratbox_introduce_nick(char *nick, char *user, char *host, char *real, char *uid)
+static void ratbox_introduce_nick(user_t *u)
 {
 	if (ircd->uses_uid)
 		sts(":%s UID %s 1 %ld +%s%s%s %s %s 0 %s :%s",
-			me.numeric, nick, CURRTIME, "io",
+			me.numeric, u->nick, u->ts, "io",
 			chansvs.fantasy ? "" : "D",
-			use_rserv_support ? "S" : "", user, host, uid, real);
+			use_rserv_support ? "S" : "", u->user, u->host, u->uid,
+			u->gecos);
 	else
 		sts("NICK %s 1 %ld +%s%s%s %s %s %s :%s",
-			nick, CURRTIME, "io", chansvs.fantasy ? "" : "D",
+			u->nick, u->ts, "io", chansvs.fantasy ? "" : "D",
 			use_rserv_support ? "S" : "",
-			user, host, me.name, real);
+			u->user, u->host, me.name, u->gecos);
 }
 
 /* invite a user to a channel */
@@ -138,19 +142,9 @@ static void ratbox_quit_sts(user_t *u, char *reason)
 }
 
 /* WALLOPS wrapper */
-static void ratbox_wallops(char *fmt, ...)
+static void ratbox_wallops_sts(const char *text)
 {
-	va_list ap;
-	char buf[BUFSIZE];
-
-	if (config_options.silent)
-		return;
-
-	va_start(ap, fmt);
-	vsnprintf(buf, BUFSIZE, fmt, ap);
-	va_end(ap);
-
-	sts(":%s WALLOPS :%s", ME, buf);
+	sts(":%s WALLOPS :%s", ME, text);
 }
 
 /* join a channel */
@@ -215,30 +209,37 @@ static void ratbox_msg(char *from, char *target, char *fmt, ...)
 }
 
 /* NOTICE wrapper */
-static void ratbox_notice(char *from, char *target, char *fmt, ...)
+static void ratbox_notice_user_sts(user_t *from, user_t *target, const char *text)
 {
-	va_list ap;
-	char buf[BUFSIZE];
-	user_t *u = user_find(from);
-	user_t *t = user_find(target);
+	sts(":%s NOTICE %s :%s", from ? CLIENT_NAME(from) : ME, CLIENT_NAME(target), text);
+}
 
-	if (u == NULL && (from == NULL || (irccasecmp(from, me.name) && irccasecmp(from, ME))))
+static void ratbox_notice_global_sts(user_t *from, const char *mask, const char *text)
+{
+	node_t *n;
+	tld_t *tld;
+
+	if (!strcmp(mask, "*"))
 	{
-		slog(LG_DEBUG, "ratbox_notice(): unknown source %s for notice to %s", from, target);
-		return;
+		LIST_FOREACH(n, tldlist.head)
+		{
+			tld = n->data;
+			sts(":%s NOTICE %s*%s :%s", from ? CLIENT_NAME(from) : ME, ircd->tldprefix, tld->name, text);
+		}
 	}
+	else
+		sts(":%s NOTICE %s%s :%s", from ? CLIENT_NAME(from) : ME, ircd->tldprefix, mask, text);
+}
 
-	va_start(ap, fmt);
-	vsnprintf(buf, BUFSIZE, fmt, ap);
-	va_end(ap);
-
-	if (u == NULL || target[0] != '#' || chanuser_find(channel_find(target), u))
-		sts(":%s NOTICE %s :%s", u ? CLIENT_NAME(u) : ME, t ? CLIENT_NAME(t) : target, buf);
+static void ratbox_notice_channel_sts(user_t *from, channel_t *target, const char *text)
+{
+	if (from == NULL || chanuser_find(target, from))
+		sts(":%s NOTICE %s :%s", from ? CLIENT_NAME(from) : ME, target->name, text);
 	else
 		/* not on channel, let's send it from the server
 		 * hyb6 won't accept this, oh well, they'll have to
 		 * enable join_chans -- jilles */
-		sts(":%s NOTICE %s :%s: %s", ME, target, u->nick, buf);
+		sts(":%s NOTICE %s :%s: %s", ME, target->name, from->nick, text);
 }
 
 static void ratbox_wallchops(user_t *sender, channel_t *channel, char *message)
@@ -411,38 +412,57 @@ static void ratbox_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
 		generic_fnc_sts(source, u, newnick, type);
 }
 
-static void m_topic(char *origin, uint8_t parc, char *parv[])
+static void ratbox_holdnick_sts(user_t *source, int duration, const char *nick, myuser_t *account)
+{
+	if (duration == 0)
+		return; /* can't do this safely */
+	sts(":%s ENCAP * RESV %d %s 0 :Reserved by %s for nickname owner (%s)",
+			CLIENT_NAME(source), duration > 300 ? 300 : duration,
+			nick, source->nick,
+			account != NULL ? account->name : nick);
+}
+
+static void m_topic(sourceinfo_t *si, int parc, char *parv[])
 {
 	channel_t *c = channel_find(parv[0]);
-	user_t *u = user_find(origin);
+	user_t *u = si->su;
 
 	if (!c || !u)
 		return;
 
-	handle_topic(c, u->nick, CURRTIME, parv[1]);
+	handle_topic_from(si, c, u->nick, CURRTIME, parv[1]);
 }
 
-static void m_tb(char *origin, uint8_t parc, char *parv[])
+static void m_tb(sourceinfo_t *si, int parc, char *parv[])
 {
 	channel_t *c = channel_find(parv[0]);
 	time_t ts = atol(parv[1]);
-	server_t *source = server_find(origin);
+	server_t *source = si->s;
+
+	if (c == NULL)
+		return;
 
 	if (source == NULL)
 		source = server_find(me.actual);
 	if (source == NULL)
 		source = me.me;
 
-	handle_topic(c, parc > 3 ? parv[2] : source->name, ts, parv[parc - 1]);
+	if (c->topic != NULL && c->topicts <= ts)
+	{
+		slog(LG_DEBUG, "m_tb(): ignoring newer topic on %s", c->name);
+		return;
+	}
+
+	handle_topic_from(si, c, parc > 3 ? parv[2] : source->name, ts, parv[parc - 1]);
 }
 
-static void m_ping(char *origin, uint8_t parc, char *parv[])
+static void m_ping(sourceinfo_t *si, int parc, char *parv[])
 {
 	/* reply to PING's */
 	sts(":%s PONG %s %s", ME, me.name, parv[0]);
 }
 
-static void m_pong(char *origin, uint8_t parc, char *parv[])
+static void m_pong(sourceinfo_t *si, int parc, char *parv[])
 {
 	server_t *s;
 
@@ -477,23 +497,23 @@ static void m_pong(char *origin, uint8_t parc, char *parv[])
 	}
 }
 
-static void m_privmsg(char *origin, uint8_t parc, char *parv[])
+static void m_privmsg(sourceinfo_t *si, int parc, char *parv[])
 {
 	if (parc != 2)
 		return;
 
-	handle_message(origin, parv[0], FALSE, parv[1]);
+	handle_message(si, parv[0], FALSE, parv[1]);
 }
 
-static void m_notice(char *origin, uint8_t parc, char *parv[])
+static void m_notice(sourceinfo_t *si, int parc, char *parv[])
 {
 	if (parc != 2)
 		return;
 
-	handle_message(origin, parv[0], TRUE, parv[1]);
+	handle_message(si, parv[0], TRUE, parv[1]);
 }
 
-static void m_sjoin(char *origin, uint8_t parc, char *parv[])
+static void m_sjoin(sourceinfo_t *si, int parc, char *parv[])
 {
 	/* -> :proteus.malkier.net SJOIN 1073516550 #shrike +tn :@sycobuny @+rakaur */
 
@@ -503,103 +523,100 @@ static void m_sjoin(char *origin, uint8_t parc, char *parv[])
 	char *userv[256];
 	uint8_t i;
 	time_t ts;
-	server_t *source_server;
 	char *p;
 
-	if (origin)
+	/* :origin SJOIN ts chan modestr [key or limits] :users */
+	if (si->s == NULL)
+		return;
+
+	c = channel_find(parv[1]);
+	ts = atol(parv[0]);
+
+	if (!c)
 	{
-		/* :origin SJOIN ts chan modestr [key or limits] :users */
-		source_server = server_find(origin);
-		if (source_server == NULL)
-			return;
-
-		c = channel_find(parv[1]);
-		ts = atol(parv[0]);
-
-		if (!c)
-		{
-			slog(LG_DEBUG, "m_sjoin(): new channel: %s", parv[1]);
-			c = channel_add(parv[1], ts);
-		}
-
-		if (ts == 0 || c->ts == 0)
-		{
-			if (c->ts != 0)
-				slog(LG_INFO, "m_sjoin(): server %s changing TS on %s from %ld to 0", source_server->name, c->name, (long)c->ts);
-			c->ts = 0;
-			hook_call_event("channel_tschange", c);
-		}
-		else if (ts < c->ts)
-		{
-			chanuser_t *cu;
-			node_t *n;
-
-			/* the TS changed.  a TS change requires the following things
-			 * to be done to the channel:  reset all modes to nothing, remove
-			 * all status modes on known users on the channel (including ours),
-			 * and set the new TS.
-			 *
-			 * if the source does TS6, also remove all bans
-			 * note that JOIN does not do this
-			 */
-
-			clear_simple_modes(c);
-			if (source_server->sid != NULL)
-				chanban_clear(c);
-
-			LIST_FOREACH(n, c->members.head)
-			{
-				cu = (chanuser_t *)n->data;
-				if (cu->user->server == me.me)
-				{
-					/* it's a service, reop */
-					sts(":%s PART %s :Reop", CLIENT_NAME(cu->user), c->name);
-					sts(":%s SJOIN %ld %s + :@%s", ME, ts, c->name, CLIENT_NAME(cu->user));
-					cu->modes = CMODE_OP;
-				}
-				else
-					cu->modes = 0;
-			}
-
-			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
-
-			c->ts = ts;
-			hook_call_event("channel_tschange", c);
-		}
-		else if (ts > c->ts)
-			keep_new_modes = FALSE;
-
-		if (keep_new_modes)
-			channel_mode(NULL, c, parc - 3, parv + 2);
-
-		userc = sjtoken(parv[parc - 1], ' ', userv);
-
-		if (keep_new_modes)
-			for (i = 0; i < userc; i++)
-				chanuser_add(c, userv[i]);
-		else
-			for (i = 0; i < userc; i++)
-			{
-				p = userv[i];
-				while (*p == '@' || *p == '%' || *p == '+')
-					p++;
-				/* XXX for TS5 we should mark them deopped
-				 * if they were opped and drop modes from them
-				 * -- jilles */
-				chanuser_add(c, p);
-			}
+		slog(LG_DEBUG, "m_sjoin(): new channel: %s", parv[1]);
+		c = channel_add(parv[1], ts);
 	}
+
+	if (ts == 0 || c->ts == 0)
+	{
+		if (c->ts != 0)
+			slog(LG_INFO, "m_sjoin(): server %s changing TS on %s from %ld to 0", si->s->name, c->name, (long)c->ts);
+		c->ts = 0;
+		hook_call_event("channel_tschange", c);
+	}
+	else if (ts < c->ts)
+	{
+		chanuser_t *cu;
+		node_t *n;
+
+		/* the TS changed.  a TS change requires the following things
+		 * to be done to the channel:  reset all modes to nothing, remove
+		 * all status modes on known users on the channel (including ours),
+		 * and set the new TS.
+		 *
+		 * if the source does TS6, also remove all bans
+		 * note that JOIN does not do this
+		 */
+
+		clear_simple_modes(c);
+		if (si->s->sid != NULL)
+			chanban_clear(c);
+
+		LIST_FOREACH(n, c->members.head)
+		{
+			cu = (chanuser_t *)n->data;
+			if (cu->user->server == me.me)
+			{
+				/* it's a service, reop */
+				sts(":%s PART %s :Reop", CLIENT_NAME(cu->user), c->name);
+				sts(":%s SJOIN %ld %s + :@%s", ME, ts, c->name, CLIENT_NAME(cu->user));
+				cu->modes = CMODE_OP;
+			}
+			else
+				cu->modes = 0;
+		}
+
+		slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
+
+		c->ts = ts;
+		hook_call_event("channel_tschange", c);
+	}
+	else if (ts > c->ts)
+		keep_new_modes = FALSE;
+
+	if (keep_new_modes)
+		channel_mode(NULL, c, parc - 3, parv + 2);
+
+	userc = sjtoken(parv[parc - 1], ' ', userv);
+
+	if (keep_new_modes)
+		for (i = 0; i < userc; i++)
+			chanuser_add(c, userv[i]);
+	else
+		for (i = 0; i < userc; i++)
+		{
+			p = userv[i];
+			while (*p == '@' || *p == '%' || *p == '+')
+				p++;
+			/* XXX for TS5 we should mark them deopped
+			 * if they were opped and drop modes from them
+			 * -- jilles */
+			chanuser_add(c, p);
+		}
+
+	if (c->nummembers == 0 && !(c->modes & ircd->perm_mode))
+		channel_delete(c->name);
 }
 
-static void m_join(char *origin, uint8_t parc, char *parv[])
+static void m_join(sourceinfo_t *si, int parc, char *parv[])
 {
 	/* -> :1JJAAAAAB JOIN 1127474195 #test +tn */
-	user_t *u = user_find(origin);
+	user_t *u = si->su;
 	boolean_t keep_new_modes = TRUE;
 	node_t *n, *tn;
 	channel_t *c;
 	chanuser_t *cu;
-	uint8_t i;
 	time_t ts;
 
 	if (!u)
@@ -666,10 +683,10 @@ static void m_join(char *origin, uint8_t parc, char *parv[])
 	if (keep_new_modes)
 		channel_mode(NULL, c, parc - 2, parv + 2);
 
-	chanuser_add(c, origin);
+	chanuser_add(c, CLIENT_NAME(si->su));
 }
 
-static void m_bmask(char *origin, uint8_t parc, char *parv[])
+static void m_bmask(sourceinfo_t *si, int parc, char *parv[])
 {
 	uint8_t ac, i;
 	char *av[256];
@@ -699,24 +716,22 @@ static void m_bmask(char *origin, uint8_t parc, char *parv[])
 		chanban_add(c, av[i], type);
 }
 
-static void m_part(char *origin, uint8_t parc, char *parv[])
+static void m_part(sourceinfo_t *si, int parc, char *parv[])
 {
 	uint8_t chanc;
 	char *chanv[256];
 	int i;
 
-	if (parc < 1)
-		return;
 	chanc = sjtoken(parv[0], ',', chanv);
 	for (i = 0; i < chanc; i++)
 	{
-		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", origin, chanv[i]);
+		slog(LG_DEBUG, "m_part(): user left channel: %s -> %s", si->su->nick, chanv[i]);
 
-		chanuser_delete(channel_find(chanv[i]), user_find(origin));
+		chanuser_delete(channel_find(chanv[i]), si->su);
 	}
 }
 
-static void m_nick(char *origin, uint8_t parc, char *parv[])
+static void m_nick(sourceinfo_t *si, int parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
@@ -748,34 +763,21 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 	{
 		node_t *n;
 
-		u = user_find(origin);
-		if (!u)
-		{
-			slog(LG_DEBUG, "m_nick(): nickname change from nonexistant user: %s", origin);
-			return;
-		}
+                if (!si->su)
+                {       
+                        slog(LG_DEBUG, "m_nick(): server trying to change nick: %s", si->s != NULL ? si->s->name : "<none>");
+                        return;
+                }
 
-		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", u->nick, parv[0]);
+		slog(LG_DEBUG, "m_nick(): nickname change from `%s': %s", si->su->nick, parv[0]);
 
-		/* remove the current one from the list */
-		n = node_find(u, &userlist[u->hash]);
-		node_del(n, &userlist[u->hash]);
-		node_free(n);
-
-		/* change the nick */
-		strlcpy(u->nick, parv[0], NICKLEN);
-		u->ts = atoi(parv[1]);
-
-		/* readd with new nick (so the hash works) */
-		n = node_create();
-		u->hash = UHASH((unsigned char *)u->nick);
-		node_add(u, n, &userlist[u->hash]);
+		user_changenick(si->su, parv[0], atoi(parv[1]));
 
 		/* It could happen that our PING arrived late and the
 		 * server didn't acknowledge EOB yet even though it is
 		 * EOB; don't send double notices in that case -- jilles */
-		if (u->server->flags & SF_EOB)
-			handle_nickchange(u);
+		if (si->su->server->flags & SF_EOB)
+			handle_nickchange(si->su);
 	}
 	else
 	{
@@ -787,7 +789,7 @@ static void m_nick(char *origin, uint8_t parc, char *parv[])
 	}
 }
 
-static void m_uid(char *origin, uint8_t parc, char *parv[])
+static void m_uid(sourceinfo_t *si, int parc, char *parv[])
 {
 	server_t *s;
 	user_t *u;
@@ -795,13 +797,7 @@ static void m_uid(char *origin, uint8_t parc, char *parv[])
 	/* got the right number of args for an introduction? */
 	if (parc == 9)
 	{
-		s = server_find(origin);
-		if (!s)
-		{
-			slog(LG_DEBUG, "m_uid(): new user on nonexistant server: %s", origin);
-			return;
-		}
-
+		s = si->s;
 		slog(LG_DEBUG, "m_uid(): new user on `%s': %s", s->name, parv[0]);
 
 		u = user_add(parv[0], parv[4], parv[5], NULL, parv[6], parv[7], parv[8], s, atoi(parv[2]));
@@ -824,51 +820,27 @@ static void m_uid(char *origin, uint8_t parc, char *parv[])
 	}
 }
 
-static void m_quit(char *origin, uint8_t parc, char *parv[])
+static void m_quit(sourceinfo_t *si, int parc, char *parv[])
 {
-	slog(LG_DEBUG, "m_quit(): user leaving: %s", origin);
+	slog(LG_DEBUG, "m_quit(): user leaving: %s", si->su->nick);
 
 	/* user_delete() takes care of removing channels and so forth */
-	user_delete(user_find(origin));
+	user_delete(si->su);
 }
 
-static void m_mode(char *origin, uint8_t parc, char *parv[])
+static void m_mode(sourceinfo_t *si, int parc, char *parv[])
 {
-	if (!origin)
-	{
-		slog(LG_DEBUG, "m_mode(): received MODE without origin");
-		return;
-	}
-
-	if (parc < 2)
-	{
-		slog(LG_DEBUG, "m_mode(): missing parameters in MODE");
-		return;
-	}
-
 	if (*parv[0] == '#')
 		channel_mode(NULL, channel_find(parv[0]), parc - 1, &parv[1]);
 	else
 		user_mode(user_find(parv[0]), parv[1]);
 }
 
-static void m_tmode(char *origin, uint8_t parc, char *parv[])
+static void m_tmode(sourceinfo_t *si, int parc, char *parv[])
 {
 	channel_t *c;
 
 	/* -> :1JJAAAAAB TMODE 1127511579 #new +o 2JJAAAAAB */
-	if (!origin)
-	{
-		slog(LG_DEBUG, "m_tmode(): received TMODE without origin");
-		return;
-	}
-
-	if (parc < 3)
-	{
-		slog(LG_DEBUG, "m_tmode(): missing parameters in TMODE");
-		return;
-	}
-
 	c = channel_find(parv[1]);
 	if (c == NULL)
 	{
@@ -882,7 +854,7 @@ static void m_tmode(char *origin, uint8_t parc, char *parv[])
 	channel_mode(NULL, c, parc - 2, &parv[2]);
 }
 
-static void m_kick(char *origin, uint8_t parc, char *parv[])
+static void m_kick(sourceinfo_t *si, int parc, char *parv[])
 {
 	user_t *u = user_find(parv[1]);
 	channel_t *c = channel_find(parv[0]);
@@ -918,23 +890,21 @@ static void m_kick(char *origin, uint8_t parc, char *parv[])
 	}
 }
 
-static void m_kill(char *origin, uint8_t parc, char *parv[])
+static void m_kill(sourceinfo_t *si, int parc, char *parv[])
 {
-	if (parc < 1)
-		return;
-	handle_kill(origin, parv[0], parc > 1 ? parv[1] : "<No reason given>");
+	handle_kill(si, parv[0], parc > 1 ? parv[1] : "<No reason given>");
 }
 
-static void m_squit(char *origin, uint8_t parc, char *parv[])
+static void m_squit(sourceinfo_t *si, int parc, char *parv[])
 {
 	slog(LG_DEBUG, "m_squit(): server leaving: %s from %s", parv[0], parv[1]);
 	server_delete(parv[0]);
 }
 
-static void m_server(char *origin, uint8_t parc, char *parv[])
+static void m_server(sourceinfo_t *si, int parc, char *parv[])
 {
 	slog(LG_DEBUG, "m_server(): new server: %s", parv[0]);
-	server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, origin != NULL || !ircd->uses_uid ? NULL : ts6sid, parv[2]);
+	server_add(parv[0], atoi(parv[1]), si->s ? si->s->name : me.name, si->s || !ircd->uses_uid ? NULL : ts6sid, parv[2]);
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
@@ -945,13 +915,15 @@ static void m_server(char *origin, uint8_t parc, char *parv[])
 		 */
 		sts(":%s PING %s %s", ME, me.name, parv[0]);
 	}
+
+	me.recvsvr = TRUE;
 }
 
-static void m_sid(char *origin, uint8_t parc, char *parv[])
+static void m_sid(sourceinfo_t *si, int parc, char *parv[])
 {
 	/* -> :1JJ SID file. 2 00F :telnet server */
 	slog(LG_DEBUG, "m_sid(): new server: %s", parv[0]);
-	server_add(parv[0], atoi(parv[1]), origin ? origin : me.name, parv[2], parv[3]);
+	server_add(parv[0], atoi(parv[1]), si->s ? si->s->name : me.name, parv[2], parv[3]);
 
 	if (cnt.server == 2)
 		me.actual = sstrdup(parv[0]);
@@ -962,39 +934,41 @@ static void m_sid(char *origin, uint8_t parc, char *parv[])
 		 */
 		sts(":%s PING %s %s", ME, me.name, parv[2]);
 	}
+
+	me.recvsvr = TRUE;
 }
 
-static void m_stats(char *origin, uint8_t parc, char *parv[])
+static void m_stats(sourceinfo_t *si, int parc, char *parv[])
 {
-	handle_stats(user_find(origin), parv[0][0]);
+	handle_stats(si->su, parv[0][0]);
 }
 
-static void m_admin(char *origin, uint8_t parc, char *parv[])
+static void m_admin(sourceinfo_t *si, int parc, char *parv[])
 {
-	handle_admin(user_find(origin));
+	handle_admin(si->su);
 }
 
-static void m_version(char *origin, uint8_t parc, char *parv[])
+static void m_version(sourceinfo_t *si, int parc, char *parv[])
 {
-	handle_version(user_find(origin));
+	handle_version(si->su);
 }
 
-static void m_info(char *origin, uint8_t parc, char *parv[])
+static void m_info(sourceinfo_t *si, int parc, char *parv[])
 {
-	handle_info(user_find(origin));
+	handle_info(si->su);
 }
 
-static void m_whois(char *origin, uint8_t parc, char *parv[])
+static void m_whois(sourceinfo_t *si, int parc, char *parv[])
 {
-	handle_whois(user_find(origin), parc >= 2 ? parv[1] : "*");
+	handle_whois(si->su, parv[1]);
 }
 
-static void m_trace(char *origin, uint8_t parc, char *parv[])
+static void m_trace(sourceinfo_t *si, int parc, char *parv[])
 {
-	handle_trace(user_find(origin), parc >= 1 ? parv[0] : "*", parc >= 2 ? parv[1] : NULL);
+	handle_trace(si->su, parv[0], parc >= 2 ? parv[1] : NULL);
 }
 
-static void m_pass(char *origin, uint8_t parc, char *parv[])
+static void m_pass(sourceinfo_t *si, int parc, char *parv[])
 {
 	/* TS5: PASS mypassword :TS
 	 * TS6: PASS mypassword TS 6 :sid */
@@ -1017,17 +991,15 @@ static void m_pass(char *origin, uint8_t parc, char *parv[])
 	}
 }
 
-static void m_error(char *origin, uint8_t parc, char *parv[])
+static void m_error(sourceinfo_t *si, int parc, char *parv[])
 {
 	slog(LG_INFO, "m_error(): error from server: %s", parv[0]);
 }
 
-static void m_encap(char *origin, uint8_t parc, char *parv[])
+static void m_encap(sourceinfo_t *si, int parc, char *parv[])
 {
 	user_t *u;
 
-	if (parc < 2)
-		return;
 	if (match(parv[0], me.name))
 		return;
 	if (!irccasecmp(parv[1], "LOGIN"))
@@ -1037,19 +1009,19 @@ static void m_encap(char *origin, uint8_t parc, char *parv[])
 			return;
 		if (parc < 3)
 			return;
-		u = user_find(origin);
+		u = si->su;
 		if (u == NULL)
 			return;
 		if (u->server->flags & SF_EOB)
 		{
-			slog(LG_DEBUG, "m_encap(): %s sent ENCAP LOGIN for user %s outside burst", u->server->name, origin);
+			slog(LG_DEBUG, "m_encap(): %s sent ENCAP LOGIN for user %s outside burst", u->server->name, si->su->nick);
 			return;
 		}
 		handle_burstlogin(u, parv[2]);
 	}
 }
 
-static void m_capab(char *origin, uint8_t parc, char *parv[])
+static void m_capab(sourceinfo_t *si, int parc, char *parv[])
 {
 	char *p;
 
@@ -1082,9 +1054,9 @@ static void m_capab(char *origin, uint8_t parc, char *parv[])
 	services_init();
 }
 
-static void m_motd(char *origin, uint8_t parc, char *parv[])
+static void m_motd(sourceinfo_t *si, int parc, char *parv[])
 {
-	handle_motd(user_find(origin));
+	handle_motd(si->su);
 }
 
 /* Server ended their burst: warn all their users if necessary -- jilles */
@@ -1104,12 +1076,14 @@ void _modinit(module_t * m)
 	server_login = &ratbox_server_login;
 	introduce_nick = &ratbox_introduce_nick;
 	quit_sts = &ratbox_quit_sts;
-	wallops = &ratbox_wallops;
+	wallops_sts = &ratbox_wallops_sts;
 	join_sts = &ratbox_join_sts;
 	chan_lowerts = &ratbox_chan_lowerts;
 	kick = &ratbox_kick;
 	msg = &ratbox_msg;
-	notice_sts = &ratbox_notice;
+	notice_user_sts = &ratbox_notice_user_sts;
+	notice_global_sts = &ratbox_notice_global_sts;
+	notice_channel_sts = &ratbox_notice_channel_sts;
 	wallchops = &ratbox_wallchops;
 	numeric_sts = &ratbox_numeric_sts;
 	skill = &ratbox_skill;
@@ -1124,6 +1098,7 @@ void _modinit(module_t * m)
 	jupe = &ratbox_jupe;
 	fnc_sts = &ratbox_fnc_sts;
 	invite_sts = &ratbox_invite_sts;
+	holdnick_sts = &ratbox_holdnick_sts;
 
 	mode_list = ratbox_mode_list;
 	ignore_mode_list = ratbox_ignore_mode_list;
@@ -1132,37 +1107,37 @@ void _modinit(module_t * m)
 
 	ircd = &Ratbox;
 
-	pcommand_add("PING", m_ping);
-	pcommand_add("PONG", m_pong);
-	pcommand_add("PRIVMSG", m_privmsg);
-	pcommand_add("NOTICE", m_notice);
-	pcommand_add("SJOIN", m_sjoin);
-	pcommand_add("PART", m_part);
-	pcommand_add("NICK", m_nick);
-	pcommand_add("QUIT", m_quit);
-	pcommand_add("MODE", m_mode);
-	pcommand_add("KICK", m_kick);
-	pcommand_add("KILL", m_kill);
-	pcommand_add("SQUIT", m_squit);
-	pcommand_add("SERVER", m_server);
-	pcommand_add("STATS", m_stats);
-	pcommand_add("ADMIN", m_admin);
-	pcommand_add("VERSION", m_version);
-	pcommand_add("INFO", m_info);
-	pcommand_add("WHOIS", m_whois);
-	pcommand_add("TRACE", m_trace);
-	pcommand_add("JOIN", m_join);
-	pcommand_add("PASS", m_pass);
-	pcommand_add("ERROR", m_error);
-	pcommand_add("TOPIC", m_topic);
-	pcommand_add("TB", m_tb);
-	pcommand_add("ENCAP", m_encap);
-	pcommand_add("CAPAB", m_capab);
-	pcommand_add("UID", m_uid);
-	pcommand_add("BMASK", m_bmask);
-	pcommand_add("TMODE", m_tmode);
-	pcommand_add("SID", m_sid);
-	pcommand_add("MOTD", m_motd);
+	pcommand_add("PING", m_ping, 1, MSRC_USER | MSRC_SERVER);
+	pcommand_add("PONG", m_pong, 1, MSRC_SERVER);
+	pcommand_add("PRIVMSG", m_privmsg, 2, MSRC_USER);
+	pcommand_add("NOTICE", m_notice, 2, MSRC_UNREG | MSRC_USER | MSRC_SERVER);
+	pcommand_add("SJOIN", m_sjoin, 4, MSRC_SERVER);
+	pcommand_add("PART", m_part, 1, MSRC_USER);
+	pcommand_add("NICK", m_nick, 2, MSRC_USER | MSRC_SERVER);
+	pcommand_add("QUIT", m_quit, 1, MSRC_USER);
+	pcommand_add("MODE", m_mode, 2, MSRC_USER | MSRC_SERVER);
+	pcommand_add("KICK", m_kick, 2, MSRC_USER | MSRC_SERVER);
+	pcommand_add("KILL", m_kill, 1, MSRC_USER | MSRC_SERVER);
+	pcommand_add("SQUIT", m_squit, 1, MSRC_USER | MSRC_SERVER);
+	pcommand_add("SERVER", m_server, 3, MSRC_UNREG | MSRC_SERVER);
+	pcommand_add("STATS", m_stats, 2, MSRC_USER);
+	pcommand_add("ADMIN", m_admin, 1, MSRC_USER);
+	pcommand_add("VERSION", m_version, 1, MSRC_USER);
+	pcommand_add("INFO", m_info, 1, MSRC_USER);
+	pcommand_add("WHOIS", m_whois, 2, MSRC_USER);
+	pcommand_add("TRACE", m_trace, 1, MSRC_USER);
+	pcommand_add("JOIN", m_join, 1, MSRC_USER);
+	pcommand_add("PASS", m_pass, 1, MSRC_UNREG);
+	pcommand_add("ERROR", m_error, 1, MSRC_UNREG | MSRC_SERVER);
+	pcommand_add("TOPIC", m_topic, 2, MSRC_USER);
+	pcommand_add("TB", m_tb, 3, MSRC_SERVER);
+	pcommand_add("ENCAP", m_encap, 2, MSRC_USER | MSRC_SERVER);
+	pcommand_add("CAPAB", m_capab, 1, MSRC_UNREG);
+	pcommand_add("UID", m_uid, 9, MSRC_SERVER);
+	pcommand_add("BMASK", m_bmask, 4, MSRC_SERVER);
+	pcommand_add("TMODE", m_tmode, 3, MSRC_USER | MSRC_SERVER);
+	pcommand_add("SID", m_sid, 4, MSRC_SERVER);
+	pcommand_add("MOTD", m_motd, 1, MSRC_USER);
 
 	hook_add_event("server_eob");
 	hook_add_hook("server_eob", (void (*)(void *))server_eob);

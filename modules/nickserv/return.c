@@ -2,9 +2,9 @@
  * Copyright (c) 2005 Alex Lambert
  * Rights to this code are as documented in doc/LICENSE.
  *
- * Implements NICKSERV RETURN.
+ * Implements nickserv RETURN.
  *
- * $Id: return.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: return.c 7073 2006-11-04 23:21:21Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/return", FALSE, _modinit, _moddeinit,
-	"$Id: return.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: return.c 7073 2006-11-04 23:21:21Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ns_cmd_return(char *origin);
+static void ns_cmd_return(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_return = { "RETURN", "Returns a nickname to its owner.",
-			PRIV_USER_ADMIN, ns_cmd_return };
+command_t ns_return = { "RETURN", "Returns a nickname to its owner.", PRIV_USER_ADMIN, 2, ns_cmd_return };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -38,41 +37,37 @@ void _moddeinit()
 	help_delentry(ns_helptree, "RETURN");
 }
 
-static void ns_cmd_return(char *origin)
+static void ns_cmd_return(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *u = user_find_named(origin);
-	char *target = strtok(NULL, " ");
-	char *newmail = strtok(NULL, " ");
+	char *target = parv[0];
+	char *newmail = parv[1];
 	char *newpass;
 	char oldmail[EMAILLEN];
 	myuser_t *mu;
 
-	if (u == NULL)
-		return;
-
 	if (!target || !newmail)
 	{
-		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "RETURN");
-		notice(nicksvs.nick, origin, "Usage: RETURN <nickname> <e-mail address>");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RETURN");
+		command_fail(si, fault_needmoreparams, "Usage: RETURN <nickname> <e-mail address>");
 		return;
 	}
 
 	if (!(mu = myuser_find(target)))
 	{
-		notice(nicksvs.nick, origin, "\2%s\2 is not registered.", target);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", target);
 		return;
 	}
 
 	if (is_soper(mu))
 	{
-		logcommand(nicksvs.me, u, CMDLOG_ADMIN, "failed RETURN %s to %s (is SOPER)", target, newmail);
-		notice(nicksvs.nick, origin, "\2%s\2 belongs to a services operator; it cannot be returned.", target);
+		logcommand(si, CMDLOG_ADMIN, "failed RETURN %s to %s (is SOPER)", target, newmail);
+		command_fail(si, fault_badparams, "\2%s\2 belongs to a services operator; it cannot be returned.", target);
 		return;
 	}
 
 	if ((strlen(newmail) > 32) || !validemail(newmail))
 	{
-		notice(nicksvs.nick, origin, "\2%s\2 is not a valid e-mail address.", newmail);
+		command_fail(si, fault_badparams, "\2%s\2 is not a valid e-mail address.", newmail);
 		return;
 	}
 
@@ -80,10 +75,10 @@ static void ns_cmd_return(char *origin)
 	strlcpy(oldmail, mu->email, EMAILLEN);
 	strlcpy(mu->email, newmail, EMAILLEN);
 
-	if (!sendemail(u, EMAIL_SENDPASS, mu, newpass))
+	if (!sendemail(si->su != NULL ? si->su : si->service->me, EMAIL_SENDPASS, mu, newpass))
 	{
 		strlcpy(mu->email, oldmail, EMAILLEN);
-		notice(nicksvs.nick, origin, "Sending email failed, nickname \2%s\2 remains with \2%s\2.",
+		command_fail(si, fault_emailfail, "Sending email failed, nickname \2%s\2 remains with \2%s\2.",
 				mu->name, mu->email);
 		return;
 	}
@@ -97,10 +92,10 @@ static void ns_cmd_return(char *origin)
 	metadata_delete(mu, METADATA_USER, "private:verify:emailchg:newemail");
 	metadata_delete(mu, METADATA_USER, "private:verify:emailchg:timestamp");
 
-	wallops("%s returned the nickname \2%s\2 to \2%s\2", origin, target, newmail);
-	logcommand(nicksvs.me, u, CMDLOG_ADMIN, "RETURN %s to %s", target, newmail);
-	notice(nicksvs.nick, origin, "The e-mail address for \2%s\2 has been set to \2%s\2",
+	wallops("%s returned the nickname \2%s\2 to \2%s\2", get_oper_name(si), target, newmail);
+	logcommand(si, CMDLOG_ADMIN, "RETURN %s to %s", target, newmail);
+	command_success_nodata(si, "The e-mail address for \2%s\2 has been set to \2%s\2",
 						target, newmail);
-	notice(nicksvs.nick, origin, "A random password has been set; it has been sent to \2%s\2.",
+	command_success_nodata(si, "A random password has been set; it has been sent to \2%s\2.",
 						newmail);
 }

@@ -4,7 +4,7 @@
  *
  * Closing for channels.
  *
- * $Id: close.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: close.c 6685 2006-10-14 14:48:01Z jilles $
  */
 
 #include "atheme.h"
@@ -12,15 +12,15 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/close", FALSE, _modinit, _moddeinit,
-	"$Id: close.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: close.c 6685 2006-10-14 14:48:01Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_cmd_close(char *origin);
+static void cs_cmd_close(sourceinfo_t *si, int parc, char *parv[]);
 
 /* CLOSE ON|OFF -- don't pollute the root with REOPEN */
 command_t cs_close = { "CLOSE", "Closes a channel.",
-			PRIV_CHAN_ADMIN, cs_cmd_close };
+			PRIV_CHAN_ADMIN, 3, cs_cmd_close };
 
 static void close_check_join(void *vcu);
 
@@ -34,7 +34,7 @@ void _modinit(module_t *m)
 
 	command_add(&cs_close, cs_cmdtree);
 	hook_add_event("channel_join");
-	hook_add_hook("channel_join", close_check_join);
+	hook_add_hook_first("channel_join", close_check_join);
 	help_addentry(cs_helptree, "CLOSE", "help/cservice/close", NULL);
 }
 
@@ -45,14 +45,12 @@ void _moddeinit()
 	help_delentry(cs_helptree, "CLOSE");
 }
 
-static void close_check_join(void *vcu)
+static void close_check_join(void *vdata)
 {
 	mychan_t *mc;
-	chanuser_t *cu;
+	chanuser_t *cu = ((hook_channel_joinpart_t *)vdata)->cu;
 
-	cu = vcu;
-
-	if (is_internal_client(cu->user))
+	if (cu == NULL || is_internal_client(cu->user))
 		return;
 
 	if (!(mc = mychan_find(cu->chan->name)))
@@ -72,14 +70,15 @@ static void close_check_join(void *vcu)
 
 		/* clear the channel */
 		kick(chansvs.nick, cu->chan->name, cu->user->nick, "This channel has been closed");
+		((hook_channel_joinpart_t *)vdata)->cu = NULL;
 	}
 }
 
-static void cs_cmd_close(char *origin)
+static void cs_cmd_close(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *target = strtok(NULL, " ");
-	char *action = strtok(NULL, " ");
-	char *reason = strtok(NULL, "");
+	char *target = parv[0];
+	char *action = parv[1];
+	char *reason = parv[2];
 	mychan_t *mc;
 	channel_t *c;
 	chanuser_t *cu;
@@ -87,14 +86,14 @@ static void cs_cmd_close(char *origin)
 
 	if (!target || !action)
 	{
-		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "CLOSE");
-		notice(chansvs.nick, origin, "Usage: CLOSE <#channel> <ON|OFF> [reason]");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "CLOSE");
+		command_fail(si, fault_needmoreparams, "Usage: CLOSE <#channel> <ON|OFF> [reason]");
 		return;
 	}
 
 	if (!(mc = mychan_find(target)))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not registered.", target);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", target);
 		return;
 	}
 
@@ -102,24 +101,24 @@ static void cs_cmd_close(char *origin)
 	{
 		if (!reason)
 		{
-			notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "CLOSE");
-			notice(chansvs.nick, origin, "Usage: CLOSE <#channel> ON <reason>");
+			command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "CLOSE");
+			command_fail(si, fault_needmoreparams, "Usage: CLOSE <#channel> ON <reason>");
 			return;
 		}
 
 		if (config_options.chan && !irccasecmp(config_options.chan, target))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 cannot be closed.", target);
+			command_fail(si, fault_noprivs, "\2%s\2 cannot be closed.", target);
 			return;
 		}
 
 		if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is already closed.", target);
+			command_fail(si, fault_nochange, "\2%s\2 is already closed.", target);
 			return;
 		}
 
-		metadata_add(mc, METADATA_CHANNEL, "private:close:closer", origin);
+		metadata_add(mc, METADATA_CHANNEL, "private:close:closer", si->su->nick);
 		metadata_add(mc, METADATA_CHANNEL, "private:close:reason", reason);
 		metadata_add(mc, METADATA_CHANNEL, "private:close:timestamp", itoa(CURRTIME));
 
@@ -144,15 +143,16 @@ static void cs_cmd_close(char *origin)
 			}
 		}
 
-		wallops("%s closed the channel \2%s\2 (%s).", origin, target, reason);
-		logcommand(chansvs.me, user_find_named(origin), CMDLOG_ADMIN, "%s CLOSE ON %s", target, reason);
-		notice(chansvs.nick, origin, "\2%s\2 is now closed.", target);
+		wallops("%s closed the channel \2%s\2 (%s).", get_oper_name(si), target, reason);
+		snoop("CLOSE:ON: \2%s\2 by \2%s\2 (%s)", target, get_oper_name(si), reason);
+		logcommand(si, CMDLOG_ADMIN, "%s CLOSE ON %s", target, reason);
+		command_success_nodata(si, "\2%s\2 is now closed.", target);
 	}
 	else if (!strcasecmp(action, "OFF"))
 	{
 		if (!metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not closed.", target);
+			command_fail(si, fault_nochange, "\2%s\2 is not closed.", target);
 			return;
 		}
 
@@ -167,20 +167,19 @@ static void cs_cmd_close(char *origin)
 		c = channel_find(target);
 		if (c != NULL)
 		{
-			chanban_t *cb;
-
 			/* hmm, channel still exists, probably permanent? */
 			channel_mode_va(chansvs.me->me, c, 2, "-isbl", "*!*@*");
 			check_modes(mc, TRUE);
 		}
 
-		wallops("%s reopened the channel \2%s\2.", origin, target);
-		logcommand(chansvs.me, user_find_named(origin), CMDLOG_ADMIN, "%s CLOSE OFF", target);
-		notice(chansvs.nick, origin, "\2%s\2 has been reopened.", target);
+		wallops("%s reopened the channel \2%s\2.", get_oper_name(si), target);
+		snoop("CLOSE:OFF: \2%s\2 by \2%s\2", target, get_oper_name(si));
+		logcommand(si, CMDLOG_ADMIN, "%s CLOSE OFF", target);
+		command_success_nodata(si, "\2%s\2 has been reopened.", target);
 	}
 	else
 	{
-		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "CLOSE");
-		notice(chansvs.nick, origin, "Usage: CLOSE <#channel> <ON|OFF> [reason]");
+		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "CLOSE");
+		command_fail(si, fault_badparams, "Usage: CLOSE <#channel> <ON|OFF> [reason]");
 	}
 }

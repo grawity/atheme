@@ -1,25 +1,26 @@
 /*
  * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
- * This file contains functionality which implements the OService RAW command.
+ * This file contains functionality which implements the OService INJECT command.
  *
- * $Id: inject.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: inject.c 6927 2006-10-24 15:22:05Z jilles $
  */
 
 #include "atheme.h"
+#include "uplink.h"
 
 DECLARE_MODULE_V1
 (
 	"operserv/inject", FALSE, _modinit, _moddeinit,
-	"$Id: inject.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: inject.c 6927 2006-10-24 15:22:05Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void os_cmd_inject(char *origin);
+static void os_cmd_inject(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_inject = { "INJECT", "Fakes data from the uplink (debugging tool).",
-                        PRIV_ADMIN, os_cmd_inject };
+command_t os_inject = { "INJECT", "Fakes data from the uplink (debugging tool).", PRIV_ADMIN, 1, os_cmd_inject };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -39,30 +40,30 @@ void _moddeinit()
 	help_delentry(os_helptree, "INJECT");
 }
 
-static void os_cmd_inject(char *origin)
+static void os_cmd_inject(sourceinfo_t *si, int parc, char *parv[])
 {
 	char *inject;
 	static boolean_t injecting = FALSE;
-	inject = strtok(NULL, "");
+	inject = parv[0];
 
 	if (!config_options.raw)
 		return;
 
 	if (!inject)
 	{
-		notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "INJECT");
-		notice(opersvs.nick, origin, "Syntax: INJECT <parameters>");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "INJECT");
+		command_fail(si, fault_needmoreparams, "Syntax: INJECT <parameters>");
 		return;
 	}
 
-	logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "INJECT %s", inject);
+	logcommand(si, CMDLOG_ADMIN, "INJECT %s", inject);
 
 	/* looks like someone INJECT'd an INJECT command.
 	 * this is probably a bad thing.
 	 */
 	if (injecting == TRUE)
 	{
-		notice(opersvs.nick, origin, "You cannot inject an INJECT command.");
+		command_fail(si, fault_noprivs, "You cannot inject an INJECT command.");
 		return;
 	}
 

@@ -1,84 +1,41 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * IRC packet handling.
  *
- * $Id: packet.c 5065 2006-04-14 03:55:44Z w00t $
- *
- * TODO: Take all the sendq stuff in node.c and put it here.
- * sendq_flush becomes irc_whandler, etc.
+ * $Id: packet.c 6931 2006-10-24 16:53:07Z jilles $
  */
 
 #include "atheme.h"
+#include "uplink.h"
 
-static int irc_read(connection_t * cptr, char *buf)
-{
-	int n;
-
-#ifdef _WIN32
-	if ((n = recv(cptr->fd, buf, BUFSIZE, 0)) > 0)
-#else
-	if ((n = read(cptr->fd, buf, BUFSIZE)) > 0)
+/* bursting timer */
+#if HAVE_GETTIMEOFDAY
+struct timeval burstime;
 #endif
-	{
-		buf[n] = '\0';
-		cnt.bin += n;
-	}
 
-	return n;
-}
-
-static void irc_packet(char *buf)
+static void irc_recvq_handler(connection_t *cptr)
 {
-	char *iptr;
-	static char parsebuf[BUFSIZE * 2 + 1];
-	static char *pptr;
+	boolean_t wasnonl;
+	char parsebuf[BUFSIZE + 1];
+	int count;
 
-	if (buf == NULL)
-	{
-		/* connection established, remove any old crap */
-		pptr = parsebuf;
+	wasnonl = cptr->flags & CF_NONEWLINE ? TRUE : FALSE;
+	count = recvq_getline(cptr, parsebuf, sizeof parsebuf - 1);
+	if (count <= 0)
 		return;
-	}
-
-	for (iptr = buf; *iptr != '\0'; )
-	{
-		if (*iptr == '\n')
-		{
-			*pptr = '\0';
-			if (*(iptr-1) == '\r')
-				*(pptr-1) = '\0';
-			iptr++;
-			me.uplinkpong = CURRTIME;
-			parse(parsebuf);
-			pptr = parsebuf;
-		}
-		else
-			*pptr++ = *iptr++;
-	}
-}
-
-void irc_rhandler(connection_t * cptr)
-{
-	char buf[BUFSIZE * 2];
-	int n;
-
-	errno = 0;
-	n = irc_read(cptr, buf);
-	if (n > 0)
-		irc_packet(buf);
-	else if (n == 0 || (n < 0 && errno != EWOULDBLOCK && errno != EAGAIN && errno != EALREADY && errno != EINTR && errno != ENOBUFS))
-	{
-		if (n == 0)
-			slog(LG_INFO, "io_loop(): server %s closed the connection", curr_uplink->name);
-		else
-			slog(LG_INFO, "io_loop(): lost connection to server %s", curr_uplink->name);
-		hook_call_event("connection_dead", cptr);
-		me.connected = FALSE;
+	cnt.bin += count;
+	/* ignore the excessive part of a too long line */
+	if (wasnonl)
 		return;
-	}
-
+	me.uplinkpong = CURRTIME;
+	if (parsebuf[count - 1] == '\n')
+		count--;
+	if (count > 0 && parsebuf[count - 1] == '\r')
+		count--;
+	parsebuf[count] = '\0';
+	parse(parsebuf);
 }
 
 static void ping_uplink(void *arg)
@@ -99,7 +56,7 @@ static void ping_uplink(void *arg)
 			if (me.connected)
 			{
 				errno = 0;
-				hook_call_event("connection_dead", curr_uplink->conn);
+				connection_close(curr_uplink->conn);
 			}
 		}
 	}
@@ -117,9 +74,10 @@ static void irc_handle_connect(void *vptr)
 	if (cptr == curr_uplink->conn)
 	{
 		cptr->flags = CF_UPLINK;
+		cptr->recvq_handler = irc_recvq_handler;
 		me.connected = TRUE;
-		/* remove any partial line from previous time */
-		irc_packet(NULL);
+		/* no SERVER message received */
+		me.recvsvr = FALSE;
 
 		slog(LG_INFO, "irc_handle_connect(): connection to uplink established");
 
@@ -144,7 +102,4 @@ void init_ircpacket(void)
 {
 	hook_add_event("connected");
 	hook_add_hook("connected", irc_handle_connect);
-
-	hook_add_event("connection_dead");
-	hook_add_hook("connection_dead", connection_dead);
 }

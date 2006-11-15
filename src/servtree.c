@@ -1,28 +1,27 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Services binary tree manipulation. (add_service, del_service, et al.)
  *
- * $Id: servtree.c 5085 2006-04-14 12:33:34Z jilles $
+ * $Id: servtree.c 6559 2006-09-29 21:15:10Z jilles $
  */
 
 #include "atheme.h"
 
-list_t services[HASHSIZE];
+dictionary_tree_t *services;
 static BlockHeap *service_heap;
 
 service_t *fcmd_agent = NULL;
 
-static void dummy_handler(char *origin, uint8_t parc, char **parv);
-
-static void dummy_handler(char *origin, uint8_t parc, char **parv)
+static void dummy_handler(sourceinfo_t *si, int parc, char **parv)
 {
 }
 
 void servtree_init(void)
 {
 	service_heap = BlockHeapCreate(sizeof(service_t), 12);
+	services = dictionary_create("services", HASH_SMALL, strcasecmp);
 
 	if (!service_heap)
 	{
@@ -38,9 +37,10 @@ static void me_me_init(void)
 	me.me = server_add(me.name, 0, NULL, me.numeric ? me.numeric : NULL, me.desc);
 }
 
-service_t *add_service(char *name, char *user, char *host, char *real, void (*handler) (char *origin, uint8_t parc, char *parv[]))
+service_t *add_service(char *name, char *user, char *host, char *real, void (*handler) (sourceinfo_t *si, int parc, char *parv[]), list_t *cmdtree)
 {
 	service_t *sptr;
+	user_t *u;
 
 	if (me.me == NULL)
 		me_me_init();
@@ -70,30 +70,40 @@ service_t *add_service(char *name, char *user, char *host, char *real, void (*ha
 	if (me.numeric && *me.numeric)
 		sptr->uid = sstrdup(uid_get());
 
-	sptr->hash = SHASH((unsigned char *)sptr->name);
-	sptr->node = node_create();
 	sptr->handler = handler;
 	sptr->notice_handler = dummy_handler;
+
+	sptr->cmdtree = cmdtree;
+
+	if (me.connected)
+	{
+		u = user_find_named(name);
+		if (u != NULL)
+		{
+			skill(me.name, u->nick, "Nick taken by service");
+			user_delete(u);
+		}
+	}
 
 	sptr->me = user_add(name, user, host, NULL, NULL, ircd->uses_uid ? sptr->uid : NULL, real, me.me, CURRTIME);
 	sptr->me->flags |= UF_IRCOP;
 
 	if (me.connected)
 	{
-		introduce_nick(name, user, host, real, sptr->uid);
+		introduce_nick(sptr->me);
 		/* if the snoop channel already exists, join it now */
 		if (config_options.chan != NULL && channel_find(config_options.chan) != NULL)
 			join(config_options.chan, name);
 	}
 
-	node_add(sptr, sptr->node, &services[sptr->hash]);
+	dictionary_add(services, sptr->name, sptr);
 
 	return sptr;
 }
 
 void del_service(service_t * sptr)
 {
-	node_del(sptr->node, &services[sptr->hash]);
+	dictionary_delete(services, sptr->name);
 
 	quit_sts(sptr->me, "Service unloaded.");
 	user_delete(sptr->me);
@@ -109,56 +119,39 @@ void del_service(service_t * sptr)
 	BlockHeapFree(service_heap, sptr);
 }
 
-static service_t *find_named_service(char *name)
-{
-	node_t *n;
-	service_t *sptr;
-
-	LIST_FOREACH(n, services[SHASH((unsigned char *)name)].head)
-	{
-		sptr = n->data;
-
-		if (!strcasecmp(name, sptr->name))
-			return sptr;
-	}
-	return NULL;
-}
-
 service_t *find_service(char *name)
 {
 	service_t *sptr;
 	user_t *u;
 	char *p;
 	char name2[NICKLEN];
+	dictionary_iteration_state_t state;
 
 	if (name[0] == '#')
 		return fcmd_agent;
 
-	if (strchr(name, '@'))
+	p = strchr(name, '@');
+	if (p != NULL)
 	{
+		/* Make sure it's for us, not for a jupe -- jilles */
+		if (irccasecmp(p + 1, me.name))
+			return NULL;
 		strlcpy(name2, name, sizeof name2);
 		p = strchr(name2, '@');
 		if (p != NULL)
 			*p = '\0';
-		sptr = find_named_service(name2);
+		sptr = dictionary_retrieve(services, name2);
 		if (sptr != NULL)
 			return sptr;
-		/* XXX not really nice with a 64k hashtable, so don't do
-		 * it for now -- jilles */
-#if 0
-		for (i = 0; i < HASHSIZE; i++)
-			LIST_FOREACH(n, services[i].head)
-			{
-				sptr = n->data;
-
-				if (sptr->me && !strcasecmp(name2, sptr->user))
-					return sptr;
-			}
-#endif
+		DICTIONARY_FOREACH(sptr, &state, services)
+		{
+			if (sptr->me != NULL && !strcasecmp(name2, sptr->user))
+				return sptr;
+		}
 	}
 	else
 	{
-		sptr = find_named_service(name);
+		sptr = dictionary_retrieve(services, name);
 		if (sptr != NULL)
 			return sptr;
 
@@ -167,7 +160,7 @@ service_t *find_service(char *name)
 			/* yuck yuck -- but quite efficient -- jilles */
 			u = user_find(name);
 			if (u != NULL && u->server == me.me)
-				return find_named_service(u->nick);
+				return dictionary_retrieve(services, u->nick);
 		}
 	}
 

@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 5724 2006-07-04 16:06:20Z w00t $
+# $Id: Makefile.in 6891 2006-10-22 19:08:29Z lu_zero $
 #
 
 CC		= @CC@
@@ -15,7 +15,7 @@ prefix		= @prefix@
 exec_prefix	= @exec_prefix@
 bindir		= @bindir@
 datadir		= @datadir@
-sysconfdir		= @sysconfdir@
+sysconfdir	= @sysconfdir@
 libdir		= @libdir@
 sbindir		= @sbindir@
 DOCDIR		= @DOCDIR@
@@ -40,7 +40,8 @@ BASE_SRCS = 		\
 	dreamforge.c    \
 	hybrid.c	\
 	hyperion.c      \
-	inspircd.c      \
+	inspircd10.c      \
+	inspircd11.c	\
 	ircnet.c        \
 	nefarious.c	\
 	plexus.c        \
@@ -62,8 +63,8 @@ all: protocols
 build: all
 
 install: build
-	${INSTALL} -d ${MODDIR}/protocol
-	${INSTALL} -m 755 *.so ${MODDIR}/protocol
+	${INSTALL} -d $(DESTDIR)${MODDIR}/protocol
+	${INSTALL} -m 755 *.so $(DESTDIR)${MODDIR}/protocol
 
 protocols: $(OBJS)
 
@@ -72,10 +73,15 @@ protocols: $(OBJS)
 .c.so:
 	${CC} ${PICFLAGS} ${CPPFLAGS} ${CFLAGS} $< -o $@
 
-.PHONY: clean distclean
+.PHONY: depend clean distclean
+# This sed command sucks but I don't know a better way -- jilles
+depend:
+	${MKDEP} ${PICFLAGS} ${CPPFLAGS} ${CFLAGS} ${BASE_SRCS} | sed -e 's/\.o:/.so:/' > .depend
 
 clean:
 	${RM} -f *.so
 
 distclean: clean
 	${RM} -f Makefile version.c.last
+
+include .depend

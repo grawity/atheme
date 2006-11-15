@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 William Pitcock, et al.
+ * Copyright (c) 2005-2006 William Pitcock, et al.
  * Rights to this code are as documented in doc/LICENSE.
  *
  * This file contains functionality which implements the OService MODE command.
  *
- * $Id: mode.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: mode.c 6927 2006-10-24 15:22:05Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/mode", FALSE, _modinit, _moddeinit,
-	"$Id: mode.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: mode.c 6927 2006-10-24 15:22:05Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void os_cmd_mode(char *origin);
+static void os_cmd_mode(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_mode = { "MODE", "Changes modes on channels.",
-                        PRIV_OMODE, os_cmd_mode };
+command_t os_mode = { "MODE", "Changes modes on channels.", PRIV_OMODE, 2, os_cmd_mode };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -39,34 +38,36 @@ void _moddeinit()
 	help_delentry(os_helptree, "MODE");
 }
 
-static void os_cmd_mode(char *origin)
+static void os_cmd_mode(sourceinfo_t *si, int parc, char *parv[])
 {
-        char *channel = strtok(NULL, " ");
-	char *mode = strtok(NULL, "");
+        char *channel = parv[0];
+	char *mode = parv[1];
 	channel_t *c;
-	int8_t parc;
-	char *parv[256];
+	int modeparc;
+	char *modeparv[256];
 
         if (!channel || !mode)
         {
-                notice(opersvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MODE");
-                notice(opersvs.nick, origin, "Syntax: MODE <parameters>");
+                command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MODE");
+                command_fail(si, fault_needmoreparams, "Syntax: MODE <channel> <parameters>");
                 return;
         }
 
 	c = channel_find(channel);
 	if (!c)
 	{
-                notice(opersvs.nick, origin, "Channel \2%s\2 does not exist.", channel);
+                command_fail(si, fault_nosuch_target, "Channel \2%s\2 does not exist.", channel);
                 return;
 	}
 
 	wallops("\2%s\2 is using MODE on \2%s\2 (set: \2%s\2)",
-		origin, channel, mode);
-	logcommand(opersvs.me, user_find_named(origin), CMDLOG_SET, "MODE %s %s", channel, mode);
+		get_oper_name(si), channel, mode);
+	snoop("MODE: \2%s\2 \2%s\2 by \2%s\2", channel, mode, get_oper_name(si));
+	logcommand(si, CMDLOG_SET, "MODE %s %s", channel, mode);
 
-	parc = sjtoken(mode, ' ', parv);
+	modeparc = sjtoken(mode, ' ', modeparv);
 
-	channel_mode(opersvs.me->me, c, parc, parv);
+	channel_mode(si->service->me, c, modeparc, modeparv);
+	command_success_nodata(si, "Set modes \2%s\2 on \2%s\2.", mode, channel);
 }
 

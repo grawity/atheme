@@ -4,7 +4,7 @@
  *
  * Data structures for connected clients.
  *
- * $Id: users.h 5644 2006-07-02 01:32:36Z jilles $
+ * $Id: users.h 6901 2006-10-22 21:33:00Z jilles $
  */
 
 #ifndef USERS_H
@@ -17,8 +17,8 @@ struct user_
 	char host[HOSTLEN]; /* Real host */
 	char gecos[GECOSLEN];
 	char vhost[HOSTLEN]; /* Visible host */
-	char uid[NICKLEN]; /* Used for TS6, P10, IRCNet ircd. */
-	char ip[HOSTLEN];
+	char uid[IDLEN]; /* Used for TS6, P10, IRCNet ircd. */
+	char ip[HOSTIPLEN];
 
 	list_t channels;
 
@@ -30,8 +30,6 @@ struct user_
 	time_t lastmsg;
 
 	uint32_t flags;
-	int32_t hash;
-	int32_t uhash;
 
 	uint32_t ts;
 };
@@ -45,5 +43,30 @@ struct user_
 #define UF_SEENINFO    0x00000080
 #define UF_NICK_WARNED 0x00000100 /* warned about nickstealing, FNC next time */
 #define UF_HIDEHOSTREQ 0x00000200 /* host hiding requested */
+
+#define CLIENT_NAME(user)	((user)->uid[0] ? (user)->uid : (user)->nick)
+
+/* function.c */
+E boolean_t is_ircop(user_t *user);
+E boolean_t is_admin(user_t *user);
+E boolean_t is_internal_client(user_t *user);
+
+/* users.c */
+E dictionary_tree_t *userlist;
+E dictionary_tree_t *uidlist;
+
+E void init_users(void);
+
+E user_t *user_add(const char *nick, const char *user, const char *host, const char *vhost, const char *ip, const char *uid, const char *gecos, server_t *server, uint32_t ts);
+E void user_delete(user_t *u);
+E user_t *user_find(const char *nick);
+E user_t *user_find_named(const char *nick);
+E void user_changeuid(user_t *u, const char *uid);
+E void user_changenick(user_t *u, const char *nick, uint32_t ts);
+E void user_mode(user_t *user, char *modes);
+
+/* uid.c */
+E void init_uid(void);
+E char *uid_get(void);
 
 #endif

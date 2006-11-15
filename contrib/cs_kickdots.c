@@ -4,7 +4,7 @@
  *
  * Kicks people saying "..." on channels with "kickdots" metadata set.
  *
- * $Id: cs_kickdots.c 5804 2006-07-09 14:37:47Z jilles $
+ * $Id: cs_kickdots.c 5790 2006-07-08 23:03:39Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/kickdots", FALSE, _modinit, _moddeinit,
-	"$Id: cs_kickdots.c 5804 2006-07-09 14:37:47Z jilles $",
+	"$Id: cs_kickdots.c 5790 2006-07-08 23:03:39Z jilles $",
 	"William Pitcock <nenolod -at- nenolod.net>"
 );
 

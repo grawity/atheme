@@ -5,7 +5,7 @@
 #
 # This file is a simple setup script.
 #
-# $Id: setup 5816 2006-07-09 16:21:28Z jilles $
+# $Id: setup 5786 2006-07-08 22:44:15Z jilles $
 
 PREFIX="$HOME/atheme"
 LARGENET="no"

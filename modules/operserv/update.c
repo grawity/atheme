@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains functionality which implements the OService UPDATE command.
  *
- * $Id: update.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: update.c 6927 2006-10-24 15:22:05Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/update", FALSE, _modinit, _moddeinit,
-	"$Id: update.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: update.c 6927 2006-10-24 15:22:05Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void os_cmd_update(char *origin);
+static void os_cmd_update(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_update = { "UPDATE", "Flushes services database to disk.",
-                        PRIV_ADMIN, os_cmd_update };
+command_t os_update = { "UPDATE", "Flushes services database to disk.", PRIV_ADMIN, 0, os_cmd_update };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -39,11 +38,13 @@ void _moddeinit()
 	help_delentry(os_helptree, "UPDATE");
 }
 
-void os_cmd_update(char *origin)
+void os_cmd_update(sourceinfo_t *si, int parc, char *parv[])
 {
-	snoop("UPDATE: \2%s\2", origin);
-	logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "UPDATE");
-	wallops("Updating database by request of \2%s\2.", origin);
+	snoop("UPDATE: \2%s\2", get_oper_name(si));
+	logcommand(si, CMDLOG_ADMIN, "UPDATE");
+	wallops("Updating database by request of \2%s\2.", get_oper_name(si));
 	expire_check(NULL);
 	db_save(NULL);
+	/* db_save() will wallops/snoop/log the error */
+	command_success_nodata(si, "UPDATE completed.");
 }

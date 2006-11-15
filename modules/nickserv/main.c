@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 5620 2006-07-01 15:56:15Z jilles $
+ * $Id: main.c 6979 2006-10-27 21:29:51Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 5620 2006-07-01 15:56:15Z jilles $",
+	"$Id: main.c 6979 2006-10-27 21:29:51Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -20,16 +20,11 @@ list_t ns_cmdtree;
 list_t ns_helptree;
 
 /* main services client routine */
-void nickserv(char *origin, uint8_t parc, char *parv[])
+static void nickserv(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *cmd, *s;
+	char *cmd;
+        char *text;
 	char orig[BUFSIZE];
-
-	if (!origin)
-	{
-		slog(LG_DEBUG, "services(): recieved a request with no origin!");
-		return;
-	}
 
 	/* this should never happen */
 	if (parv[0][0] == '&')
@@ -43,63 +38,97 @@ void nickserv(char *origin, uint8_t parc, char *parv[])
 
 	/* lets go through this to get the command */
 	cmd = strtok(parv[parc - 1], " ");
+	text = strtok(NULL, "");
 
 	if (!cmd)
 		return;
-
-	/* ctcp? case-sensitive as per rfc */
-	if (!strcmp(cmd, "\001PING"))
+	if (*cmd == '\001')
 	{
-		if (!(s = strtok(NULL, " ")))
-			s = " 0 ";
-
-		strip(s);
-		notice(nicksvs.nick, origin, "\001PING %s\001", s);
+		handle_ctcp_common(cmd, text, si->su->nick, nicksvs.nick);
 		return;
 	}
-	else if (!strcmp(cmd, "\001VERSION\001"))
-	{
-		notice(nicksvs.nick, origin,
-		       "\001VERSION atheme-%s. %s %s %s%s%s%s%s%s%s%s%s TS5ow\001",
-		       version, revision, me.name,
-		       (match_mapping) ? "A" : "",
-		       (me.loglevel & LG_DEBUG) ? "d" : "",
-		       (me.auth) ? "e" : "",
-		       (config_options.flood_msgs) ? "F" : "",
-		       (config_options.leave_chans) ? "l" : "", (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
-
-		return;
-	}
-	else if (!strcmp(cmd, "\001CLIENTINFO\001"))
-	{
-		/* easter egg :X */
-		notice(nicksvs.nick, origin, "\001CLIENTINFO 114 97 107 97 117 114\001");
-		return;
-	}
-
-	/* ctcps we don't care about are ignored */
-	else if (*cmd == '\001')
-		return;
 
 	/* take the command through the hash table */
-	command_exec(nicksvs.me, origin, cmd, &ns_cmdtree);
+	command_exec_split(si->service, si, cmd, text, &ns_cmdtree);
 }
+
+struct
+{
+	char *nickstring, *accountstring;
+} nick_account_trans[] =
+{
+	/* command descriptions */
+	{ "Drops a nickname registration.", "Drops an account registration." },
+	{ "Reclaims use of a nickname.", "Disconnects an old session." },
+	{ "Prevents a nickname from expiring.", "Prevents an account from expiring." },
+	{ "Registers a nickname.", "Registers an account." },
+	{ "Lists nicknames registered matching a given pattern.", "Lists accounts matching a given pattern." },
+	{ "Lists nicknames registered to an e-mail address.", "Lists accounts registered to an e-mail address." },
+	{ "Freezes a nickname.", "Freezes an account." },
+	{ "Resets a nickname password.", "Resets an account password." },
+	{ "Returns a nickname to its owner.", "Returns a account to its owner." },
+	{ "Verifies a nickname registration.", "Verifies an account registration." },
+
+	/* messages */
+	{ "Syntax: DROP <nickname> <password>", "Syntax: DROP <account> <password>" },
+	{ "%s dropped the nickname \2%s\2", "%s dropped the account \2%s\2" },
+	{ "The nickname \2%s\2 has been dropped.", "The account \2%s\2 has been dropped." },
+	{ "Usage: FREEZE <nickname> <ON|OFF> [reason]", "Usage: FREEZE <account> <ON|OFF> [reason]" },
+	{ "\2%s\2 is not a registered nickname.", "\2%s\2 is not a registered account." },
+	{ "Usage: FREEZE <nickname> ON <reason>", "Usage: FREEZE <account> ON <reason>" },
+	{ "The nickname \2%s\2 belongs to a services operator; it cannot be frozen.", "The account \2%s\2 belongs to a services operator; it cannot be frozen." },
+	{ "%s froze the nickname \2%s\2 (%s).", "%s froze the account \2%s\2 (%s)." },
+	{ "%s thawed the nickname \2%s\2.", "%s thawed the account \2%s\2." },
+	{ "Usage: HOLD <nickname> <ON|OFF>", "Usage: HOLD <account> <ON|OFF>" },
+	{ "%s set the HOLD option for the nickname \2%s\2.", "%s set the HOLD option for the account \2%s\2." },
+	{ "%s removed the HOLD option on the nickname \2%s\2.", "%s removed the HOLD option on the account \2%s\2." },
+	{ "Syntax: INFO <nickname>", "Syntax: INFO <account>" },
+	{ "No nicknames matched pattern \2%s\2", "No accounts matched pattern \2%s\2" },
+	{ "Nicknames matching e-mail address \2%s\2:", "Accounts matching e-mail address \2%s\2:" },
+	{ "No nicknames matched e-mail address \2%s\2", "No accounts matched e-mail address \2%s\2" },
+	{ "%s marked the nickname \2%s\2.", "%s marked the account \2%s\2." },
+	{ "%s unmarked the nickname \2%s\2.", "%s unmarked the account \2%s\2." },
+	{ "\2%s\2 has too many nicknames registered.", "\2%s\2 has too many accounts registered." },
+	{ "An email containing nickname activation instructions has been sent to \2%s\2.", "An email containing account activation instructions has been sent to \2%s\2." },
+	{ "If you do not complete registration within one day your nickname will expire.", "If you do not complete registration within one day your account will expire." },
+	{ "%s registered the nick \2%s\2 and gained services operator privileges.", "%s registered the account \2%s\2 and gained services operator privileges." },
+	{ "Syntax: RESETPASS <nickname>", "Syntax: RESETPASS <account>" },
+	{ "Overriding MARK placed by %s on the nickname %s.", "Overriding MARK placed by %s on the account %s." },
+	{ "The password for the nickname %s has been changed to %s.", "The password for the account %s has been changed to %s." },
+	{ "This operation cannot be performed on %s, because the nickname has been marked by %s.", "This operation cannot be performed on %s, because the account has been marked by %s." },
+	{ "The password for the nickname %s has been changed to %s.", "The password for the account %s has been changed to %s." },
+	{ "%s reset the password for the nickname %s", "%s reset the password for the account %s" },
+	{ "Usage: RETURN <nickname> <e-mail address>", "Usage: RETURN <account> <e-mail address>" },
+	{ "%s returned the nickname \2%s\2 to \2%s\2", "%s returned the account \2%s\2 to \2%s\2" },
+	{ "Syntax: SENDPASS <nickname>", "Syntax: SENDPASS <account>" },
+	{ "Manipulates metadata entries associated with a nickname.", "Manipulates metadata entries associated with an account." },
+	{ "You cannot use your nickname as a password.", "You cannot use your account name as a password." },
+	{ "Changes the password associated with your nickname.", "Changes the password associated with your account." },
+	{ "Syntax: TAXONOMY <nick>", "Syntax: TAXONOMY <account>" },
+	{ "Syntax: VERIFY <operation> <nickname> <key>", "Syntax: VERIFY <operation> <account> <key>" },
+	{ "Syntax: VHOST <nick> [vhost]", "Syntax: VHOST <account> [vhost]" },
+	{ NULL, NULL }
+};
 
 static void nickserv_config_ready(void *unused)
 {
+	int i;
+
         if (nicksvs.me)
                 del_service(nicksvs.me);
 
         nicksvs.me = add_service(nicksvs.nick, nicksvs.user,
-                                 nicksvs.host, nicksvs.real, nickserv);
+                                 nicksvs.host, nicksvs.real,
+				 nickserv, &ns_cmdtree);
         nicksvs.disp = nicksvs.me->disp;
 
-	if (usersvs.nick)
-	{
-		slog(LG_ERROR, "idiotic conf detected: nickserv enabled but userserv{} block present, ignoring userserv");
-		free(usersvs.nick);
-		usersvs.nick = NULL;
-	}
+	if (nicksvs.no_nick_ownership)
+		for (i = 0; nick_account_trans[i].nickstring != NULL; i++)
+			itranslation_create(nick_account_trans[i].nickstring,
+					nick_account_trans[i].accountstring);
+	else
+		for (i = 0; nick_account_trans[i].nickstring != NULL; i++)
+			itranslation_destroy(nick_account_trans[i].nickstring);
 
         hook_del_hook("config_ready", nickserv_config_ready);
 }
@@ -112,7 +141,7 @@ void _modinit(module_t *m)
         if (!cold_start)
         {
                 nicksvs.me = add_service(nicksvs.nick, nicksvs.user,
-			nicksvs.host, nicksvs.real, nickserv);
+			nicksvs.host, nicksvs.real, nickserv, &ns_cmdtree);
                 nicksvs.disp = nicksvs.me->disp;
         }
 	authservice_loaded++;

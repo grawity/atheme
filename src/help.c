@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains a generic help system implementation.
  *
- * $Id: help.c 5658 2006-07-02 05:10:39Z nenolod $
+ * $Id: help.c 6981 2006-10-27 21:38:25Z jilles $
  */
 
 #include "atheme.h"
 
-helpentry_t *help_cmd_find(char *svs, char *origin, char *cmd, list_t *list)
+static helpentry_t *help_cmd_find(sourceinfo_t *si, char *cmd, list_t *list)
 {
 	node_t *n;
 	helpentry_t *c;
@@ -22,18 +22,18 @@ helpentry_t *help_cmd_find(char *svs, char *origin, char *cmd, list_t *list)
 			return c;
 	}
 
-	notice(svs, origin, "No help available for \2%s\2.", cmd);
+	command_fail(si, fault_nosuch_target, "No help available for \2%s\2.", cmd);
 	return NULL;
 }
 
-void help_display(char *svsnick, char *svsdisp, char *origin, char *command, list_t *list)
+void help_display(sourceinfo_t *si, char *command, list_t *list)
 {
 	helpentry_t *c;
 	FILE *help_file;
 	char buf[BUFSIZE];
 
 	/* take the command through the hash table */
-	if ((c = help_cmd_find(svsnick, origin, command, list)))
+	if ((c = help_cmd_find(si, command, list)))
 	{
 		if (c->file)
 		{
@@ -42,48 +42,50 @@ void help_display(char *svsnick, char *svsdisp, char *origin, char *command, lis
 			else
 			{
 				snprintf(buf, sizeof buf, "%s/%s", SHAREDIR, c->file);
+				if (nicksvs.no_nick_ownership && !strncmp(c->file, "help/nickserv/", 14))
+					memcpy(buf + (sizeof(SHAREDIR) - 1) + 6, "userserv", 8);
 				help_file = fopen(buf, "r");
 			}
 
 			if (!help_file)
 			{
-				notice(svsnick, origin, "Could not get help file for \2%s\2.", command);
+				command_fail(si, fault_nosuch_target, "Could not get help file for \2%s\2.", command);
 				return;
 			}
 
-			notice(svsnick, origin, "***** \2%s Help\2 *****", svsnick);
+			command_success_nodata(si, "***** \2%s Help\2 *****", si->service->name);
 
 			while (fgets(buf, BUFSIZE, help_file))
 			{
 				strip(buf);
 
-				replace(buf, sizeof(buf), "&nick&", svsdisp);
+				replace(buf, sizeof(buf), "&nick&", si->service->disp);
 
 				if (buf[0])
-					notice(svsnick, origin, "%s", buf);
+					command_success_nodata(si, "%s", buf);
 				else
-					notice(svsnick, origin, " ");
+					command_success_nodata(si, " ");
 			}
 
 			fclose(help_file);
 
-			notice(svsnick, origin, "***** \2End of Help\2 *****");
+			command_success_nodata(si, "***** \2End of Help\2 *****");
 		}
 		else if (c->func)
 		{
-			notice(svsnick, origin, "***** \2%s Help\2 *****", svsnick);
+			command_success_nodata(si, "***** \2%s Help\2 *****", si->service->name);
 
-			c->func(origin);
+			c->func(si);
 
-			notice(svsnick, origin, "***** \2End of Help\2 *****");
+			command_success_nodata(si, "***** \2End of Help\2 *****");
 		}
 		else
-			notice(svsnick, origin, "No help available for \2%s\2.", command);
+			command_fail(si, fault_nosuch_target, "No help available for \2%s\2.", command);
 	}
 }
 
 void help_addentry(list_t *list, char *topic, char *fname,
-	void (*func)(char *origin))
+	void (*func)(sourceinfo_t *si))
 {
 	helpentry_t *he = smalloc(sizeof(helpentry_t));
 	node_t *n;
@@ -135,6 +137,7 @@ void help_delentry(list_t *list, char *name)
 			free(he);
 
 			node_del(n, list);
+			node_free(n);
 		}
 	}
 }

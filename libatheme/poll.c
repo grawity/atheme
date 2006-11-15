@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 William Pitcock <nenolod@nenolod.net>
+ * Copyright (c) 2005-2006 William Pitcock <nenolod@nenolod.net>
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Socketengine implementing poll().
  *
- * $Id: poll.c 5313 2006-05-25 15:18:32Z jilles $
+ * $Id: poll.c 6929 2006-10-24 15:30:53Z jilles $
  */
 
 #include <org.atheme.claro.base>
@@ -66,7 +66,7 @@ static void update_poll_fds(void)
 
 		cptr->pollslot = slot;
 
-		if (CF_IS_CONNECTING(cptr) || cptr->sendq.count != 0)
+		if (CF_IS_CONNECTING(cptr) || sendq_nonempty(cptr))
 		{
 			pollfds[slot].fd = cptr->fd;
 			pollfds[slot].events |= POLLWRNORM;
@@ -119,10 +119,7 @@ void connection_select(uint32_t delay)
 			if (pollfds[slot].revents & (POLLRDNORM | POLLIN | POLLHUP | POLLERR))
 			{
 				pollfds[slot].events &= ~(POLLRDNORM | POLLIN | POLLHUP | POLLERR);
-				if (CF_IS_LISTENING(cptr))
-					hook_call_event("listener_in", cptr);
-				else
-					cptr->read_handler(cptr);
+				cptr->read_handler(cptr);
 			}
 		}
 
@@ -141,6 +138,13 @@ void connection_select(uint32_t delay)
 				else
 					cptr->write_handler(cptr);
 			}
+		}
+
+		LIST_FOREACH_SAFE(n, tn, connection_list.head)
+		{
+			cptr = n->data;
+			if (cptr->flags & CF_DEAD)
+				connection_close(cptr);
 		}
 	}
 }

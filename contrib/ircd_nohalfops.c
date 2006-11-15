@@ -9,7 +9,7 @@
  * Note: this module does not work with the halfops autodetection
  * in the charybdis protocol module.
  *
- * $Id: ircd_nohalfops.c 5804 2006-07-09 14:37:47Z jilles $
+ * $Id: ircd_nohalfops.c 5776 2006-07-08 16:51:24Z jilles $
  */
 
 #include "atheme.h"
@@ -17,7 +17,7 @@
 DECLARE_MODULE_V1
 (
 	"ircd_nohalfops", FALSE, _modinit, _moddeinit,
-	"$Id: ircd_nohalfops.c 5804 2006-07-09 14:37:47Z jilles $",
+	"$Id: ircd_nohalfops.c 5776 2006-07-08 16:51:24Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 

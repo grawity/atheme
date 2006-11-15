@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * This file contains the implementation of the Atheme 0.1
  * flatfile database format, with metadata extensions.
  *
- * $Id: flatfile.c 5634 2006-07-02 00:05:59Z jilles $
+ * $Id: flatfile.c 6895 2006-10-22 21:07:24Z jilles $
  */
 
 #include "atheme.h"
@@ -13,24 +13,88 @@
 DECLARE_MODULE_V1
 (
 	"backend/flatfile", TRUE, _modinit, NULL,
-	"$Id: flatfile.c 5634 2006-07-02 00:05:59Z jilles $",
+	"$Id: flatfile.c 6895 2006-10-22 21:07:24Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
+
+/* database versions */
+#define DB_SHRIKE	1
+#define DB_ATHEME	2
+
+/* flatfile state */
+unsigned int muout = 0, mcout = 0, caout = 0, kout = 0;
+
+static int flatfile_db_save_myusers_cb(dictionary_elem_t *delem, void *privdata)
+{
+	FILE *f = (FILE *) privdata;
+	myuser_t *mu = (myuser_t *) delem->node.data;
+	node_t *tn;
+
+	/* MU <name> <pass> <email> <registered> [lastlogin] [failnum*] [lastfail*]
+	 * [lastfailon*] [flags]
+	 *
+	 *  * failnum, lastfail, and lastfailon are deprecated (moved to metadata)
+	 */
+	fprintf(f, "MU %s %s %s %ld", mu->name, mu->pass, mu->email, (long)mu->registered);
+
+	if (mu->lastlogin)
+		fprintf(f, " %ld", (long)mu->lastlogin);
+	else
+		fprintf(f, " 0");
+
+	fprintf(f, " 0 0 0");
+
+	if (mu->flags)
+		fprintf(f, " %d\n", mu->flags);
+	else
+		fprintf(f, " 0\n");
+
+	muout++;
+
+	LIST_FOREACH(tn, mu->metadata.head)
+	{
+		metadata_t *md = (metadata_t *)tn->data;
+
+		fprintf(f, "MD U %s %s %s\n", mu->name, md->name, md->value);
+	}
+
+	LIST_FOREACH(tn, mu->memos.head)
+	{
+		mymemo_t *mz = (mymemo_t *)tn->data;
+
+		fprintf(f, "ME %s %s %lu %lu %s\n", mu->name, mz->sender, (unsigned long)mz->sent, (unsigned long)mz->status, mz->text);
+	}
+
+	LIST_FOREACH(tn, mu->memo_ignores.head)
+	{
+		fprintf(f, "MI %s %s\n", mu->name, (char *)tn->data);
+	}
+
+	LIST_FOREACH(tn, mu->access_list.head)
+	{
+		fprintf(f, "AC %s %s\n", mu->name, (char *)tn->data);
+	}
+
+	return 0; 
+}
 
 /* write atheme.db */
 static void flatfile_db_save(void *arg)
 {
-	myuser_t *mu;
 	mychan_t *mc;
 	chanacs_t *ca;
 	kline_t *k;
 	svsignore_t *svsignore;
 	node_t *n, *tn, *tn2;
 	FILE *f;
-	uint32_t i, muout = 0, mcout = 0, caout = 0, kout = 0;
+	uint32_t i;
 	int errno1, was_errored = 0;
+	dictionary_iteration_state_t state;
 
 	errno = 0;
+
+	/* reset state */
+	muout = 0, mcout = 0, caout = 0, kout = 0;
 
 	/* write to a temporary file first */
 	if (!(f = fopen("etc/atheme.db.new", "w")))
@@ -38,6 +102,7 @@ static void flatfile_db_save(void *arg)
 		errno1 = errno;
 		slog(LG_ERROR, "db_save(): cannot create atheme.db.new: %s", strerror(errno1));
 		wallops("\2DATABASE ERROR\2: db_save(): cannot create atheme.db.new: %s", strerror(errno1));
+		snoop("\2DATABASE ERROR\2: db_save(): cannot create atheme.db.new: %s", strerror(errno1));
 		return;
 	}
 
@@ -46,119 +111,68 @@ static void flatfile_db_save(void *arg)
 
 	slog(LG_DEBUG, "db_save(): saving myusers");
 
-	for (i = 0; i < HASHSIZE; i++)
-	{
-		LIST_FOREACH(n, mulist[i].head)
-		{
-			mu = (myuser_t *)n->data;
-
-			/* MU <name> <pass> <email> <registered> [lastlogin] [failnum*] [lastfail*]
-			 * [lastfailon*] [flags]
-			 *
-			 *  * failnum, lastfail, and lastfailon are deprecated (moved to metadata)
-			 */
-			fprintf(f, "MU %s %s %s %ld", mu->name, mu->pass, mu->email, (long)mu->registered);
-
-			if (mu->lastlogin)
-				fprintf(f, " %ld", (long)mu->lastlogin);
-			else
-				fprintf(f, " 0");
-
-			fprintf(f, " 0 0 0");
-
-			if (mu->flags)
-				fprintf(f, " %d\n", mu->flags);
-			else
-				fprintf(f, " 0\n");
-
-			muout++;
-
-			LIST_FOREACH(tn, mu->metadata.head)
-			{
-				metadata_t *md = (metadata_t *)tn->data;
-
-				fprintf(f, "MD U %s %s %s\n", mu->name, md->name, md->value);
-			}
-
-			LIST_FOREACH(tn, mu->memos.head)
-			{
-				mymemo_t *mz = (mymemo_t *)tn->data;
-
-				fprintf(f, "ME %s %s %lu %lu %s\n", mu->name, mz->sender, (unsigned long)mz->sent, (unsigned long)mz->status, mz->text);
-			}
-			
-			LIST_FOREACH(tn, mu->memo_ignores.head)
-			{
-				fprintf(f, "MI %s %s\n", mu->name, (char *)tn->data);
-			}
-		}
-	}
+	dictionary_foreach(mulist, flatfile_db_save_myusers_cb, f);
 
 	slog(LG_DEBUG, "db_save(): saving mychans");
 
-	for (i = 0; i < HASHSIZE; i++)
+	DICTIONARY_FOREACH(mc, &state, mclist)
 	{
-		LIST_FOREACH(n, mclist[i].head)
+		/* MC <name> <pass> <founder> <registered> [used] [flags]
+		 * [mlock_on] [mlock_off] [mlock_limit] [mlock_key]
+		 * PASS is now ignored -- replaced with a "0" to avoid having to special-case this version
+		 */
+		fprintf(f, "MC %s %s %s %ld %ld", mc->name, "0", mc->founder->name, (long)mc->registered, (long)mc->used);
+
+		if (mc->flags)
+			fprintf(f, " %d", mc->flags);
+		else
+			fprintf(f, " 0");
+
+		if (mc->mlock_on)
+			fprintf(f, " %d", mc->mlock_on);
+		else
+			fprintf(f, " 0");
+
+		if (mc->mlock_off)
+			fprintf(f, " %d", mc->mlock_off);
+		else
+			fprintf(f, " 0");
+
+		if (mc->mlock_limit)
+			fprintf(f, " %d", mc->mlock_limit);
+		else
+			fprintf(f, " 0");
+
+		if (mc->mlock_key)
+			fprintf(f, " %s\n", mc->mlock_key);
+		else
+			fprintf(f, "\n");
+
+		mcout++;
+
+		LIST_FOREACH(tn, mc->chanacs.head)
 		{
-			mc = (mychan_t *)n->data;
+			ca = (chanacs_t *)tn->data;
 
-			/* MC <name> <pass> <founder> <registered> [used] [flags]
-			 * [mlock_on] [mlock_off] [mlock_limit] [mlock_key]
-			 * PASS is now ignored -- replaced with a "0" to avoid having to special-case this version
-			 */
-			fprintf(f, "MC %s %s %s %ld %ld", mc->name, "0", mc->founder->name, (long)mc->registered, (long)mc->used);
+			fprintf(f, "CA %s %s %s\n", ca->mychan->name, ca->myuser ? ca->myuser->name : ca->host,
+					bitmask_to_flags(ca->level, chanacs_flags));
 
-			if (mc->flags)
-				fprintf(f, " %d", mc->flags);
-			else
-				fprintf(f, " 0");
-
-			if (mc->mlock_on)
-				fprintf(f, " %d", mc->mlock_on);
-			else
-				fprintf(f, " 0");
-
-			if (mc->mlock_off)
-				fprintf(f, " %d", mc->mlock_off);
-			else
-				fprintf(f, " 0");
-
-			if (mc->mlock_limit)
-				fprintf(f, " %d", mc->mlock_limit);
-			else
-				fprintf(f, " 0");
-
-			if (mc->mlock_key)
-				fprintf(f, " %s\n", mc->mlock_key);
-			else
-				fprintf(f, "\n");
-
-			mcout++;
-
-			LIST_FOREACH(tn, mc->chanacs.head)
+			LIST_FOREACH(tn2, ca->metadata.head)
 			{
-				ca = (chanacs_t *)tn->data;
+				metadata_t *md = (metadata_t *)tn2->data;
 
-				fprintf(f, "CA %s %s %s\n", ca->mychan->name, ca->myuser ? ca->myuser->name : ca->host,
-						bitmask_to_flags(ca->level, chanacs_flags));
-
-				LIST_FOREACH(tn2, ca->metadata.head)
-				{
-					metadata_t *md = (metadata_t *)tn2->data;
-
-					fprintf(f, "MD A %s:%s %s %s\n", ca->mychan->name,
-						(ca->host) ? ca->host : ca->myuser->name, md->name, md->value);
-				}
-
-				caout++;
+				fprintf(f, "MD A %s:%s %s %s\n", ca->mychan->name,
+					(ca->host) ? ca->host : ca->myuser->name, md->name, md->value);
 			}
 
-			LIST_FOREACH(tn, mc->metadata.head)
-			{
-				metadata_t *md = (metadata_t *)tn->data;
+			caout++;
+		}
 
-				fprintf(f, "MD C %s %s %s\n", mc->name, md->name, md->value);
-			}
+		LIST_FOREACH(tn, mc->metadata.head)
+		{
+			metadata_t *md = (metadata_t *)tn->data;
+
+			fprintf(f, "MD C %s %s %s\n", mc->name, md->name, md->value);
 		}
 	}
 
@@ -196,6 +210,7 @@ static void flatfile_db_save(void *arg)
 		errno1 = errno;
 		slog(LG_ERROR, "db_save(): cannot write to atheme.db.new: %s", strerror(errno1));
 		wallops("\2DATABASE ERROR\2: db_save(): cannot write to atheme.db.new: %s", strerror(errno1));
+		snoop("\2DATABASE ERROR\2: db_save(): cannot write to atheme.db.new: %s", strerror(errno1));
 		return;
 	}
 	/* now, replace the old database with the new one, using an atomic rename */
@@ -209,6 +224,7 @@ static void flatfile_db_save(void *arg)
 		errno1 = errno;
 		slog(LG_ERROR, "db_save(): cannot rename atheme.db.new to atheme.db: %s", strerror(errno1));
 		wallops("\2DATABASE ERROR\2: db_save(): cannot rename atheme.db.new to atheme.db: %s", strerror(errno1));
+		snoop("\2DATABASE ERROR\2: db_save(): cannot rename atheme.db.new to atheme.db: %s", strerror(errno1));
 		return;
 	}
 }
@@ -356,7 +372,6 @@ static void flatfile_db_load(void)
 			target = strtok(NULL, "\n");
 
 			mu = myuser_find(user);
-			tmu = myuser_find(target);
 			
 			if (!mu)
 			{
@@ -364,10 +379,28 @@ static void flatfile_db_load(void)
 				continue;
 			}
 			
-			strbuf = smalloc(sizeof(char[NICKLEN]));
-			strlcpy(strbuf,target,NICKLEN-1);
+			strbuf = sstrdup(target);
 			
 			node_add(strbuf, node_create(), &mu->memo_ignores);
+		}
+
+		/* myuser access list */
+		if (!strcmp("AC", item))
+		{
+			char *user, *mask;
+
+			user = strtok(NULL, " ");
+			mask = strtok(NULL, "\n");
+
+			mu = myuser_find(user);
+
+			if (mu == NULL)
+			{
+				slog(LG_DEBUG, "db_load(): invalid access entry<%s> for unknown user<%s>", mask, user);
+				continue;
+			}
+
+			myuser_access_add(mu, mask);
 		}
 
 		/* mychans */

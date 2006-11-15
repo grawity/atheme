@@ -4,7 +4,7 @@
  *
  * Marking for channels.
  *
- * $Id: mark.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: mark.c 6639 2006-10-02 15:44:53Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/mark", FALSE, _modinit, _moddeinit,
-	"$Id: mark.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: mark.c 6639 2006-10-02 15:44:53Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_cmd_mark(char *origin);
+static void cs_cmd_mark(sourceinfo_t *si, int parc, char *parv[]);
 
 command_t cs_mark = { "MARK", "Adds a note to a channel.",
-			PRIV_MARK, cs_cmd_mark };
+			PRIV_MARK, 3, cs_cmd_mark };
 
 list_t *cs_cmdtree;
 list_t *cs_helptree;
@@ -39,29 +39,29 @@ void _moddeinit()
 	help_delentry(cs_helptree, "MARK");
 }
 
-static void cs_cmd_mark(char *origin)
+static void cs_cmd_mark(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *target = strtok(NULL, " ");
-	char *action = strtok(NULL, " ");
-	char *info = strtok(NULL, "");
+	char *target = parv[0];
+	char *action = parv[1];
+	char *info = parv[2];
 	mychan_t *mc;
 
 	if (!target || !action)
 	{
-		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MARK");
-		notice(chansvs.nick, origin, "Usage: MARK <#channel> <ON|OFF> [note]");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MARK");
+		command_fail(si, fault_needmoreparams, "Usage: MARK <#channel> <ON|OFF> [note]");
 		return;
 	}
 
 	if (target[0] != '#')
 	{
-		notice(chansvs.nick, origin, STR_INVALID_PARAMS, "MARK");
+		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "MARK");
 		return;
 	}
 
 	if (!(mc = mychan_find(target)))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not registered.", target);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", target);
 		return;
 	}
 	
@@ -69,30 +69,30 @@ static void cs_cmd_mark(char *origin)
 	{
 		if (!info)
 		{
-			notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MARK");
-			notice(chansvs.nick, origin, "Usage: MARK <#channel> ON <note>");
+			command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MARK");
+			command_fail(si, fault_needmoreparams, "Usage: MARK <#channel> ON <note>");
 			return;
 		}
 
 		if (metadata_find(mc, METADATA_CHANNEL, "private:mark:setter"))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is already marked.", target);
+			command_fail(si, fault_nochange, "\2%s\2 is already marked.", target);
 			return;
 		}
 
-		metadata_add(mc, METADATA_CHANNEL, "private:mark:setter", origin);
+		metadata_add(mc, METADATA_CHANNEL, "private:mark:setter", get_oper_name(si));
 		metadata_add(mc, METADATA_CHANNEL, "private:mark:reason", info);
 		metadata_add(mc, METADATA_CHANNEL, "private:mark:timestamp", itoa(CURRTIME));
 
-		wallops("%s marked the channel \2%s\2.", origin, target);
-		logcommand(chansvs.me, user_find_named(origin), CMDLOG_ADMIN, "%s MARK ON", mc->name);
-		notice(chansvs.nick, origin, "\2%s\2 is now marked.", target);
+		wallops("%s marked the channel \2%s\2.", get_oper_name(si), target);
+		logcommand(si, CMDLOG_ADMIN, "%s MARK ON", mc->name);
+		command_success_nodata(si, "\2%s\2 is now marked.", target);
 	}
 	else if (!strcasecmp(action, "OFF"))
 	{
 		if (!metadata_find(mc, METADATA_CHANNEL, "private:mark:setter"))
 		{
-			notice(chansvs.nick, origin, "\2%s\2 is not marked.", target);
+			command_fail(si, fault_nochange, "\2%s\2 is not marked.", target);
 			return;
 		}
 
@@ -100,13 +100,13 @@ static void cs_cmd_mark(char *origin)
 		metadata_delete(mc, METADATA_CHANNEL, "private:mark:reason");
 		metadata_delete(mc, METADATA_CHANNEL, "private:mark:timestamp");
 
-		wallops("%s unmarked the channel \2%s\2.", origin, target);
-		logcommand(chansvs.me, user_find_named(origin), CMDLOG_ADMIN, "%s MARK OFF", mc->name);
-		notice(chansvs.nick, origin, "\2%s\2 is now unmarked.", target);
+		wallops("%s unmarked the channel \2%s\2.", get_oper_name(si), target);
+		logcommand(si, CMDLOG_ADMIN, "%s MARK OFF", mc->name);
+		command_success_nodata(si, "\2%s\2 is now unmarked.", target);
 	}
 	else
 	{
-		notice(chansvs.nick, origin, STR_INVALID_PARAMS, "MARK");
-		notice(chansvs.nick, origin, "Usage: MARK <#channel> <ON|OFF> [note]");
+		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "MARK");
+		command_fail(si, fault_badparams, "Usage: MARK <#channel> <ON|OFF> [note]");
 	}
 }

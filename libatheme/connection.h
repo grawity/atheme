@@ -4,7 +4,7 @@
  *
  * This contains the connection_t structure.
  *
- * $Id: connection.h 5346 2006-06-04 18:26:42Z jilles $
+ * $Id: connection.h 6819 2006-10-21 21:24:10Z jilles $
  */
 
 #ifndef CONNECTION_H
@@ -34,6 +34,11 @@ struct connection_
 	void (*write_handler)(connection_t *);
 
 	uint32_t flags;
+
+	void (*recvq_handler)(connection_t *);
+	void (*close_handler)(connection_t *);
+	connection_t *listener;
+	void *userdata;
 };
 
 #define CF_UPLINK     0x00000001
@@ -44,6 +49,10 @@ struct connection_
 #define CF_LISTENING  0x00000010
 #define CF_CONNECTED  0x00000020
 #define CF_DEAD       0x00000040
+
+#define CF_NONEWLINE  0x00000080
+#define CF_SEND_EOF   0x00000100 /* shutdown(2) write end if sendq empty */
+#define CF_SEND_DEAD  0x00000200 /* write end shut down */
 
 #define CF_IS_UPLINK(x) ((x)->flags & CF_UPLINK)
 #define CF_IS_DCC(x) ((x)->flags & (CF_DCCOUT | CF_DCCIN))
@@ -68,6 +77,10 @@ extern connection_t *connection_accept_tcp(connection_t *,
 extern void connection_setselect(connection_t *, void(*)(connection_t *),
 	void(*)(connection_t *));
 extern void connection_close(connection_t *);
+extern void connection_close_soon(connection_t *);
+extern void connection_close_soon_children(connection_t *);
+extern void connection_close_all(void);
+extern void connection_stats(void (*)(const char *, void *), void *);
 extern void connection_write(connection_t *to, char *format, ...);
 extern void connection_write_raw(connection_t *to, char *data);
 extern connection_t *connection_find(int32_t);

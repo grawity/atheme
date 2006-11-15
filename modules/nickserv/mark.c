@@ -4,7 +4,7 @@
  *
  * Marking for nicknames.
  *
- * $Id: mark.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: mark.c 6639 2006-10-02 15:44:53Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/mark", FALSE, _modinit, _moddeinit,
-	"$Id: mark.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: mark.c 6639 2006-10-02 15:44:53Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ns_cmd_mark(char *origin);
+static void ns_cmd_mark(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_mark = { "MARK", "Adds a note to a user.",
-			PRIV_MARK, ns_cmd_mark };
+command_t ns_mark = { "MARK", "Adds a note to a user.", PRIV_MARK, 3, ns_cmd_mark };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -38,27 +37,23 @@ void _moddeinit()
 	help_delentry(ns_helptree, "MARK");
 }
 
-static void ns_cmd_mark(char *origin)
+static void ns_cmd_mark(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *source = user_find_named(origin);
-	char *target = strtok(NULL, " ");
-	char *action = strtok(NULL, " ");
-	char *info = strtok(NULL, "");
+	char *target = parv[0];
+	char *action = parv[1];
+	char *info = parv[2];
 	myuser_t *mu;
-
-	if (source == NULL)
-		return;
 
 	if (!target || !action)
 	{
-		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MARK");
-		notice(nicksvs.nick, origin, "Usage: MARK <target> <ON|OFF> [note]");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MARK");
+		command_fail(si, fault_needmoreparams, "Usage: MARK <target> <ON|OFF> [note]");
 		return;
 	}
 
 	if (!(mu = myuser_find_ext(target)))
 	{
-		notice(nicksvs.nick, origin, "\2%s\2 is not registered.", target);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", target);
 		return;
 	}
 
@@ -66,30 +61,30 @@ static void ns_cmd_mark(char *origin)
 	{
 		if (!info)
 		{
-			notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "MARK");
-			notice(nicksvs.nick, origin, "Usage: MARK <target> ON <note>");
+			command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MARK");
+			command_fail(si, fault_needmoreparams, "Usage: MARK <target> ON <note>");
 			return;
 		}
 
 		if (metadata_find(mu, METADATA_USER, "private:mark:setter"))
 		{
-			notice(nicksvs.nick, origin, "\2%s\2 is already marked.", target);
+			command_fail(si, fault_badparams, "\2%s\2 is already marked.", target);
 			return;
 		}
 
-		metadata_add(mu, METADATA_USER, "private:mark:setter", origin);
+		metadata_add(mu, METADATA_USER, "private:mark:setter", get_oper_name(si));
 		metadata_add(mu, METADATA_USER, "private:mark:reason", info);
 		metadata_add(mu, METADATA_USER, "private:mark:timestamp", itoa(time(NULL)));
 
-		wallops("%s marked the nickname \2%s\2.", origin, target);
-		logcommand(nicksvs.me, source, CMDLOG_ADMIN, "MARK %s ON (reason: %s)", target, info);
-		notice(nicksvs.nick, origin, "\2%s\2 is now marked.", target);
+		wallops("%s marked the nickname \2%s\2.", get_oper_name(si), target);
+		logcommand(si, CMDLOG_ADMIN, "MARK %s ON (reason: %s)", target, info);
+		command_success_nodata(si, "\2%s\2 is now marked.", target);
 	}
 	else if (!strcasecmp(action, "OFF"))
 	{
 		if (!metadata_find(mu, METADATA_USER, "private:mark:setter"))
 		{
-			notice(nicksvs.nick, origin, "\2%s\2 is not marked.", target);
+			command_fail(si, fault_badparams, "\2%s\2 is not marked.", target);
 			return;
 		}
 
@@ -97,13 +92,13 @@ static void ns_cmd_mark(char *origin)
 		metadata_delete(mu, METADATA_USER, "private:mark:reason");
 		metadata_delete(mu, METADATA_USER, "private:mark:timestamp");
 
-		wallops("%s unmarked the nickname \2%s\2.", origin, target);
-		logcommand(nicksvs.me, source, CMDLOG_ADMIN, "MARK %s OFF", target);
-		notice(nicksvs.nick, origin, "\2%s\2 is now unmarked.", target);
+		wallops("%s unmarked the nickname \2%s\2.", get_oper_name(si), target);
+		logcommand(si, CMDLOG_ADMIN, "MARK %s OFF", target);
+		command_success_nodata(si, "\2%s\2 is now unmarked.", target);
 	}
 	else
 	{
-		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "MARK");
-		notice(nicksvs.nick, origin, "Usage: MARK <target> <ON|OFF> [note]");
+		command_fail(si, fault_needmoreparams, STR_INVALID_PARAMS, "MARK");
+		command_fail(si, fault_needmoreparams, "Usage: MARK <target> <ON|OFF> [note]");
 	}
 }

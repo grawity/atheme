@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 William Pitcock, et al.
+ * Copyright (c) 2005-2006 William Pitcock, et al.
  * Rights to this code are as documented in doc/LICENSE.
  *
- * Module listing.
+ * Module restart.
  *
- * $Id: modrestart.c 5696 2006-07-03 22:40:19Z jilles $
+ * $Id: modrestart.c 6927 2006-10-24 15:22:05Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modrestart", TRUE, _modinit, _moddeinit,
-	"$Id: modrestart.c 5696 2006-07-03 22:40:19Z jilles $",
+	"$Id: modrestart.c 6927 2006-10-24 15:22:05Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void os_cmd_modrestart(char *origin);
+static void os_cmd_modrestart(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_modrestart = { "MODRESTART", "Restarts loaded modules.",
-			    PRIV_ADMIN, os_cmd_modrestart };
+command_t os_modrestart = { "MODRESTART", "Restarts loaded modules.", PRIV_ADMIN, 0, os_cmd_modrestart };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -44,7 +43,7 @@ void _moddeinit()
 	help_delentry(os_helptree, "MODRESTART");
 }
 
-static void os_cmd_modrestart(char *origin)
+static void os_cmd_modrestart(sourceinfo_t *si, int parc, char *parv[])
 {
 	node_t *n;
 	int loadedbefore, kept;
@@ -52,9 +51,9 @@ static void os_cmd_modrestart(char *origin)
 	boolean_t fail1 = FALSE;
 	boolean_t unloaded_something;
 
-	snoop("MODRESTART: \2%s\2", origin);
-	logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "MODRESTART");
-	wallops("Restarting modules by request of \2%s\2", origin);
+	snoop("MODRESTART: \2%s\2", get_oper_name(si));
+	logcommand(si, CMDLOG_ADMIN, "MODRESTART");
+	wallops("Restarting modules by request of \2%s\2", get_oper_name(si));
 
 	old_silent = config_options.silent;
 	config_options.silent = TRUE; /* no wallops */
@@ -95,11 +94,11 @@ static void os_cmd_modrestart(char *origin)
 	if (fail1)
 	{
 		wallops("Module restart failed, functionality will be very limited");
-		notice(opersvs.nick, origin, "Module restart failed, fix it and try again or restart");
+		command_fail(si, fault_nosuch_target, "Module restart failed, fix it and try again or restart");
 	}
 	else
 	{
 		wallops("Module restart: %d modules unloaded; %d kept; %d modules now loaded", loadedbefore - kept, kept, modules.count);
-		notice(opersvs.nick, origin, "Module restart: %d modules unloaded; %d kept; %d modules now loaded", loadedbefore - kept, kept, modules.count);
+		command_success_nodata(si, "Module restart: %d modules unloaded; %d kept; %d modules now loaded", loadedbefore - kept, kept, modules.count);
 	}
 }

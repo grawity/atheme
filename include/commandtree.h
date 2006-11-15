@@ -4,39 +4,47 @@
  *
  * Commandlist manipulation routines.
  *
- * $Id: commandtree.h 5648 2006-07-02 04:21:38Z nenolod $
+ * $Id: commandtree.h 6727 2006-10-20 18:48:53Z jilles $
  */
 
 #ifndef COMMANDLIST_H
 #define COMMANDLIST_H
 
 typedef struct commandentry_ command_t;
-typedef struct fcommandentry_ fcommand_t;
 
 struct commandentry_ {
-	char *name;
-	char *desc;
+	const char *name;
+	const char *desc;
 	const char *access;
-	void (*cmd)(char *);
+        const int maxparc;
+	void (*cmd)(sourceinfo_t *, const int parc, char *parv[]);
 };
 
-struct fcommandentry_ {
-	char *name;
-	const char *access;
-	void (*cmd)(char *, char *);
+/* struct for help command hash table */
+struct help_command_
+{
+  char *name;
+  const char *access;
+  char *file;
+  void (*func)(sourceinfo_t *si);
 };
+typedef struct help_command_ helpentry_t;
 
+/* commandtree.c */
 E void command_add(command_t *cmd, list_t *commandtree);
 E void command_add_many(command_t **cmd, list_t *commandtree);
 E void command_delete(command_t *cmd, list_t *commandtree);
 E void command_delete_many(command_t **cmd, list_t *commandtree);
-E void command_exec(service_t *svs, char *origin, char *cmd, list_t *commandtree);
-E void command_help(char *mynick, char *origin, list_t *commandtree);
-E void command_help_short(char *mynick, char *origin, list_t *commandtree, char *maincmds);
+E command_t *command_find(list_t *commandtree, const char *command);
+E void command_exec(service_t *svs, sourceinfo_t *si, command_t *c, int parc, char *parv[]);
+E void command_exec_split(service_t *svs, sourceinfo_t *si, char *cmd, char *text, list_t *commandtree);
+E void command_help(sourceinfo_t *si, list_t *commandtree);
+E void command_help_short(sourceinfo_t *si, list_t *commandtree, char *maincmds);
 
-E void fcommand_add(fcommand_t *cmd, list_t *commandtree);
-E void fcommand_delete(fcommand_t *cmd, list_t *commandtree);
-E void fcommand_exec(service_t *svs, char *origin, char *channel, char *cmd, list_t *commandtree);
-E void fcommand_exec_floodcheck(service_t *svs, char *origin, char *channel, char *cmd, list_t *commandtree);
+/* help.c */
+E void help_display(sourceinfo_t *si, char *command, list_t *list);
+E void help_addentry(list_t *list, char *topic, char *fname,
+	void (*func)(sourceinfo_t *si));
+E void help_delentry(list_t *list, char *name);
 
 #endif

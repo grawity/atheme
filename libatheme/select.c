@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Socketengine implementing select().
  *
- * $Id: select.c 5313 2006-05-25 15:18:32Z jilles $
+ * $Id: select.c 6929 2006-10-24 15:30:53Z jilles $
  */
 
 #include <org.atheme.claro.base>
@@ -59,7 +59,7 @@ static void update_select_sets(void)
 		else if (CF_IS_LISTENING(cptr))
 			FD_SET(cptr->fd, &readfds);
 
-		if (cptr->sendq.count != 0)
+		if (sendq_nonempty(cptr))
 			FD_SET(cptr->fd, &writefds);
 
 		else
@@ -114,11 +114,15 @@ void connection_select(uint32_t delay)
 
 			if (FD_ISSET(cptr->fd, &readfds))
 			{
-				if (CF_IS_LISTENING(cptr))
-					hook_call_event("listener_in", cptr);
-				else
-					cptr->read_handler(cptr);
+				cptr->read_handler(cptr);
 			}
+		}
+
+		LIST_FOREACH_SAFE(n, tn, connection_list.head)
+		{
+			cptr = n->data;
+			if (cptr->flags & CF_DEAD)
+				connection_close(cptr);
 		}
 	}
 	else

@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService LOGOUT functions.
  *
- * $Id: logout.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: logout.c 6825 2006-10-21 23:32:38Z jilles $
  */
 
 #include "atheme.h"
@@ -12,15 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/logout", FALSE, _modinit, _moddeinit,
-	"$Id: logout.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: logout.c 6825 2006-10-21 23:32:38Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ns_cmd_logout(char *origin);
+static void ns_cmd_logout(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_logout = { "LOGOUT", "Logs your services session out.",
-                        AC_NONE, ns_cmd_logout };
-                                                                                   
+command_t ns_logout = { "LOGOUT", "Logs your services session out.", AC_NONE, 2, ns_cmd_logout };
+
 list_t *ns_cmdtree, *ns_helptree;
 
 void _modinit(module_t *m)
@@ -28,7 +27,7 @@ void _modinit(module_t *m)
 	MODULE_USE_SYMBOL(ns_cmdtree, "nickserv/main", "ns_cmdtree");
 	MODULE_USE_SYMBOL(ns_helptree, "nickserv/main", "ns_helptree");
 
-        command_add(&ns_logout, ns_cmdtree);
+	command_add(&ns_logout, ns_cmdtree);
 	help_addentry(ns_helptree, "LOGOUT", "help/nickserv/logout", NULL);
 }
 
@@ -38,17 +37,16 @@ void _moddeinit()
 	help_delentry(ns_helptree, "LOGOUT");
 }
 
-static void ns_cmd_logout(char *origin)
+static void ns_cmd_logout(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *u = user_find_named(origin);
-	user_t *source = u;
+	user_t *u = si->su;
 	node_t *n, *tn;
-	char *user = strtok(NULL, " ");
-	char *pass = strtok(NULL, " ");
+	char *user = parv[0];
+	char *pass = parv[1];
 
-	if ((!u->myuser) && (!user || !pass))
+	if ((!si->smu) && (!user || !pass))
 	{
-		notice(nicksvs.nick, origin, "You are not logged in.");
+		command_fail(si, fault_nochange, "You are not logged in.");
 		return;
 	}
 
@@ -58,7 +56,7 @@ static void ns_cmd_logout(char *origin)
 
 		if (!mu)
 		{
-			notice(nicksvs.nick, origin, "\2%s\2 is not registered.", user);
+			command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", user);
 			return;
 		}
 
@@ -66,45 +64,52 @@ static void ns_cmd_logout(char *origin)
 		if ((verify_password(mu, pass)) && (mu->user))
 		{
 			u = mu->user;
-			notice(u->nick, "You were logged out by \2%s\2.", origin);
+			notice(nicksvs.nick, u->nick, "You were logged out by \2%s\2.", si->su->nick);
 		}
 		else
 		{
-			notice(nicksvs.nick, origin, "Authentication failed. Invalid password for \2%s\2.", mu->name);
+			command_fail(si, fault_authfail, "Authentication failed. Invalid password for \2%s\2.", mu->name);
 			return;
 		}
 #endif
 		/* remove this for now -- jilles */
-		notice(nicksvs.nick, origin, "External logout is not yet implemented.");
+		command_fail(si, fault_unimplemented, "External logout is not yet implemented.");
+		return;
+	}
+	else if (si->su == NULL)
+	{
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "LOGOUT");
+		command_fail(si, fault_needmoreparams, "Syntax: LOGOUT <target> <password>");
 		return;
 	}
 
-	if (is_soper(u->myuser))
-		snoop("DESOPER: \2%s\2 as \2%s\2", u->nick, u->myuser->name);
 
-	if (irccasecmp(origin, u->nick))
+	if (is_soper(si->smu))
+		snoop("DESOPER: \2%s\2 as \2%s\2", si->su->nick, si->smu->name);
+
+	if (si->su != u)
 	{
-		logcommand(nicksvs.me, source, CMDLOG_LOGIN, "LOGOUT %s", u->nick);
-		notice(nicksvs.nick, origin, "\2%s\2 has been logged out.", u->nick);
+		logcommand(si, CMDLOG_LOGIN, "LOGOUT %s", u->nick);
+		command_success_nodata(si, "\2%s\2 has been logged out.", si->su->nick);
 	}
 	else
 	{
-		logcommand(nicksvs.me, source, CMDLOG_LOGIN, "LOGOUT");
-		notice(nicksvs.nick, origin, "You have been logged out.");
+		logcommand(si, CMDLOG_LOGIN, "LOGOUT");
+		command_success_nodata(si, "You have been logged out.");
 	}
 
-	u->myuser->lastlogin = CURRTIME;
-	if (!ircd_on_logout(u->nick, u->myuser->name, NULL))
+	si->smu->lastlogin = CURRTIME;
+	if (!ircd_on_logout(si->su->nick, si->smu->name, NULL))
 	{
-		LIST_FOREACH_SAFE(n, tn, u->myuser->logins.head)
+		LIST_FOREACH_SAFE(n, tn, si->smu->logins.head)
 		{
-			if (n->data == u)
+			if (n->data == si->su)
 			{
-				node_del(n, &u->myuser->logins);
+				node_del(n, &si->smu->logins);
 				node_free(n);
 				break;
 			}
 		}
-		u->myuser = NULL;
+		si->su->myuser = NULL;
 	}
 }

@@ -4,14 +4,13 @@
  *
  * Data structures related to network servers.
  *
- * $Id: servers.h 5426 2006-06-19 10:04:20Z jilles $
+ * $Id: servers.h 6901 2006-10-22 21:33:00Z jilles $
  */
 
 #ifndef SERVERS_H
 #define SERVERS_H
 
-typedef struct server_ server_t;
-typedef struct uplink_ uplink_t;
+typedef struct tld_ tld_t;
 
 /* servers struct */
 struct server_
@@ -29,8 +28,6 @@ struct server_
 	time_t connected_since;
 
 	uint32_t flags;
-	int32_t hash;
-	int32_t shash;
 
 	server_t *uplink; /* uplink server */
 	list_t children;  /* children linked to me */
@@ -41,30 +38,26 @@ struct server_
 #define SF_EOB         0x00000002 /* Burst finished (we have all users/channels) -- jilles */
 #define SF_EOB2        0x00000004 /* Is EOB but an uplink is not (for P10) */
 
-struct uplink_
-{
-	char *name;
-	char *host;
-	char *pass;
-	char *vhost;
-
-	node_t	*node;
-
-	uint32_t port;
-
-	connection_t *conn;
-
-	uint32_t flags;
+/* tld list struct */
+struct tld_ {
+  char *name;
 };
 
-#define UPF_ILLEGAL 0x80000000 /* not in conf anymore, delete when disconnected */
+#define SERVER_NAME(serv)	((serv)->sid[0] ? (serv)->sid : (serv)->name)
+#define ME			(ircd->uses_uid ? me.numeric : me.name)
 
-E uplink_t *uplink_add(char *name, char *host, char *password, char *vhost, int port);
-E void uplink_delete(uplink_t *u);
-E uplink_t *uplink_find(char *name);
-E list_t uplinks;
-E uplink_t *curr_uplink;
-E void uplink_connect(void);
-E void connection_dead(void *vptr);
+/* servers.c */
+E dictionary_tree_t *servlist;
+E list_t tldlist;
+
+E void init_servers(void);
+
+E tld_t *tld_add(const char *name);
+E void tld_delete(const char *name);
+E tld_t *tld_find(const char *name);
+
+E server_t *server_add(const char *name, uint8_t hops, const char *uplink, const char *id, const char *desc);
+E void server_delete(const char *name);
+E server_t *server_find(const char *name);
 
 #endif

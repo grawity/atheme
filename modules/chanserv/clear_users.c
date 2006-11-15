@@ -4,7 +4,7 @@
  *
  * This file contains code for the ChanServ CLEAR USERS function.
  *
- * $Id: clear_users.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: clear_users.c 6935 2006-10-25 00:43:03Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/clear_users", FALSE, _modinit, _moddeinit,
-	"$Id: clear_users.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: clear_users.c 6935 2006-10-25 00:43:03Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_cmd_clear_users(char *origin, char *channel);
+static void cs_cmd_clear_users(sourceinfo_t *si, int parc, char *parv[]);
 
-fcommand_t cs_clear_users = { "USERS", AC_NONE, cs_cmd_clear_users };
+command_t cs_clear_users = { "USERS", "Kicks all users from a channel.",
+	AC_NONE, 2, cs_cmd_clear_users };
 
 list_t *cs_clear_cmds;
 list_t *cs_helptree;
@@ -28,23 +29,22 @@ void _modinit(module_t *m)
 	MODULE_USE_SYMBOL(cs_clear_cmds, "chanserv/clear", "cs_clear_cmds");
 	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
-	fcommand_add(&cs_clear_users, cs_clear_cmds);
+	command_add(&cs_clear_users, cs_clear_cmds);
 	help_addentry(cs_helptree, "CLEAR USERS", "help/cservice/clear_users", NULL);
 }
 
 void _moddeinit()
 {
-	fcommand_delete(&cs_clear_users, cs_clear_cmds);
+	command_delete(&cs_clear_users, cs_clear_cmds);
 
 	help_delentry(cs_helptree, "CLEAR USERS");
 }
 
-static void cs_cmd_clear_users(char *origin, char *channel)
+static void cs_cmd_clear_users(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *reason = strtok(NULL, "");
 	char fullreason[200];
-	user_t *u = user_find_named(origin);
 	channel_t *c;
+	char *channel = parv[0];
 	mychan_t *mc = mychan_find(channel);
 	chanuser_t *cu;
 	node_t *n, *tn;
@@ -52,30 +52,30 @@ static void cs_cmd_clear_users(char *origin, char *channel)
 
 	if (!(c = channel_find(channel)))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 does not exist.", channel);
+		command_fail(si, fault_nosuch_target, "\2%s\2 does not exist.", channel);
 		return;
 	}
 
-	if (reason)
-		snprintf(fullreason, sizeof fullreason, "CLEAR USERS used by %s: %s", origin, reason);
+	if (parc >= 2)
+		snprintf(fullreason, sizeof fullreason, "CLEAR USERS used by %s: %s", get_source_name(si), parv[1]);
 	else
-		snprintf(fullreason, sizeof fullreason, "CLEAR USERS used by %s", origin);
+		snprintf(fullreason, sizeof fullreason, "CLEAR USERS used by %s", get_source_name(si));
 
 	if (!mc)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not registered.", c->name);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", c->name);
 		return;
 	}
 
-	if (!chanacs_user_has_flag(mc, u, CA_RECOVER))
+	if (!chanacs_source_has_flag(mc, si, CA_RECOVER))
 	{
-		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
 		return;
 	}
 	
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is closed.", channel);
+		command_fail(si, fault_noprivs, "\2%s\2 is closed.", channel);
 		return;
 	}
 
@@ -90,11 +90,10 @@ static void cs_cmd_clear_users(char *origin, char *channel)
 		cu = n->data;
 
 		/* don't kick the user who requested the masskick */
-		if (cu->user == u || is_internal_client(cu->user))
+		if (cu->user == si->su || is_internal_client(cu->user))
 			continue;
 
 		kick(chansvs.nick, c->name, cu->user->nick, fullreason);
-		chanuser_delete(c, cu->user);
 	}
 
 	/* the channel may be empty now, so our pointer may be bogus! */
@@ -102,7 +101,7 @@ static void cs_cmd_clear_users(char *origin, char *channel)
 	if (c != NULL)
 	{
 		if (config_options.join_chans && !config_options.leave_chans
-				&& c != NULL && !chanuser_find(c, u))
+				&& c != NULL && !chanuser_find(c, si->su))
 		{
 			/* Always cycle it if the requester is not on channel
 			 * -- jilles */
@@ -119,7 +118,7 @@ static void cs_cmd_clear_users(char *origin, char *channel)
 		}
 	}
 
-	logcommand(chansvs.me, u, CMDLOG_DO, "%s CLEAR USERS", mc->name);
+	logcommand(si, CMDLOG_DO, "%s CLEAR USERS", mc->name);
 
-	notice(chansvs.nick, origin, "Cleared users from \2%s\2.", channel);
+	command_success_nodata(si, "Cleared users from \2%s\2.", channel);
 }

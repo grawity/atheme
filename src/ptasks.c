@@ -1,13 +1,15 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Protocol tasks, such as handle_stats().
  *
- * $Id: ptasks.c 5708 2006-07-03 23:37:53Z jilles $
+ * $Id: ptasks.c 6931 2006-10-24 16:53:07Z jilles $
  */
 
 #include "atheme.h"
+#include "uplink.h"
+#include "pmodule.h"
 
 void handle_info(user_t *u)
 {
@@ -62,6 +64,18 @@ void handle_admin(user_t *u)
 	numeric_sts(me.name, 259, u->nick, ":<%s>", me.adminemail);
 }
 
+static void dictionary_stats_cb(const char *line, void *privdata)
+{
+
+	numeric_sts(me.name, 249, ((user_t *)privdata)->nick, "B :%s", line);
+}
+
+static void connection_stats_cb(const char *line, void *privdata)
+{
+
+	numeric_sts(me.name, 249, ((user_t *)privdata)->nick, "F :%s", line);
+}
+
 void handle_stats(user_t *u, char req)
 {
 	kline_t *k;
@@ -72,13 +86,20 @@ void handle_stats(user_t *u, char req)
 
 	if (floodcheck(u, NULL))
 		return;
-	logcommand(NULL, u, CMDLOG_GET, "STATS %c", req);
+	logcommand_user(NULL, u, CMDLOG_GET, "STATS %c", req);
 
 	switch (req)
 	{
+	  case 'B':
+		  if (!has_priv_user(u, PRIV_SERVER_AUSPEX))
+			  break;
+
+		  dictionary_stats(dictionary_stats_cb, u);
+		  break;
+
 	  case 'C':
 	  case 'c':
-		  if (!has_priv(u, PRIV_SERVER_AUSPEX))
+		  if (!has_priv_user(u, PRIV_SERVER_AUSPEX))
 			  break;
 
 		  LIST_FOREACH(n, uplinks.head)
@@ -90,7 +111,7 @@ void handle_stats(user_t *u, char req)
 
 	  case 'E':
 	  case 'e':
-		  if (!has_priv(u, PRIV_SERVER_AUSPEX))
+		  if (!has_priv_user(u, PRIV_SERVER_AUSPEX))
 			  break;
 
 		  numeric_sts(me.name, 249, u->nick, "E :Last event to run: %s", last_event_ran);
@@ -104,9 +125,17 @@ void handle_stats(user_t *u, char req)
 
 		  break;
 
+	  case 'f':
+	  case 'F':
+		  if (!has_priv_user(u, PRIV_SERVER_AUSPEX))
+			  break;
+
+		  connection_stats(connection_stats_cb, u);
+		  break;
+
 	  case 'H':
 	  case 'h':
-		  if (!has_priv(u, PRIV_SERVER_AUSPEX))
+		  if (!has_priv_user(u, PRIV_SERVER_AUSPEX))
 			  break;
 
 		  LIST_FOREACH(n, uplinks.head)
@@ -123,7 +152,7 @@ void handle_stats(user_t *u, char req)
 
 	  case 'K':
 	  case 'k':
-		  if (!has_priv(u, PRIV_AKILL))
+		  if (!has_priv_user(u, PRIV_AKILL))
 			  break;
 
 		  LIST_FOREACH(n, klnlist.head)
@@ -137,7 +166,7 @@ void handle_stats(user_t *u, char req)
 
 	  case 'o':
 	  case 'O':
-		  if (!has_priv(u, PRIV_VIEWPRIVS))
+		  if (!has_priv_user(u, PRIV_VIEWPRIVS))
 			  break;
 
 		  LIST_FOREACH(n, soperlist.head)
@@ -152,7 +181,7 @@ void handle_stats(user_t *u, char req)
 
 	  case 'T':
 	  case 't':
-		  if (!has_priv(u, PRIV_SERVER_AUSPEX))
+		  if (!has_priv_user(u, PRIV_SERVER_AUSPEX))
 			  break;
 
 		  numeric_sts(me.name, 249, u->nick, "T :event      %7d", claro_state.event);
@@ -179,7 +208,7 @@ void handle_stats(user_t *u, char req)
 
 	  case 'V':
 	  case 'v':
-		  if (!has_priv(u, PRIV_SERVER_AUSPEX))
+		  if (!has_priv_user(u, PRIV_SERVER_AUSPEX))
 			  break;
 
 		  /* we received this command from the uplink, so,
@@ -211,7 +240,7 @@ void handle_whois(user_t *u, char *target)
 		/* channels purposely omitted */
 		numeric_sts(me.name, 312, u->nick, "%s %s :%s", t->nick, t->server->name, t->server->desc);
 		if (is_ircop(t))
-			numeric_sts(me.name, 313, u->nick, "%s :is an IRC Operator", t->nick);
+			numeric_sts(me.name, 313, u->nick, "%s :%s", t->nick, is_internal_client(t) ? "is a Network Service" : "is an IRC Operator");
 		if (t->myuser)
 			numeric_sts(me.name, 330, u->nick, "%s %s :is logged in as", t->nick, t->myuser->name);
 	}
@@ -250,7 +279,7 @@ void handle_trace(user_t *u, char *target, char *dest)
 			single_trace(u, t);
 			nusers--;
 		}
-		if (has_priv(u, PRIV_SERVER_AUSPEX))
+		if (has_priv_user(u, PRIV_SERVER_AUSPEX))
 			numeric_sts(me.name, 206, u->nick, "Serv uplink %dS %dC %s *!*@%s 0", cnt.server - 1, nusers, me.actual, me.name);
 		target = me.name;
 	}
@@ -309,61 +338,123 @@ void handle_motd(user_t *u)
 	fclose(f);
 }
 
-void handle_message(char *origin, char *target, boolean_t is_notice, char *message)
+void handle_message(sourceinfo_t *si, char *target, boolean_t is_notice, char *message)
 {
-	user_t *u;
-	user_t *t;
-	service_t *sptr;
 	char *vec[3];
+	hook_cmessage_data_t cdata;
 
-	/* no prefix, so from server */
-	if (!origin)
+	/* message from server, ignore */
+	if (si->su == NULL)
 		return;
-
-	if (!(u = user_find(origin)))
-	{
-		/* don't complain about notices from servers */
-		if (!is_notice || !server_find(origin))
-			slog(LG_DEBUG, "handle_privmsg(): got message from nonexistant user `%s'", origin);
-		return;
-	}
 
 	/* If target is a channel and fantasy commands are enabled,
 	 * this will return chanserv
 	 */
-	sptr = find_service(target);
-	if (sptr == NULL)
+	si->service = find_service(target);
+
+	if (*target == '#')
 	{
-		if (*target != '#')
-			slog(LG_DEBUG, "handle_privmsg(): got message to nonexistant user `%s'", target);
+		/* Call hook here */
+		cdata.u = si->su;
+		cdata.c = channel_find(target);
+		cdata.msg = message;
+		/* No such channel, ignore... */
+		if (cdata.c == NULL)
+			return;
+		hook_call_event("channel_message", &cdata);
+
+		/* If target is a channel but command is no fantasy command,
+		 * it will be normal chatter
+		 */
+		if (*message != '!' && *message != '.' && *message != '@')
+			return;
+	}
+
+	if (si->service == NULL)
+	{
+		if (!is_notice && (isalnum(target[0]) || strchr("[\\]^_`{|}~", target[0])))
+		{
+			/* If it's not a notice and looks like a nick or
+			 * user@server, send back an error message */
+			if (strchr(target, '@') || !ircd->uses_uid || (!ircd->uses_p10 && !isdigit(target[0])))
+				numeric_sts(me.name, 401, si->su->nick, "%s :No such nick", target);
+			else
+				numeric_sts(me.name, 401, si->su->nick, "* :Target left IRC. Failed to deliver: [%.20s]", message);
+		}
 		return;
 	}
 
-	if (sptr)
+	/* Run it through flood checks. Channel commands are checked
+	 * separately.
+	 */
+	if (si->service->me != NULL && *target != '#' && floodcheck(si->su, si->service->me))
+		return;
+
+	if (!is_notice && config_options.secure && *target != '#' && irccasecmp(target, si->service->disp))
 	{
-		t = sptr->me;
+		notice(si->service->me->nick, si->su->nick, "For security reasons, \2/msg %s\2 has been disabled."
+				" Use \2/%s%s <command>\2 to send a command.",
+				si->service->me->nick, (ircd->uses_rcommand ? "" : "msg "), si->service->disp);
+		return;
+	}
 
-		/* Run it through flood checks. Channel commands are checked
-		 * separately.
-		 */
-		if (t != NULL && *target != '#' && floodcheck(u, t))
-			return;
+	vec[0] = target;
+	vec[1] = message;
+	vec[2] = NULL;
+	if (is_notice)
+		si->service->notice_handler(si, 2, vec);
+	else
+		si->service->handler(si, 2, vec);
+}
 
-		if (!is_notice && config_options.secure && *target != '#' && irccasecmp(target, sptr->disp))
-		{
-			notice(t->nick, u->nick, "For security reasons, \2/msg %s\2 has been disabled."
-					" Use \2/%s%s <command>\2 to send a command.",
-					sptr->me->nick, (ircd->uses_rcommand ? "" : "msg "), sptr->disp);
-			return;
-		}
+void handle_topic_from(sourceinfo_t *si, channel_t *c, char *setter, time_t ts, char *topic)
+{
+	hook_channel_topic_check_t hdata;
 
-		vec[0] = target;
-		vec[1] = message;
-		vec[2] = NULL;
-		if (is_notice)
-			sptr->notice_handler(u->nick, 2, vec);
+	if (topic != NULL && topic[0] == '\0')
+		topic = NULL;
+	hdata.u = si->su;
+	hdata.s = si->s;
+	hdata.c = c;
+	hdata.setter = setter;
+	hdata.ts = ts;
+	hdata.topic = topic;
+	hdata.approved = 0;
+	if (hdata.s != NULL && hdata.s->uplink == me.me &&
+			!(hdata.s->flags & SF_EOB) && c->topic != NULL)
+		/* Our uplink is trying to change the topic during burst,
+		 * and we have already set a topic. Assume our change won.
+		 * -- jilles */
+		return;
+	if (topic != NULL ? c->topic == NULL || strcmp(topic, c->topic) : c->topic != NULL)
+	{
+		/* Only call the hook if the topic actually changed */
+		hook_call_event("channel_can_change_topic", &hdata);
+	}
+	if (hdata.approved == 0)
+	{
+		if (topic == hdata.topic)
+			/* Allowed, process the change further */
+			handle_topic(c, setter, ts, topic);
 		else
-			sptr->handler(u->nick, 2, vec);
+		{
+			/* Allowed, but topic tweaked */
+			ts -= 60; /* for TS6, use TB and hopefully ensure
+				     it's accepted -- jilles */
+			handle_topic(c, setter, ts, hdata.topic);
+			topic_sts(c->name, setter, ts, hdata.topic);
+		}
+	}
+	else
+	{
+		/* Not allowed, change it back */
+		if (c->topic != NULL)
+			topic_sts(c->name, c->topic_setter, c->topicts, c->topic);
+		else
+		{
+			/* Ick, there was no topic */
+			topic_sts(c->name, chansvs.nick != NULL ? chansvs.nick : me.name, ts - 1, "");
+		}
 	}
 }
 
@@ -401,29 +492,36 @@ void handle_topic(channel_t *c, char *setter, time_t ts, char *topic)
 	hook_call_event("channel_topic", c);
 }
 
-void handle_kill(char *origin, char *victim, char *reason)
+void handle_kill(sourceinfo_t *si, char *victim, char *reason)
 {
 	char *source;
-	server_t *source_server;
-	user_t *source_user;
 	user_t *u;
+	static time_t lastkill = 0;
+	static unsigned int killcount = 0;
 
-	if (origin == NULL)
-		source = me.actual;
-	else if ((source_server = server_find(origin)) != NULL)
-		source = source_server->name;
-	else if ((source_user = user_find(origin)) != NULL)
-		source = source_user->nick;
+	if (si->s != NULL)
+		source = si->s->name;
 	else
-		source = origin;
+		source = si->su->nick;
 
 	u = user_find(victim);
 	if (u == NULL)
-		slog(LG_DEBUG, "handle_kill(): %s killed unknown user %s (%s)", origin, victim, reason);
+		slog(LG_DEBUG, "handle_kill(): %s killed unknown user %s (%s)", source, victim, reason);
 	else if (u->server == me.me)
 	{
 		slog(LG_INFO, "handle_kill(): %s killed service %s (%s)", source, u->nick, reason);
-		reintroduce_user(u);
+		if (lastkill != CURRTIME && killcount < 5 + me.me->users)
+			killcount = 0, lastkill = CURRTIME;
+		killcount++;
+		if (killcount < 5 + me.me->users)
+			reintroduce_user(u);
+		else
+		{
+			slog(LG_ERROR, "handle_kill(): services kill fight (%s -> %s), shutting down", source, u->nick);
+			wallops("Services kill fight (%s -> %s), shutting down!", source, u->nick);
+			snoop("ERROR: Services kill fight (%s -> %s), shutting down!", source, u->nick);
+			runflags |= RF_SHUTDOWN;
+		}
 	}
 	else
 	{
@@ -504,7 +602,7 @@ int floodcheck(user_t *u, user_t *t)
 		{
 			/* they're flooding. */
 			/* perhaps allowed to? -- jilles */
-			if (has_priv(u, PRIV_FLOOD))
+			if (has_priv_user(u, PRIV_FLOOD))
 			{
 				u->msgs = 0;
 				return 0;
@@ -558,3 +656,4 @@ int floodcheck(user_t *u, user_t *t)
 
 	return 0;
 }
+

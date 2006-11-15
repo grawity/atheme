@@ -4,7 +4,7 @@
  *
  * This file contains code for the ChanServ LIST function.
  *
- * $Id: list.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: list.c 6895 2006-10-22 21:07:24Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/list", FALSE, _modinit, _moddeinit,
-	"$Id: list.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: list.c 6895 2006-10-22 21:07:24Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_cmd_list(char *origin);
+static void cs_cmd_list(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_list = { "LIST", "Lists channels registered matching a given pattern.", PRIV_CHAN_AUSPEX, cs_cmd_list };
+command_t cs_list = { "LIST", "Lists channels registered matching a given pattern.", PRIV_CHAN_AUSPEX, 1, cs_cmd_list };
 
 list_t *cs_cmdtree;
 list_t *cs_helptree;
@@ -38,55 +38,49 @@ void _moddeinit()
 	help_delentry(cs_helptree, "LIST");
 }
 
-static void cs_cmd_list(char *origin)
+static void cs_cmd_list(sourceinfo_t *si, int parc, char *parv[])
 {
 	mychan_t *mc;
-	node_t *n;
-	char *chanpattern = strtok(NULL, " ");
+	char *chanpattern = parv[0];
 	char buf[BUFSIZE];
-	uint32_t i;
 	uint32_t matches = 0;
+	dictionary_iteration_state_t state;
 
 	if (!chanpattern)
 	{
-		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "LIST");
-		notice(chansvs.nick, origin, "Syntax: LIST <channel pattern>");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "LIST");
+		command_fail(si, fault_needmoreparams, "Syntax: LIST <channel pattern>");
 		return;
 	}
 
-	wallops("\2%s\2 is searching the channels database for channels matching \2%s\2", origin, chanpattern);
-	notice(chansvs.nick, origin, "Channels matching pattern \2%s\2:", chanpattern);
+	snoop("LIST:CHANNELS: \2%s\2 by \2%s\2", chanpattern, get_oper_name(si));
+	command_success_nodata(si, "Channels matching pattern \2%s\2:", chanpattern);
 
-	for (i = 0; i < HASHSIZE; i++)
+	DICTIONARY_FOREACH(mc, &state, mclist)
 	{
-		LIST_FOREACH(n, mclist[i].head)
+		if (!match(chanpattern, mc->name))
 		{
-			mc = (mychan_t *)n->data;
+			/* in the future we could add a LIMIT parameter */
+			*buf = '\0';
 
-			if (!match(chanpattern, mc->name))
-			{
-				/* in the future we could add a LIMIT parameter */
-				*buf = '\0';
-
-				if (metadata_find(mc, METADATA_CHANNEL, "private:mark:setter")) {
-					strlcat(buf, "\2[marked]\2", BUFSIZE);
-				}
-				if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer")) {
-					if (*buf)
-						strlcat(buf, " ", BUFSIZE);
-
-					strlcat(buf, "\2[closed]\2", BUFSIZE);
-				}
-
-				notice(chansvs.nick, origin, "- %s (%s) %s", mc->name, mc->founder->name, buf);
-				matches++;
+			if (metadata_find(mc, METADATA_CHANNEL, "private:mark:setter")) {
+				strlcat(buf, "\2[marked]\2", BUFSIZE);
 			}
+			if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer")) {
+				if (*buf)
+					strlcat(buf, " ", BUFSIZE);
+
+				strlcat(buf, "\2[closed]\2", BUFSIZE);
+			}
+
+			command_success_nodata(si, "- %s (%s) %s", mc->name, mc->founder->name, buf);
+			matches++;
 		}
 	}
 
-	logcommand(chansvs.me, user_find_named(origin), CMDLOG_ADMIN, "LIST %s (%d matches)", chanpattern, matches);
+	logcommand(si, CMDLOG_ADMIN, "LIST %s (%d matches)", chanpattern, matches);
 	if (matches == 0)
-		notice(chansvs.nick, origin, "No channel matched pattern \2%s\2", chanpattern);
+		command_success_nodata(si, "No channel matched pattern \2%s\2", chanpattern);
 	else
-		notice(chansvs.nick, origin, "\2%d\2 match%s for pattern \2%s\2", matches, matches != 1 ? "es" : "", chanpattern);
+		command_success_nodata(si, "\2%d\2 match%s for pattern \2%s\2", matches, matches != 1 ? "es" : "", chanpattern);
 }

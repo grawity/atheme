@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Module management.
  *
- * $Id: module.c 5694 2006-07-03 22:21:20Z jilles $
+ * $Id: module.c 6931 2006-10-24 16:53:07Z jilles $
  */
 
 #include "atheme.h"
@@ -62,7 +62,7 @@ module_t *module_load(char *filespec)
 
 	if ((m = module_find(filespec)))
 	{
-		slog(LG_INFO, "module_load(): module %s is already loaded at [0x%lx]", filespec, m->address);
+		slog(LG_INFO, "module_load(): module %s is already loaded [at 0x%lx]", filespec, m->address);
 		return NULL;
 	}
 
@@ -73,7 +73,7 @@ module_t *module_load(char *filespec)
 		char *errp = sstrdup(dlerror());
 		slog(LG_INFO, "module_load(): error: %s", errp);
 		if (me.connected)
-			wallops("Error while loading module %s: %s", filespec, errp);
+			snoop("MODLOAD:ERROR: loading module \2%s\2: %s", filespec, errp);
 		free(errp);
 		return NULL;
 	}
@@ -88,7 +88,7 @@ module_t *module_load(char *filespec)
 		slog(LG_DEBUG, "module_load(): %s: Attempted to load an incompatible module. Aborting.", filespec);
 
 		if (me.connected)
-			wallops("Module %s is not a valid atheme module.", filespec);
+			snoop("MODLOAD:ERROR: Module \2%s\2 is not a valid atheme module.", filespec);
 
 		linker_close(handle);
 		return NULL;
@@ -125,7 +125,7 @@ module_t *module_load(char *filespec)
 	{
 		slog(LG_INFO, "module_load(): module %s init failed", filespec);
 		if (me.connected)
-			wallops("Init failed while loading module %s", filespec);
+			snoop("MODLOAD:ERROR: Init failed while loading module \2%s\2", filespec);
 		module_unload(m);
 		return NULL;
 	}
@@ -133,10 +133,13 @@ module_t *module_load(char *filespec)
 	n = node_create();
 	node_add(m, n, &modules);
 
-	slog(LG_DEBUG, "module_load(): loaded %s at [0x%lx; MAPI version %d]", h->name, m->address, h->abi_ver);
+	slog(LG_DEBUG, "module_load(): loaded %s [at 0x%lx; MAPI version %d]", h->name, m->address, h->abi_ver);
 
 	if (me.connected && !cold_start)
-		wallops("Module %s loaded at [0x%lx; MAPI version %d]", h->name, m->address, h->abi_ver);
+	{
+		wallops("Module %s loaded [at 0x%lx; MAPI version %d]", h->name, m->address, h->abi_ver);
+		snoop("MODLOAD: \2%s\2 [at 0x%lx; MAPI version %d]", h->name, m->address, h->abi_ver);
+	}
 
 	return m;
 }
@@ -248,7 +251,9 @@ void module_unload(module_t * m)
 		node_t *hn = node_find(m, &hm->dephost);
 
 		node_del(hn, &hm->dephost);		
+		node_free(hn);
 		node_del(n, &m->deplist);
+		node_free(n);
 	}
 
 	n = node_find(m, &modules);
@@ -256,11 +261,15 @@ void module_unload(module_t * m)
 	{
 		slog(LG_INFO, "module_unload(): unloaded %s", m->header->name);
 		if (me.connected)
+		{
 			wallops("Module %s unloaded.", m->header->name);
+			snoop("MODUNLOAD: \2%s\2", m->header->name);
+		}
 
 		if (m->header->deinit)
 			m->header->deinit();
 		node_del(n, &modules);
+		node_free(n);
 	}
 	/* else unloaded in embryonic state */
 	linker_close(m->handle);

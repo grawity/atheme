@@ -4,7 +4,7 @@
  *
  * This file contains code for the Memoserv SEND function
  *
- * $Id: send.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: send.c 6627 2006-10-02 09:36:29Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/send", FALSE, _modinit, _moddeinit,
-	"$Id: send.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: send.c 6627 2006-10-02 09:36:29Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ms_cmd_send(char *origin);
+static void ms_cmd_send(sourceinfo_t *si, int parc, char *parv[]);
 
 command_t ms_send = { "SEND", "Sends a memo to a user.",
-                        AC_NONE, ms_cmd_send };
+                        AC_NONE, 2, ms_cmd_send };
 
 list_t *ms_cmdtree;
 list_t *ms_helptree;
@@ -39,63 +39,63 @@ void _moddeinit()
 	help_delentry(ms_helptree, "SEND");
 }
 
-static void ms_cmd_send(char *origin)
+static void ms_cmd_send(sourceinfo_t *si, int parc, char *parv[])
 {
 	/* misc structs etc */
-	user_t *u = user_find_named(origin), *tu;
-	myuser_t *tmu, *mu = u->myuser;
+	user_t *tu;
+	myuser_t *tmu;
 	node_t *n;
 	mymemo_t *memo;
 	
 	/* Grab args */
-	char *target = strtok(NULL, " ");
-	char *m = strtok(NULL,"");
+	char *target = parv[0];
+	char *m = parv[1];
 	
 	/* Arg validation */
 	if (!target || !m)
 	{
-		notice(memosvs.nick, origin, 
+		command_fail(si, fault_needmoreparams, 
 			STR_INSUFFICIENT_PARAMS, "SEND");
 		
-		notice(memosvs.nick, origin, 
+		command_fail(si, fault_needmoreparams, 
 			"Syntax: SEND <user> <memo>");
 		
 		return;
 	}
 	
 	/* user logged in? */
-	if (!u->myuser)
+	if (!si->smu)
 	{
-		notice(memosvs.nick, origin, "You are not logged in.");
+		command_fail(si, fault_noprivs, "You are not logged in.");
 		return;
 	}
 
-	if (u->myuser->flags & MU_WAITAUTH)
+	if (si->smu->flags & MU_WAITAUTH)
 	{
-		notice(memosvs.nick, origin, "You need to verify your email address before you may send memos.");
+		command_fail(si, fault_notverified, "You need to verify your email address before you may send memos.");
 		return;
 	}
 	
 	/* See if target is valid */
 	if (!(tmu = myuser_find_ext(target))) 
 	{
-		notice(memosvs.nick, origin, 
+		command_fail(si, fault_nosuch_target, 
 			"\2%s\2 is not registered.", target);
 		
 		return;
 	}
 	
 	/* Make sure target is not sender */
-	if (tmu == u->myuser)
+	if (tmu == si->smu)
 	{
-		notice(memosvs.nick, origin, "You cannot send yourself a memo.");
+		command_fail(si, fault_noprivs, "You cannot send yourself a memo.");
 		return;
 	}
 
 	/* Does the user allow memos? --pfish */
 	if (tmu->flags & MU_NOMEMO)
 	{
-		notice(memosvs.nick,origin,
+		command_fail(si, fault_noprivs,
 			"\2%s\2 does not wish to receive memos.", target);
 
 		return;
@@ -104,7 +104,7 @@ static void ms_cmd_send(char *origin)
 	/* Check for memo text length -- includes/common.h */
 	if (strlen(m) >= MEMOLEN)
 	{
-		notice(memosvs.nick, origin, 
+		command_fail(si, fault_badparams, 
 			"Please make sure your memo is less than %d characters", MEMOLEN);
 		
 		return;
@@ -112,47 +112,47 @@ static void ms_cmd_send(char *origin)
 
 	if (*m == '\001')
 	{
-		notice(memosvs.nick, origin, "Your memo contains invalid characters.");
+		command_fail(si, fault_badparams, "Your memo contains invalid characters.");
 		return;
 	}
 	
 	/* Check to make sure target inbox not full */
 	if (tmu->memos.count >= me.mdlimit)
 	{
-		notice(memosvs.nick, origin, "%s's inbox is full", target);
-		logcommand(memosvs.me, u, CMDLOG_SET, "failed SEND to %s (target inbox full)", tmu->name);
+		command_fail(si, fault_toomany, "%s's inbox is full", target);
+		logcommand(si, CMDLOG_SET, "failed SEND to %s (target inbox full)", tmu->name);
 		return;
 	}
 
 	/* rate limit it -- jilles */
-	if (CURRTIME - mu->memo_ratelimit_time > MEMO_MAX_TIME)
-		mu->memo_ratelimit_num = 0;
-	if (mu->memo_ratelimit_num > MEMO_MAX_NUM)
+	if (CURRTIME - si->smu->memo_ratelimit_time > MEMO_MAX_TIME)
+		si->smu->memo_ratelimit_num = 0;
+	if (si->smu->memo_ratelimit_num > MEMO_MAX_NUM)
 	{
-		notice(memosvs.nick, origin, "Too many memos; please wait a while and try again");
+		command_fail(si, fault_toomany, "Too many memos; please wait a while and try again");
 		return;
 	}
-	mu->memo_ratelimit_num++;
-	mu->memo_ratelimit_time = CURRTIME;
+	si->smu->memo_ratelimit_num++;
+	si->smu->memo_ratelimit_time = CURRTIME;
 	
 	/* Make sure we're not on ignore */
 	LIST_FOREACH(n, tmu->memo_ignores.head)
 	{
-		if (!strcasecmp((char *)n->data, mu->name))
+		if (!strcasecmp((char *)n->data, si->smu->name))
 		{
 			/* Lie... change this if you want it to fail silent */
-			logcommand(memosvs.me, u, CMDLOG_SET, "failed SEND to %s (on ignore list)", tmu->name);
-			notice(memosvs.nick, origin, "The memo has been successfully forwarded to %s.", target);
+			logcommand(si, CMDLOG_SET, "failed SEND to %s (on ignore list)", tmu->name);
+			command_success_nodata(si, "The memo has been successfully forwarded to %s.", target);
 			return;
 		}
 	}
-	logcommand(memosvs.me, u, CMDLOG_SET, "SEND to %s", tmu->name);
+	logcommand(si, CMDLOG_SET, "SEND to %s", tmu->name);
 	
 	/* Malloc and populate struct */
 	memo = smalloc(sizeof(mymemo_t));
 	memo->sent = CURRTIME;
 	memo->status = MEMO_NEW;
-	strlcpy(memo->sender,u->myuser->name,NICKLEN);
+	strlcpy(memo->sender,si->smu->name,NICKLEN);
 	strlcpy(memo->text,m,MEMOLEN);
 	
 	/* Create a linked list node and add to memos */
@@ -163,9 +163,9 @@ static void ms_cmd_send(char *origin)
 	/* Should we email this? */
         if (tmu->flags & MU_EMAILMEMOS)
 	{
-		if (sendemail(u, EMAIL_MEMO, tmu, memo->text))
+		if (sendemail(si->su, EMAIL_MEMO, tmu, memo->text))
 		{
-			notice(memosvs.nick, origin, "Your memo has been emailed to %s.", target);
+			command_success_nodata(si, "Your memo has been emailed to %s.", target);
                 	return;
 		}
         }
@@ -176,14 +176,14 @@ static void ms_cmd_send(char *origin)
 	tu = user_find_named(target);
 	if (tu != NULL && tu->myuser == tmu)
 	{
-		notice(memosvs.nick, origin, "%s is currently online, and you may talk directly, by sending a private message.", target);
+		command_success_nodata(si, "%s is currently online, and you may talk directly, by sending a private message.", target);
 	}
-	if (!irccmp(origin, u->myuser->name))
-		myuser_notice(memosvs.nick, tmu, "You have a new memo from %s.", u->myuser->name);
+	if (si->su == NULL || !irccmp(si->su->nick, si->smu->name))
+		myuser_notice(memosvs.nick, tmu, "You have a new memo from %s.", si->smu->name);
 	else
-		myuser_notice(memosvs.nick, tmu, "You have a new memo from %s (nick: %s).", u->myuser->name, origin);
+		myuser_notice(memosvs.nick, tmu, "You have a new memo from %s (nick: %s).", si->smu->name, si->su->nick);
 
 	/* Tell user memo sent, return */
-	notice(memosvs.nick, origin, "The memo has been successfully sent to %s.", target);
+	command_success_nodata(si, "The memo has been successfully sent to %s.", target);
 	return;
 }	

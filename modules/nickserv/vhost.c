@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 William Pitcock
+ * Copyright (c) 2005 William Pitcock <nenolod -at- nenolod.net>
  * Rights to this code are as documented in doc/LICENSE.
  *
- * VHost management! (ratbox only right now.)
+ * Allows setting a vhost on an account
  *
- * $Id: vhost.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: vhost.c 6955 2006-10-26 11:37:10Z jilles $
  */
 
 #include "atheme.h"
@@ -12,17 +12,16 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/vhost", FALSE, _modinit, _moddeinit,
-	"$Id: vhost.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: vhost.c 6955 2006-10-26 11:37:10Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 list_t *ns_cmdtree, *ns_helptree;
 
 static void vhost_on_identify(void *vptr);
-static void ns_cmd_vhost(char *origin);
+static void ns_cmd_vhost(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_vhost = { "VHOST", "Manages user virtualhosts.",
-			PRIV_USER_VHOST, ns_cmd_vhost };
+command_t ns_vhost = { "VHOST", "Manages user virtualhosts.", PRIV_USER_VHOST, 2, ns_cmd_vhost };
 
 void _modinit(module_t *m)
 {
@@ -104,45 +103,25 @@ static void do_restorehost_all(myuser_t *mu)
 	}
 }
 
-static void do_restorehost(user_t *u)
-{
-	char luhost[BUFSIZE];
-
-	if (!strcmp(u->vhost, u->host))
-		return;
-	strlcpy(u->vhost, u->host, HOSTLEN);
-	notice(nicksvs.nick, u->nick, "Setting your host to \2%s\2.",
-		u->host);
-	sethost_sts(nicksvs.nick, u->nick, u->host);
-	strlcpy(luhost, u->user, BUFSIZE);
-	strlcat(luhost, "@", BUFSIZE);
-	strlcat(luhost, u->host, BUFSIZE);
-	metadata_add(u->myuser, METADATA_USER, "private:host:vhost", luhost);
-}
-
 /* VHOST <nick> [host] */
-static void ns_cmd_vhost(char *origin)
+static void ns_cmd_vhost(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *target = strtok(NULL, " ");
-	char *host = strtok(NULL, " ");
-	node_t *n;
-	user_t *source = user_find_named(origin);
+	char *target = parv[0];
+	char *host = parv[1];
 	myuser_t *mu;
-
-	if (source == NULL)
-		return;
+	char *p;
 
 	if (!target)
 	{
-		notice(nicksvs.nick, origin, STR_INVALID_PARAMS, "VHOST");
-		notice(nicksvs.nick, origin, "Syntax: VHOST <nick> [vhost]");
+		command_fail(si, fault_needmoreparams, STR_INVALID_PARAMS, "VHOST");
+		command_fail(si, fault_needmoreparams, "Syntax: VHOST <nick> [vhost]");
 		return;
 	}
 
 	/* find the user... */
 	if (!(mu = myuser_find_ext(target)))
 	{
-		notice(nicksvs.nick, origin, "\2%s\2 is not a registered nickname.", target);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", target);
 		return;
 	}
 
@@ -150,10 +129,9 @@ static void ns_cmd_vhost(char *origin)
 	if (!host)
 	{
 		metadata_delete(mu, METADATA_USER, "private:usercloak");
-		notice(nicksvs.nick, origin, "Deleted vhost for \2%s\2.", target);
-		snoop("VHOST:REMOVE: \2%s\2 by \2%s\2", target, origin);
-		logcommand(nicksvs.me, source, CMDLOG_ADMIN, "VHOST REMOVE %s",
-				target);
+		command_success_nodata(si, "Deleted vhost for \2%s\2.", mu->name);
+		snoop("VHOST:REMOVE: \2%s\2 by \2%s\2", mu->name, get_oper_name(si));
+		logcommand(si, CMDLOG_ADMIN, "VHOST REMOVE %s", mu->name);
 		do_restorehost_all(mu);
 		return;
 	}
@@ -162,22 +140,28 @@ static void ns_cmd_vhost(char *origin)
 	if (strchr(host, '@') || strchr(host, '!') || strchr(host, '?') ||
 			strchr(host, '*'))
 	{
-		notice(nicksvs.nick, origin, "The vhost provided contains invalid characters.");
+		command_fail(si, fault_badparams, "The vhost provided contains invalid characters.");
 		return;
 	}
 	if (strlen(host) >= HOSTLEN)
 	{
-		notice(nicksvs.nick, origin, "The vhost provided is too long.");
+		command_fail(si, fault_badparams, "The vhost provided is too long.");
+		return;
+	}
+	p = strrchr(host, '/');
+	if (p != NULL && isdigit(p[1]))
+	{
+		command_fail(si, fault_badparams, "The vhost provided looks like a CIDR mask.");
 		return;
 	}
 	/* XXX more checks here, perhaps as a configurable regexp? */
 
 	metadata_add(mu, METADATA_USER, "private:usercloak", host);
-	notice(nicksvs.nick, origin, "Assigned vhost \2%s\2 to \2%s\2.", 
-		host, target);
-	snoop("VHOST:ASSIGN: \2%s\2 to \2%s\2 by \2%s\2", host, target, origin);
-	logcommand(nicksvs.me, source, CMDLOG_ADMIN, "VHOST ASSIGN %s %s",
-			target, host);
+	command_success_nodata(si, "Assigned vhost \2%s\2 to \2%s\2.",
+			host, mu->name);
+	snoop("VHOST:ASSIGN: \2%s\2 to \2%s\2 by \2%s\2", host, mu->name, get_oper_name(si));
+	logcommand(si, CMDLOG_ADMIN, "VHOST ASSIGN %s %s",
+			mu->name, host);
 	do_sethost_all(mu, host);
 	return;
 }

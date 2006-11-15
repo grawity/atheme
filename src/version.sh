@@ -6,7 +6,7 @@
 # This file generates version.c.
 # Stolen from ircd-ratbox.
 #
-# $Id: version.sh 5748 2006-07-06 08:57:10Z nenolod $
+# $Id: version.sh 7157 2006-11-15 14:00:45Z jilles $
 #
 
 spitshell=cat
@@ -34,7 +34,7 @@ awk '{if (NF == 6) \
 else \
          { print $1 " "  $2 " " $3 " " $7 " at " $4 " " $5 " " $6 }}'`
 
-buildid=`echo "\$Revision: 5748 $" | \
+buildid=`echo "\$Revision: 7157 $" | \
 	awk '{ print $2 }'`;
 
 $spitshell >version.c <<!SUB!THIS!
@@ -104,24 +104,25 @@ const char *infotext[] =
   " ",
   "Currently Atheme's core group consists of the following developers,",
   "in nick-alphabetical order:",
-  "  beu, Elfyn McBratney <elfyn.mcbratney@gmail.com>",
   "  gxti, Michael Tharp <gxti@partiallystapled.com>",
   "  jilles, Jilles Tjoelker <jilles@stack.nl>",
   "  nenolod, William Pitcock <nenolod@nenolod.net>",
-  "  terminal, Theo Julienne <admin@ozweb.nu>",
   "  w00t, Robin Burchell <viroteck@viroteck.net>",
   " ",
   "The following people have contributed blood, sweat and tears to",
   "this Atheme release:",
   "  alambert, Alex Lambert <alambert@quickfire.org>",
+  "  beu, Elfyn McBratney <elfyn.mcbratney@gmail.com>",
   "  Dianora, Diane Bruce <db@db.net>",
   "  kog, Greg Feigenson <kog@epiphanic.org>",
   "  kuja, Jeff Katz <jeff@katzonline.net>",
+  "  lu_zero, Luca Barbato <lu_zero@gentoo.org>",
   "  pfish, Patrick Fish <pofish@gmail.com>",
+  "  terminal, Theo Julienne <admin@ozweb.nu>",
   "  Trystan, Trystan Scott Lee <trystan@nomadirc.net>",
   "  zparta, Jens Holmqvist <zparta@hispan.se>",
   " ",
-  "Visit our website at http://www.atheme.org",
+  "Visit our website at http://www.atheme.net",
   0,
 };
 !SUB!THIS!

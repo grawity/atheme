@@ -3,16 +3,16 @@ dnl Rights to this code are documented in doc/LICENSE.
 dnl
 dnl This file is the autoconf stub.
 dnl
-dnl $Id: configure.ac 5752 2006-07-06 09:52:18Z nenolod $
+dnl $Id: configure.ac 7151 2006-11-15 13:36:17Z jilles $
 
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
 
-AC_INIT(atheme, 1.2.0, bugs@atheme.org)
+AC_INIT(atheme, 2.0.0, bugs@atheme.org)
 
 dnl Sneaky way to get an id into the configure script.
-AC_COPYRIGHT([$Id: configure.ac 5752 2006-07-06 09:52:18Z nenolod $])
+AC_COPYRIGHT([$Id: configure.ac 7151 2006-11-15 13:36:17Z jilles $])
 
 AC_CONFIG_AUX_DIR(autoconf)
 
@@ -190,49 +190,74 @@ AC_HELP_STRING([--enable-large-net],[ Enable large network support.]),
 ])
 AC_MSG_RESULT($LARGENET)
 
+balloc="no"
+AC_MSG_CHECKING(if you want to disable the block allocator)
+AC_ARG_ENABLE(balloc,
+AC_HELP_STRING([--disable-balloc],[Disable the block allocator.]),
+[balloc=$enableval], [balloc=yes])
+
+if test "$balloc" = no; then
+        AC_DEFINE([NOBALLOC], 1, [Define to 1 if you wish to disable the block allocator.])
+fi
+AC_MSG_RESULT($balloc)
+
 echo " "
 echo "PostgreSQL support"
 echo " "
 
 POSTGRESQL="yes"
 
-AC_MSG_CHECKING(for PostgreSQL include directory)
-if test -d /usr/include/pgsql ; then
- 	pg_inc_dir="/usr/include/pgsql"
-elif test -f /usr/local/include/libpq-fe.h ; then
-# kludge for freebsd ports, found on liveharmony boxes. --nenolod
-	pg_inc_dir="/usr/local/include"
-	LDFLAGS="-L/usr/local/lib"
-elif test -d /usr/include/postgresql ; then
- 	pg_inc_dir="/usr/include/postgresql"
-elif test -d /usr/local/psql/include ; then
- 	pg_inc_dir="/usr/local/psql/include"
-elif test -d /usr/local/include/postgresql ; then
-	pg_inc_dir="/usr/local/include/postgresql"
-elif test -d /usr/local/pgsql/include ; then
-	pg_inc_dir="/usr/local/pgsql/include"
-elif test -d /usr/local/include/psql ; then
-	pg_inc_dir="/usr/local/include/psql"
-elif test -d /opt/psql/include ; then
- 	pg_inc_dir="/opt/psql/include"
-else
-	pg_inc_dir="no"
- 	PQLIB=""
-	POSTGRESQL="no"
-fi
+AC_ARG_WITH(postgresql,
+AC_HELP_STRING([--with-postgresql],[ Enables PostgreSQL backend support.]),
+[
+       case "$withval" in
+               yes|no)
+                       POSTGRESQL="$withval"
+                       ;;
+               *)
+                       AC_MSG_ERROR([Invalid argument to --with-postgresql (expecting either 'yes' or 'no')])
+                       ;;
+       esac
+])
 
-POSTGRESQL_C=""
+if test "x$POSTGRESQL" = xyes; then
+       AC_MSG_CHECKING(for PostgreSQL include directory)
+       if test -d /usr/include/pgsql ; then
+               pg_inc_dir="/usr/include/pgsql"
+       elif test -f /usr/local/include/libpq-fe.h ; then
+               # kludge for freebsd ports, found on liveharmony boxes. --nenolod
+               pg_inc_dir="/usr/local/include"
+               LDFLAGS="-L/usr/local/lib"
+       elif test -d /usr/include/postgresql ; then
+               pg_inc_dir="/usr/include/postgresql"
+       elif test -d /usr/local/psql/include ; then
+               pg_inc_dir="/usr/local/psql/include"
+       elif test -d /usr/local/include/postgresql ; then
+               pg_inc_dir="/usr/local/include/postgresql"
+       elif test -d /usr/local/pgsql/include ; then
+               pg_inc_dir="/usr/local/pgsql/include"
+       elif test -d /usr/local/include/psql ; then
+               pg_inc_dir="/usr/local/include/psql"
+       elif test -d /opt/psql/include ; then
+               pg_inc_dir="/opt/psql/include"
+       else
+               pg_inc_dir="no"
+               PQLIB=""
+               POSTGRESQL="no"
+       fi
+       POSTGRESQL_C=""
 
-AC_MSG_RESULT($pg_inc_dir)
+       AC_MSG_RESULT($pg_inc_dir)
 
-if test "$pg_inc_dir" != "no"; then
-	AC_CHECK_HEADER($pg_inc_dir/libpq-fe.h, [
-		PGINC="-I$pg_inc_dir"
-	AC_CHECK_LIB(pq, PQconnectdb, [PQLIB="-lpq"
-		POSTGRESQL_C="postgresql.c"])
-	])
-else
-	POSTGRESQL="no"
+       if test "$pg_inc_dir" != "no"; then
+               AC_CHECK_HEADER($pg_inc_dir/libpq-fe.h, [
+                       PGINC="-I$pg_inc_dir"
+               AC_CHECK_LIB(pq, PQconnectdb, PQLIB="-lpq"
+                            POSTGRESQL_C="postgresql.c")
+               ])
+       else
+               POSTGRESQL="no"
+       fi
 fi
 
 AC_SUBST(POSTGRESQL_C)
@@ -240,25 +265,8 @@ AC_SUBST(PGINC)
 AC_SUBST(PQLIB)
 
 echo " "
-echo "SASL support"
+echo "OpenSSL-based SASL support"
 echo " "
-
-sasl=yes
-AC_ARG_ENABLE(sasl,
-    AC_HELP_STRING([--disable-sasl], [don't use builtin SASL]),
-    [sasl=$enableval])
-if test "$sasl" != "no" ; then
-    AC_DEFINE(USE_SASL, 1, [Define to 1 if you want builtin SASL.])
-    SASL=yes
-    SASL_DIR="saslserv"
-else
-    SASL=no
-    SASL_DIR=
-fi
-AC_MSG_CHECKING([if SASL should be used])
-AC_MSG_RESULT($SASL)
-
-AC_SUBST(SASL_DIR)
 
 AC_ARG_ENABLE(ssl,
 	AC_HELP_STRING([--disable-ssl], [don't use OpenSSL to provide more SASL mechanisms]),
@@ -266,22 +274,19 @@ AC_ARG_ENABLE(ssl,
 	enable_ssl=yes)
 
 SSL=no
-if test "$sasl" == "yes" ; then
-	if test "$enable_ssl" = "yes"; then
-		AC_CHECK_LIB(ssl, SSL_read, [
-			AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
-				SSL_LIBS="-lssl -lcrypto"
-				AC_SUBST(SSL_LIBS)
-				SSL=yes
-				])
-			],, -lcrypto)
-		if test "$SSL" = "yes"; then
-			AC_DEFINE(HAVE_OPENSSL,, Define to 1 if openssl is available)
-			LIBS="$LIBS $SSL_LIBS"
-		fi
+if test "$enable_ssl" = "yes"; then
+	AC_CHECK_LIB(ssl, SSL_read, [
+		AC_CHECK_HEADERS(openssl/ssl.h openssl/err.h, [
+			SSL_LIBS="-lssl -lcrypto"
+			AC_SUBST(SSL_LIBS)
+			SSL=yes
+			])
+		],, -lcrypto)
+	if test "$SSL" = "yes"; then
+		AC_DEFINE(HAVE_OPENSSL,, Define to 1 if openssl is available)
+		LIBS="$LIBS $SSL_LIBS"
 	fi
 fi
-
 
 echo " "
 echo "Module support"
@@ -554,10 +559,8 @@ AC_OUTPUT(Makefile \
 	modules/global/Makefile \
 	modules/nickserv/Makefile \
 	modules/operserv/Makefile \
-	modules/userserv/Makefile \
 	modules/xmlrpc/Makefile \
 	modules/memoserv/Makefile \
-	modules/helpserv/Makefile \
 	modules/saslserv/Makefile \
 	protocol/Makefile \
 	src/Makefile)
@@ -571,9 +574,9 @@ Configuration:
         Module root directory: `eval echo $d`
         Large network support: ${LARGENET}
         PostgreSQL support   : ${POSTGRESQL}
-        SASL support         : ${SASL}
         OpenSSL SASL support : ${SSL}
         Socket Engine        : ${SOCKET_ENGINE}
+        Block Allocator      : ${balloc}
         CFLAGS               : ${CFLAGS}
 
 Type make to build Atheme, and make install to install it."

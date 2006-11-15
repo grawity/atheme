@@ -1,13 +1,15 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains IRC interaction routines.
  *
- * $Id: parse.c 5416 2006-06-18 13:19:45Z jilles $
+ * $Id: parse.c 6931 2006-10-24 16:53:07Z jilles $
  */
 
 #include "atheme.h"
+#include "uplink.h"
+#include "pmodule.h"
 
 /* by default, we want the 2.8.21 parser */
 void (*parse) (char *line) = &irc_parse;
@@ -15,19 +17,23 @@ void (*parse) (char *line) = &irc_parse;
 /* parses a standard 2.8.21 style IRC stream */
 void irc_parse(char *line)
 {
-	char *origin = NULL;
+	sourceinfo_t si;
 	char *pos;
+	char *origin = NULL;
 	char *command = NULL;
 	char *message = NULL;
 	char *parv[20];
 	static char coreLine[BUFSIZE];
-	uint8_t parc = 0;
+	int parc = 0;
 	uint8_t i;
 	pcommand_t *pcmd;
 
 	/* clear the parv */
 	for (i = 0; i < 20; i++)
 		parv[i] = NULL;
+
+	memset(&si, '\0', sizeof si);
+	si.connection = curr_uplink->conn;
 
 	if (line != NULL)
 	{
@@ -56,7 +62,10 @@ void irc_parse(char *line)
 			 */
 			if (*line == ':')
 			{
-				origin = line + 1;
+                        	origin = line + 1;
+
+				si.s = server_find(origin);
+				si.su = user_find(origin);
 
 				if ((message = strchr(pos, ' ')))
 				{
@@ -72,10 +81,32 @@ void irc_parse(char *line)
 			}
 			else
 			{
+				if (me.recvsvr)
+				{
+					origin = me.actual;
+					si.s = server_find(origin);
+				}
 				message = pos;
 				command = line;
 			}
 		}
+		else
+		{
+			if (me.recvsvr)
+			{
+				origin = me.actual;
+				si.s = server_find(origin);
+			}
+			command = line;
+			message = NULL;
+		}
+                if (!si.s && !si.su && me.recvsvr)
+                {
+                        slog(LG_INFO, "irc_parse(): got message from nonexistant user or server: %s", origin);
+                        return;
+                }
+		si.smu = si.su != NULL ? si.su->myuser : NULL;
+
 		/* okay, the nasty part is over, now we need to make a
 		 * parv out of what's left
 		 */
@@ -105,30 +136,55 @@ void irc_parse(char *line)
 
 		/* take the command through the hash table */
 		if ((pcmd = pcommand_find(command)))
-			if (pcmd->handler)
+		{
+			if (si.su && !(pcmd->sourcetype & MSRC_USER))
 			{
-				pcmd->handler(origin, parc, parv);
+				slog(LG_INFO, "irc_parse(): user %s sent disallowed command %s", si.su->nick, pcmd->token);
 				return;
 			}
+			else if (si.s && !(pcmd->sourcetype & MSRC_SERVER))
+			{
+				slog(LG_INFO, "irc_parse(): server %s sent disallowed command %s", si.s->name, pcmd->token);
+				return;
+			}
+			else if (!me.recvsvr && !(pcmd->sourcetype & MSRC_UNREG))
+			{
+				slog(LG_INFO, "irc_parse(): unregistered server sent disallowed command %s", pcmd->token);
+				return;
+			}
+			if (parc < pcmd->minparc)
+			{
+				slog(LG_INFO, "irc_parse(): insufficient parameters for command %s", pcmd->token);
+				return;
+			}
+			if (pcmd->handler)
+			{
+				pcmd->handler(&si, parc, parv);
+			}
+		}
 	}
 }
 
 /* parses a P10 IRC stream */
 void p10_parse(char *line)
 {
-	char *origin = NULL;
+	sourceinfo_t si;
 	char *pos;
+	char *origin = NULL;
 	char *command = NULL;
 	char *message = NULL;
 	char *parv[20];
 	static char coreLine[BUFSIZE];
-	uint8_t parc = 0;
+	int parc = 0;
 	uint8_t i;
 	pcommand_t *pcmd;
 
 	/* clear the parv */
 	for (i = 0; i < 20; i++)
 		parv[i] = NULL;
+
+	memset(&si, '\0', sizeof si);
+	si.connection = curr_uplink->conn;
 
 	if (line != NULL)
 	{
@@ -159,7 +215,16 @@ void p10_parse(char *line)
 			{
 				origin = line;
 				if (*origin == ':')
+				{
 					origin++;
+                                	si.s = server_find(origin);
+                                	si.su = user_find_named(origin);
+				}
+				else
+				{
+                                	si.s = server_find(origin);
+                                	si.su = user_find(origin);
+				}
 
 				if ((message = strchr(pos, ' ')))
 				{
@@ -179,6 +244,14 @@ void p10_parse(char *line)
 				command = line;
 			}
 		}
+
+                if (!si.s && !si.su && me.recvsvr)
+                {
+                        slog(LG_DEBUG, "irc_parse(): got message from nonexistant user or server: %s", origin);
+                        return;
+                }
+		si.smu = si.su != NULL ? si.su->myuser : NULL;
+
 		/* okay, the nasty part is over, now we need to make a
 		 * parv out of what's left
 		 */
@@ -208,10 +281,32 @@ void p10_parse(char *line)
 
 		/* take the command through the hash table */
 		if ((pcmd = pcommand_find(command)))
-			if (pcmd->handler)
+		{
+			if (si.su && !(pcmd->sourcetype & MSRC_USER))
 			{
-				pcmd->handler(origin, parc, parv);
+				slog(LG_INFO, "irc_parse(): user %s sent disallowed command %s", si.su->nick, pcmd->token);
 				return;
 			}
+			else if (si.s && !(pcmd->sourcetype & MSRC_SERVER))
+			{
+				slog(LG_INFO, "irc_parse(): server %s sent disallowed command %s", si.s->name, pcmd->token);
+				return;
+			}
+			else if (!me.recvsvr && !(pcmd->sourcetype & MSRC_UNREG))
+			{
+				slog(LG_INFO, "irc_parse(): unregistered server sent disallowed command %s", pcmd->token);
+				return;
+			}
+			if (parc < pcmd->minparc)
+			{
+				slog(LG_INFO, "irc_parse(): insufficient parameters for command %s", pcmd->token);
+				return;
+			}
+			if (pcmd->handler)
+			{
+				pcmd->handler(&si, parc, parv);
+				return;
+			}
+		}
 	}
 }

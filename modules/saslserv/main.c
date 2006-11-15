@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 5718 2006-07-04 06:10:05Z gxti $
+ * $Id: main.c 6625 2006-10-02 09:29:08Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"saslserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 5718 2006-07-04 06:10:05Z gxti $",
+	"$Id: main.c 6625 2006-10-02 09:29:08Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -26,20 +26,15 @@ static void sasl_input(void *vptr);
 static void sasl_packet(sasl_session_t *p, char *buf, int len);
 static void sasl_write(char *target, char *data, int length);
 int login_user(sasl_session_t *p);
-static void user_burstlogin(void *vptr);
+static void sasl_newuser(void *vptr);
 static void delete_stale(void *vptr);
 
 /* main services client routine */
-static void saslserv(char *origin, uint8_t parc, char *parv[])
+static void saslserv(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *cmd, *s;
+	char *cmd;
+        char *text;
 	char orig[BUFSIZE];
-
-	if (!origin)
-	{
-		slog(LG_DEBUG, "services(): recieved a request with no origin!");
-		return;
-	}
 
 	/* this should never happen */
 	if (parv[0][0] == '&')
@@ -53,45 +48,19 @@ static void saslserv(char *origin, uint8_t parc, char *parv[])
 
 	/* lets go through this to get the command */
 	cmd = strtok(parv[parc - 1], " ");
+        text = strtok(NULL, "");
 
 	if (!cmd)
 		return;
-
-	/* ctcp? case-sensitive as per rfc */
-	if (!strcmp(cmd, "\001PING"))
+	if (*cmd == '\001')
 	{
-		if (!(s = strtok(NULL, " ")))
-			s = " 0 ";
-
-		strip(s);
-		notice(saslsvs.nick, origin, "\001PING %s\001", s);
-		return;
-	}
-	else if (!strcmp(cmd, "\001VERSION\001"))
-	{
-		notice(saslsvs.nick, origin,
-		       "\001VERSION atheme-%s. %s %s %s%s%s%s%s%s%s%s%s TS5ow\001",
-		       version, revision, me.name,
-		       (match_mapping) ? "A" : "",
-		       (me.loglevel & LG_DEBUG) ? "d" : "",
-		       (me.auth) ? "e" : "",
-		       (config_options.flood_msgs) ? "F" : "",
-		       (config_options.leave_chans) ? "l" : "", (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
-
-		return;
-	}
-	else if (!strcmp(cmd, "\001CLIENTINFO\001"))
-	{
-		/* easter eggs are mandatory these days */
-		notice(saslsvs.nick, origin, "\001CLIENTINFO LILITH\001");
+		handle_ctcp_common(cmd, text, si->su->nick, saslsvs.nick);
 		return;
 	}
 
-	/* ctcps we don't care about are ignored */
-	else if (*cmd == '\001')
-		return;
-
-	notice(saslsvs.nick, origin, "This service exists to identify connecting clients to the network. It has no public interface.");
+	command_fail(si, fault_noprivs, "This service exists to identify "
+			"connecting clients to the network. It has no "
+			"public interface.");
 }
 
 static void saslserv_config_ready(void *unused)
@@ -100,7 +69,7 @@ static void saslserv_config_ready(void *unused)
                 del_service(saslsvs.me);
 
         saslsvs.me = add_service(saslsvs.nick, saslsvs.user,
-                                 saslsvs.host, saslsvs.real, saslserv);
+                                 saslsvs.host, saslsvs.real, saslserv, NULL);
 
         hook_del_hook("config_ready", saslserv_config_ready);
 }
@@ -111,14 +80,14 @@ void _modinit(module_t *m)
 	hook_add_hook("config_ready", saslserv_config_ready);
 	hook_add_event("sasl_input");
 	hook_add_hook("sasl_input", sasl_input);
-	hook_add_event("user_burstlogin");
-	hook_add_hook("user_burstlogin", user_burstlogin);
+	hook_add_event("user_add");
+	hook_add_hook("user_add", sasl_newuser);
 	event_add("sasl_delete_stale", delete_stale, NULL, 15);
 
         if (!cold_start)
         {
                 saslsvs.me = add_service(saslsvs.nick, saslsvs.user,
-			saslsvs.host, saslsvs.real, saslserv);
+			saslsvs.host, saslsvs.real, saslserv, NULL);
         }
 	authservice_loaded++;
 }
@@ -128,7 +97,7 @@ void _moddeinit(void)
 	node_t *n, *tn;
 
 	hook_del_hook("sasl_input", sasl_input);
-	hook_del_hook("user_burstlogin", user_burstlogin);
+	hook_del_hook("user_add", sasl_newuser);
 	event_delete(delete_stale, NULL);
 
         if (saslsvs.me)
@@ -184,7 +153,7 @@ sasl_session_t *make_session(char *uid)
 
 	p = malloc(sizeof(sasl_session_t));
 	memset(p, 0, sizeof(sasl_session_t));
-	strlcpy(p->uid, uid, NICKLEN);
+	strlcpy(p->uid, uid, IDLEN);
 
 	n = node_create();
 	node_add(p, n, &sessions);
@@ -196,7 +165,6 @@ sasl_session_t *make_session(char *uid)
 void destroy_session(sasl_session_t *p)
 {
 	node_t *n, *tn;
-	int i;
 
 	LIST_FOREACH_SAFE(n, tn, sessions.head)
 	{
@@ -220,18 +188,18 @@ void destroy_session(sasl_session_t *p)
 /* interpret an AUTHENTICATE message */
 static void sasl_input(void *vptr)
 {
-	sasl_message_t *msg = vptr;
-	sasl_session_t *p = make_session(msg->uid);
-	int len = strlen(msg->buf);
+	sasl_message_t *smsg = vptr;
+	sasl_session_t *p = make_session(smsg->uid);
+	int len = strlen(smsg->buf);
 
 	/* Abort packets, or maybe some other kind of (D)one */
-	if(msg->mode == 'D')
+	if(smsg->mode == 'D')
 	{
 		destroy_session(p);
 		return;
 	}
 
-	if(msg->mode != 'S' && msg->mode != 'C')
+	if(smsg->mode != 'S' && smsg->mode != 'C')
 		return;
 
 	if(p->buf == NULL)
@@ -254,7 +222,7 @@ static void sasl_input(void *vptr)
 		p->len += len;
 	}
 
-	memcpy(p->p, msg->buf, len);
+	memcpy(p->p, smsg->buf, len);
 
 	/* Messages not exactly 400 bytes are the end of a packet. */
 	if(len < 400)
@@ -290,14 +258,13 @@ static sasl_mechanism_t *find_mechanism(char *name)
  */
 static void sasl_packet(sasl_session_t *p, char *buf, int len)
 {
-	int rc, i;
+	int rc;
 	size_t tlen = 0;
 	char *cloak, *out = NULL;
 	char *temp;
 	char mech[21];
 	int out_len = 0;
 	metadata_t *md;
-	myuser_t *mu;
 	node_t *n;
 
 	/* First piece of data in a session is the name of
@@ -360,8 +327,6 @@ static void sasl_packet(sasl_session_t *p, char *buf, int len)
 		myuser_t *mu = myuser_find(p->username);
 		if(mu && login_user(p))
 		{
-			mu->flags |= MU_SASL;
-
 			if ((md = metadata_find(mu, METADATA_USER, "private:usercloak")))
 				cloak = md->value;
 			else
@@ -407,35 +372,36 @@ static void sasl_packet(sasl_session_t *p, char *buf, int len)
 static void sasl_write(char *target, char *data, int length)
 {
 	char out[401];
-	int last, rem = length;
+	int last = 400, rem = length;
 
 	while(rem)
 	{
-		int send = rem > 400 ? 400 : rem;
-		memcpy(out, data, send);
-		out[send] = '\0';
+		int nbytes = rem > 400 ? 400 : rem;
+		memcpy(out, data, nbytes);
+		out[nbytes] = '\0';
 		sasl_sts(target, 'C', out);
 
-		data += send;
-		rem -= send;
-		last = send;
+		data += nbytes;
+		rem -= nbytes;
+		last = nbytes;
 	}
 
 	/* The end of a packet is indicated by a string not of length 400.
 	 * If last piece is exactly 400 in size, send an empty string to
 	 * finish the transaction.
+	 * Also if there is no data at all.
 	 */
 	if(last == 400)
 		sasl_sts(target, 'C', "+");
 }
 
-void sasl_logcommand(char *source, int level, const char *fmt, ...)
+static void sasl_logcommand(char *source, int level, const char *fmt, ...)
 {
 	va_list args;
 	time_t t;
 	struct tm tm;
 	char datetime[64];
-	char lbuf[BUFSIZE], strfbuf[32];
+	char lbuf[BUFSIZE];
 
 	/* XXX use level */
 
@@ -471,7 +437,7 @@ int login_user(sasl_session_t *p)
 	if(mu == NULL) /* WTF? */
 		return 0;
 
- 	if (md = metadata_find(mu, METADATA_USER, "private:freeze:freezer"))
+ 	if ((md = metadata_find(mu, METADATA_USER, "private:freeze:freezer")))
 	{
 		sasl_logcommand(target, CMDLOG_LOGIN, "failed IDENTIFY to %s (frozen)", mu->name);
 		return 0;
@@ -489,7 +455,7 @@ int login_user(sasl_session_t *p)
 }
 
 /* clean up after a user who is finally on the net */
-static void user_burstlogin(void *vptr)
+static void sasl_newuser(void *vptr)
 {
 	user_t *u = vptr;
 	sasl_session_t *p = find_session(u->uid);
@@ -514,11 +480,18 @@ static void user_burstlogin(void *vptr)
 	/* Not concerned unless it's a SASL login. */
 	if(p == NULL)
 		return;
-	destroy_session(p);
 
-	/* WTF? */
-	if((mu = u->myuser) == NULL)
+	/* Find the account */
+	mu = p->username ? myuser_find(p->username) : NULL;
+	if (mu == NULL)
+	{
+		notice(saslsvs.nick, u->nick, "Account %s dropped, login cancelled",
+				p->username ? p->username : "??");
+		destroy_session(p);
+		/* We'll remove their ircd login in handle_burstlogin() */
 		return;
+	}
+	destroy_session(p);
 
 	if (is_soper(mu))
 	{
@@ -540,7 +513,15 @@ static void user_burstlogin(void *vptr)
 	/* and for opers */
 	strlcpy(lao, u->user, BUFSIZE);
 	strlcat(lao, "@", BUFSIZE);
-	strlcat(lao, u->host, BUFSIZE);
+	/* Hack for charybdis before 2.1: store IP instead of vhost
+	 * (real host is not known at this time) -- jilles */
+	slog(LG_DEBUG, "nick %s host %s vhost %s ip %s",
+			u->nick, u->host, u->vhost, u->ip);
+	if (!strcmp(u->host, u->vhost) && *u->ip != '\0' &&
+			metadata_find(mu, METADATA_USER, "private:usercloak"))
+		strlcat(lao, u->ip, BUFSIZE);
+	else
+		strlcat(lao, u->host, BUFSIZE);
 	metadata_add(mu, METADATA_USER, "private:host:actual", lao);
 
 	/* check for failed attempts and let them know */

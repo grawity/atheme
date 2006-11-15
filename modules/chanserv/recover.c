@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService RECOVER functions.
  *
- * $Id: recover.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: recover.c 6657 2006-10-04 21:22:47Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/recover", FALSE, _modinit, _moddeinit,
-	"$Id: recover.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: recover.c 6657 2006-10-04 21:22:47Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_cmd_recover(char *origin);
+static void cs_cmd_recover(sourceinfo_t *si, int parc, char *parv[]);
 
 command_t cs_recover = { "RECOVER", "Regain control of your channel.",
-                        AC_NONE, cs_cmd_recover };
+                        AC_NONE, 1, cs_cmd_recover };
 
 list_t *cs_cmdtree;
 list_t *cs_helptree;
@@ -39,14 +39,13 @@ void _moddeinit()
 	help_delentry(cs_helptree, "RECOVER");
 }
 
-static void cs_cmd_recover(char *origin)
+static void cs_cmd_recover(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *u = user_find_named(origin);
 	chanuser_t *cu, *origin_cu = NULL;
 	mychan_t *mc;
 	node_t *n;
-	char *name = strtok(NULL, " ");
-	char hostbuf[BUFSIZE], hostbuf2[BUFSIZE];
+	char *name = parv[0];
+	char hostbuf[BUFSIZE], hostbuf2[BUFSIZE], hostbuf3[BUFSIZE];
 	char e;
 	boolean_t added_exempt = FALSE;
 	int i;
@@ -54,44 +53,44 @@ static void cs_cmd_recover(char *origin)
 
 	if (!name)
 	{
-		notice(chansvs.nick, origin, STR_INSUFFICIENT_PARAMS, "RECOVER");
-		notice(chansvs.nick, origin, "Syntax: RECOVER <#channel>");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RECOVER");
+		command_fail(si, fault_needmoreparams, "Syntax: RECOVER <#channel>");
 		return;
 	}
 
 	if (!(mc = mychan_find(name)))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not registered.", name);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", name);
 		return;
 	}
 	
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is closed.", name);
+		command_fail(si, fault_noprivs, "\2%s\2 is closed.", name);
 		return;
 	}
 
 	if (!mc->chan)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 does not exist.", name);
+		command_fail(si, fault_nosuch_target, "\2%s\2 does not exist.", name);
 		return;
 	}
 
-	if (!chanacs_user_has_flag(mc, u, CA_RECOVER))
+	if (!chanacs_source_has_flag(mc, si, CA_RECOVER))
 	{
-		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
 		return;
 	}
 
-	verbose(mc, "\2%s\2 used RECOVER.", origin);
-	logcommand(chansvs.me, u, CMDLOG_SET, "%s RECOVER", mc->name);
+	verbose(mc, "\2%s\2 used RECOVER.", get_source_name(si));
+	logcommand(si, CMDLOG_SET, "%s RECOVER", mc->name);
 
 	/* deop everyone */
 	LIST_FOREACH(n, mc->chan->members.head)
 	{
 		cu = (chanuser_t *)n->data;
 
-		if (cu->user == u)
+		if (cu->user == si->su)
 			origin_cu = cu;
 		else if (is_internal_client(cu->user))
 			;
@@ -115,9 +114,9 @@ static void cs_cmd_recover(char *origin)
 		/* if requester is not on channel,
 		 * remove modes that keep people out */
 		if (CMODE_LIMIT & mc->chan->modes)
-			channel_mode_va(chansvs.me->me, mc->chan, 1, "-l");
+			channel_mode_va(si->service->me, mc->chan, 1, "-l");
 		if (CMODE_KEY & mc->chan->modes)
-			channel_mode_va(chansvs.me->me, mc->chan, 2, "-k", "*");
+			channel_mode_va(si->service->me, mc->chan, 2, "-k", "*");
 
 		/* stuff like join throttling
 		 * XXX only remove modes that could keep people out
@@ -128,29 +127,30 @@ static void cs_cmd_recover(char *origin)
 		{
 			str[1] = ignore_mode_list[i].mode;
 			if (mc->chan->extmodes[i] != NULL)
-				channel_mode_va(chansvs.me->me, mc->chan, 1, str);
+				channel_mode_va(si->service->me, mc->chan, 1, str);
 		}
 	}
 	else
 	{
 		if (!(CMODE_OP & origin_cu->modes))
-			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, 'o', CLIENT_NAME(u));
+			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, 'o', CLIENT_NAME(si->su));
 		origin_cu->modes |= CMODE_OP;
 	}
 
-	if (origin_cu != NULL || (chanacs_user_flags(mc, u) & (CA_OP | CA_AUTOOP)))
+	if (origin_cu != NULL || (chanacs_source_flags(mc, si) & (CA_OP | CA_AUTOOP)))
 	{
 
-		channel_mode_va(chansvs.me->me, mc->chan, 1, "+im");
+		channel_mode_va(si->service->me, mc->chan, 1, "+im");
 	}
 	else if (CMODE_INVITE & mc->chan->modes)
 	{
-		channel_mode_va(chansvs.me->me, mc->chan, 1, "-i");
+		channel_mode_va(si->service->me, mc->chan, 1, "-i");
 	}
 
 	/* unban the user */
-	snprintf(hostbuf, BUFSIZE, "%s!%s@%s", u->nick, u->user, u->host);
-	snprintf(hostbuf2, BUFSIZE, "%s!%s@%s", u->nick, u->user, u->vhost);
+	snprintf(hostbuf, BUFSIZE, "%s!%s@%s", si->su->nick, si->su->user, si->su->host);
+	snprintf(hostbuf2, BUFSIZE, "%s!%s@%s", si->su->nick, si->su->user, si->su->vhost);
+	snprintf(hostbuf3, BUFSIZE, "%s!%s@%s", si->su->nick, si->su->user, si->su->ip);
 
 	LIST_FOREACH(n, mc->chan->bans.head)
 	{
@@ -158,7 +158,7 @@ static void cs_cmd_recover(char *origin)
 
 		if (cb->type != 'b')
 			continue;
-		if (!match(cb->mask, hostbuf) || !match(cb->mask, hostbuf2))
+		if (!match(cb->mask, hostbuf) || !match(cb->mask, hostbuf2) || !match(cb->mask, hostbuf3) || !match_cidr(cb->mask, hostbuf3))
 		{
 			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, 'b', cb->mask);
 			chanban_delete(cb);
@@ -184,10 +184,10 @@ static void cs_cmd_recover(char *origin)
 
 	/* invite them back. must have sent +i before this */
 	if (origin_cu == NULL)
-		invite_sts(chansvs.me->me, u, mc->chan);
+		invite_sts(si->service->me, si->su, mc->chan);
 
 	if (added_exempt)
-		notice(chansvs.nick, origin, "Recover complete for \2%s\2, ban exception \2%s\2 added.", mc->chan->name, hostbuf2);
+		command_success_nodata(si, "Recover complete for \2%s\2, ban exception \2%s\2 added.", mc->chan->name, hostbuf2);
 	else
-		notice(chansvs.nick, origin, "Recover complete for \2%s\2.", mc->chan->name);
+		command_success_nodata(si, "Recover complete for \2%s\2.", mc->chan->name);
 }

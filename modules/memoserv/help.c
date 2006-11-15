@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the MemoServ HELP command.
  *
- * $Id: help.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: help.c 6593 2006-10-01 18:51:45Z jilles $
  */
 
 #include "atheme.h"
@@ -12,16 +12,16 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/help", FALSE, _modinit, _moddeinit,
-	"$Id: help.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: help.c 6593 2006-10-01 18:51:45Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 list_t *ms_cmdtree;
 list_t *ms_helptree;
 
-static void ms_cmd_help(char *origin);
+static void ms_cmd_help(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ms_help = { "HELP", "Displays contextual help information.", AC_NONE, ms_cmd_help };
+command_t ms_help = { "HELP", "Displays contextual help information.", AC_NONE, 2, ms_cmd_help };
 
 void _modinit(module_t *m)
 {
@@ -39,26 +39,25 @@ void _moddeinit()
 }
 
 /* HELP <command> [params] */
-void ms_cmd_help(char *origin)
+void ms_cmd_help(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *u = user_find_named(origin);
-	char *command = strtok(NULL, "");
+	char *command = parv[0];
 
 	if (!command)
 	{
-		notice(memosvs.nick, origin, "***** \2%s Help\2 *****", memosvs.nick);
-		notice(memosvs.nick, origin, "\2%s\2 allows users to send memos to registered users.", memosvs.nick);
-		notice(memosvs.nick, origin, " ");
-		notice(memosvs.nick, origin, "For more information on a command, type:");
-		notice(memosvs.nick, origin, "\2/%s%s help <command>\2", (ircd->uses_rcommand == FALSE) ? "msg " : "", memosvs.disp);
-		notice(memosvs.nick, origin, " ");
+		command_success_nodata(si, "***** \2%s Help\2 *****", memosvs.nick);
+		command_success_nodata(si, "\2%s\2 allows users to send memos to registered users.", memosvs.nick);
+		command_success_nodata(si, " ");
+		command_success_nodata(si, "For more information on a command, type:");
+		command_success_nodata(si, "\2/%s%s help <command>\2", (ircd->uses_rcommand == FALSE) ? "msg " : "", memosvs.disp);
+		command_success_nodata(si, " ");
 
-		command_help(memosvs.nick, origin, ms_cmdtree);
+		command_help(si, ms_cmdtree);
 
-		notice(memosvs.nick, origin, "***** \2End of Help\2 *****");
+		command_success_nodata(si, "***** \2End of Help\2 *****");
 		return;
 	}
 
 	/* take the command through the hash table */
-	help_display(memosvs.nick, memosvs.disp, origin, command, ms_helptree);
+	help_display(si, command, ms_helptree);
 }

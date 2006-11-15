@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * A hook system. Idea taken from hybrid.
  *
- * $Id: hook.c 3053 2005-10-20 18:04:13Z nenolod $
+ * $Id: hook.c 6929 2006-10-24 15:30:53Z jilles $
  */
 
 #include <org.atheme.claro.base>
@@ -93,7 +93,10 @@ void hook_del_hook(const char *event, void (*handler)(void *data))
 	LIST_FOREACH_SAFE(n, n2, h->hooks.head)
 	{
 		if (handler == (void (*)(void *)) n->data)
+		{
 			node_del(n, &h->hooks);
+			node_free(n);
+		}
 	}
 }
 
@@ -108,6 +111,19 @@ void hook_add_hook(const char *event, void (*handler)(void *data))
 	n = node_create();
 
 	node_add((void *) handler, n, &h->hooks);
+}
+
+void hook_add_hook_first(const char *event, void (*handler)(void *data))
+{
+	hook_t *h;
+	node_t *n;
+
+	if (!(h = find_hook(event)))
+		return;
+
+	n = node_create();
+
+	node_add_head((void *) handler, n, &h->hooks);
 }
 
 void hook_call_event(const char *event, void *dptr)

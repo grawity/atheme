@@ -4,30 +4,28 @@
  *
  * Data structures for account information.
  *
- * $Id: account.h 5460 2006-06-20 19:08:22Z jilles $
+ * $Id: account.h 6971 2006-10-26 23:12:00Z jilles $
  */
 
 #ifndef ACCOUNT_H
 #define ACCOUNT_H
 
-typedef struct operclass_ operclass_t;
-typedef struct soper_ soper_t;
-typedef struct svsignore_ svsignore_t;
-typedef struct myuser_ myuser_t;
-typedef struct mychan_ mychan_t;
 typedef struct chanacs_ chanacs_t;
+typedef struct kline_ kline_t;
 typedef struct mymemo_ mymemo_t;
+typedef struct svsignore_ svsignore_t;
 
-struct operclass_ {
-  char *name;
-  char *privs; /* priv1 priv2 priv3... */
-};
+/* kline list struct */
+struct kline_ {
+  char *user;
+  char *host;
+  char *reason;
+  char *setby;
 
-/* soper list struct */
-struct soper_ {
-  myuser_t *myuser;
-  char *name;
-  operclass_t *operclass;
+  uint16_t number;
+  long duration;
+  time_t settime;
+  time_t expires;
 };
 
 /* services ignore struct */
@@ -40,6 +38,7 @@ struct svsignore_ {
   char *reason;
 };
 
+/* services accounts */
 struct myuser_
 {
   char name[NICKLEN];
@@ -56,13 +55,15 @@ struct myuser_
   list_t metadata;
 
   uint32_t flags;
-  int32_t hash;
   
   list_t memos; /* store memos */
   uint8_t memoct_new;
   uint8_t memo_ratelimit_num; /* memos sent recently */
   time_t memo_ratelimit_time; /* last time a memo was sent */
   list_t memo_ignores;
+
+  /* openservices patch */
+  list_t access_list;
 };
 
 #define MU_HOLD        0x00000001
@@ -74,7 +75,7 @@ struct myuser_
 #define MU_NOMEMO      0x00000040
 #define MU_EMAILMEMOS  0x00000080
 #define MU_CRYPTPASS   0x00000100
-#define MU_SASL        0x00000200 /* yuck, but sadly the best way */
+#define MU_OLD_SASL    0x00000200 /* obsolete */
 
 /* memoserv rate limiting parameters */
 #define MEMO_MAX_NUM   5
@@ -96,7 +97,6 @@ struct mychan_
   char *mlock_key;
 
   uint32_t flags;
-  int32_t hash;
 
   list_t metadata;
 };
@@ -109,10 +109,13 @@ struct mychan_
 #define MC_STAFFONLY   0x00000020
 #define MC_KEEPTOPIC   0x00000040
 #define MC_VERBOSE_OPS 0x00000080
+#define MC_TOPICLOCK   0x00000100
 
 /* The following are temporary state */
 #define MC_INHABIT     0x80000000 /* we're on channel to enforce akick/staffonly/close */
 #define MC_MLOCK_CHECK 0x40000000 /* we need to check mode locks */
+
+#define MC_VERBOSE_MASK (MC_VERBOSE | MC_VERBOSE_OPS)
 
 /* struct for channel access list */
 struct chanacs_
@@ -184,5 +187,90 @@ struct mymemo_ {
 /* memo status flags */
 #define MEMO_NEW           0x00000000
 #define MEMO_READ          0x00000001
+
+/* account related hooks */
+typedef struct {
+	user_t *u;
+	mychan_t *mc;
+} hook_channel_req_t;
+
+/* pmodule.c XXX */
+E boolean_t backend_loaded;
+
+/* dbhandler.c */
+E void (*db_save)(void *arg);
+E void (*db_load)(void);
+
+/* function.c */
+E boolean_t is_founder(mychan_t *mychan, myuser_t *myuser);
+E boolean_t should_owner(mychan_t *mychan, myuser_t *myuser);
+E boolean_t should_protect(mychan_t *mychan, myuser_t *myuser);
+E boolean_t is_soper(myuser_t *myuser);
+
+E void set_password(myuser_t *mu, char *newpassword);
+E boolean_t verify_password(myuser_t *mu, char *password);
+
+/* node.c */
+E list_t klnlist;
+
+E kline_t *kline_add(char *user, char *host, char *reason, long duration);
+E void kline_delete(const char *user, const char *host);
+E kline_t *kline_find(const char *user, const char *host);
+E kline_t *kline_find_num(uint32_t number);
+E kline_t *kline_find_user(user_t *u);
+E void kline_expire(void *arg);
+
+/* account.c */
+E dictionary_tree_t *mulist;
+E dictionary_tree_t *mclist;
+
+E void init_accounts(void);
+
+E myuser_t *myuser_add(char *name, char *pass, char *email, uint32_t flags);
+E void myuser_delete(myuser_t *mu);
+E myuser_t *myuser_find(const char *name);
+E myuser_t *myuser_find_ext(const char *name);
+E void myuser_notice(char *from, myuser_t *target, char *fmt, ...);
+
+E boolean_t myuser_access_verify(user_t *u, myuser_t *mu);
+E boolean_t myuser_access_add(myuser_t *mu, char *mask);
+E char *myuser_access_find(myuser_t *mu, char *mask);
+E void myuser_access_delete(myuser_t *mu, char *mask);
+
+E mychan_t *mychan_add(char *name);
+E void mychan_delete(char *name);
+E mychan_t *mychan_find(const char *name);
+E boolean_t mychan_isused(mychan_t *mc);
+E myuser_t *mychan_pick_candidate(mychan_t *mc, uint32_t minlevel, int maxtime);
+E myuser_t *mychan_pick_successor(mychan_t *mc);
+
+E chanacs_t *chanacs_add(mychan_t *mychan, myuser_t *myuser, uint32_t level);
+E chanacs_t *chanacs_add_host(mychan_t *mychan, char *host, uint32_t level);
+E void chanacs_delete(mychan_t *mychan, myuser_t *myuser, uint32_t level);
+E void chanacs_delete_host(mychan_t *mychan, char *host, uint32_t level);
+E chanacs_t *chanacs_find(mychan_t *mychan, myuser_t *myuser, uint32_t level);
+E chanacs_t *chanacs_find_host(mychan_t *mychan, char *host, uint32_t level);
+E uint32_t chanacs_host_flags(mychan_t *mychan, char *host);
+E chanacs_t *chanacs_find_host_literal(mychan_t *mychan, char *host, uint32_t level);
+E chanacs_t *chanacs_find_host_by_user(mychan_t *mychan, user_t *u, uint32_t level);
+E uint32_t chanacs_host_flags_by_user(mychan_t *mychan, user_t *u);
+E chanacs_t *chanacs_find_by_mask(mychan_t *mychan, char *mask, uint32_t level);
+E boolean_t chanacs_user_has_flag(mychan_t *mychan, user_t *u, uint32_t level);
+E uint32_t chanacs_user_flags(mychan_t *mychan, user_t *u);
+E boolean_t chanacs_source_has_flag(mychan_t *mychan, sourceinfo_t *si, uint32_t level);
+E uint32_t chanacs_source_flags(mychan_t *mychan, sourceinfo_t *si);
+E boolean_t chanacs_change(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_t *addflags, uint32_t *removeflags, uint32_t restrictflags);
+E boolean_t chanacs_change_simple(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_t addflags, uint32_t removeflags, uint32_t restrictflags);
+
+E void expire_check(void *arg);
+/* Check the database for (version) problems common to all backends */
+E void db_check(void);
+
+/* svsignore.c */
+E list_t svs_ignore_list;
+
+E svsignore_t *svsignore_find(user_t *user);
+E svsignore_t *svsignore_add(char *mask, char *reason);
+E void svsignore_delete(svsignore_t *svsignore);
 
 #endif

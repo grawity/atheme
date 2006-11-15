@@ -1,24 +1,51 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains channel mode tracking routines.
  *
- * $Id: cmode.c 5730 2006-07-04 17:31:44Z jilles $
+ * $Id: cmode.c 6963 2006-10-26 22:30:51Z jilles $
  */
 
 #include "atheme.h"
+
+/* convert mode flags to a text mode string */
+char *flags_to_string(int32_t flags)
+{
+	static char buf[32];
+	char *s = buf;
+	int i;
+
+	for (i = 0; mode_list[i].mode != 0; i++)
+		if (flags & mode_list[i].value)
+			*s++ = mode_list[i].mode;
+
+	*s = 0;
+
+	return buf;
+}
+
+/* convert a mode character to a flag. */
+int32_t mode_to_flag(char c)
+{
+	int i;
+
+	for (i = 0; mode_list[i].mode != 0 && mode_list[i].mode != c; i++);
+
+	return mode_list[i].value;
+}
 
 /* yeah, this should be fun. */
 /* If source == NULL, apply a mode change from outside to our structures
  * If source != NULL, apply the mode change and send it out from that user
  */
-void channel_mode(user_t *source, channel_t *chan, uint8_t parc, char *parv[])
+void channel_mode(user_t *source, channel_t *chan, int parc, char *parv[])
 {
 	boolean_t matched = FALSE;
 	boolean_t chanserv_reopped = FALSE;
 	boolean_t simple_modes_changed = FALSE;
 	int i, parpos = 0, whatt = MTYPE_NUL;
+	uint32_t newlimit;
 	const char *pos = parv[0];
 	mychan_t *mc;
 	chanuser_t *cu = NULL;
@@ -123,10 +150,10 @@ void channel_mode(user_t *source, channel_t *chan, uint8_t parc, char *parv[])
 				if (++parpos >= parc)
 					continue;
 				chan->modes |= CMODE_LIMIT;
-				i = atoi(parv[parpos]);
-				if (chan->limit != i)
+				newlimit = atoi(parv[parpos]);
+				if (chan->limit != newlimit)
 					simple_modes_changed = TRUE;
-				chan->limit = i;
+				chan->limit = newlimit;
 				if (source)
 					modestack_mode_limit(source->nick, chan->name, MTYPE_ADD, chan->limit);
 			}
@@ -283,9 +310,9 @@ void channel_mode(user_t *source, channel_t *chan, uint8_t parc, char *parv[])
 }
 
 /* like channel_mode() but parv array passed as varargs */
-void channel_mode_va(user_t *source, channel_t *chan, uint8_t parc, const char *parv0, ...)
+void channel_mode_va(user_t *source, channel_t *chan, int parc, char *parv0, ...)
 {
-	const char *parv[255];
+	char *parv[255];
 	int i;
 	va_list va;
 
@@ -301,7 +328,7 @@ void channel_mode_va(user_t *source, channel_t *chan, uint8_t parc, const char *
 	parv[0] = parv0;
 	va_start(va, parv0);
 	for (i = 1; i < parc; i++)
-		parv[i] = va_arg(va, const char *);
+		parv[i] = va_arg(va, char *);
 	va_end(va);
 	channel_mode(source, chan, parc, parv);
 }
@@ -498,8 +525,10 @@ static void modestack_add_simple(struct modestackdata *md, int dir, int32_t flag
 {
 	if (dir == MTYPE_ADD)
 		md->modes_on |= flags, md->modes_off &= ~flags;
-	else if (dir = MTYPE_DEL)
+	else if (dir == MTYPE_DEL)
 		md->modes_off |= flags, md->modes_on &= ~flags;
+	else
+		slog(LG_ERROR, "modestack_add_simple(): invalid direction");
 }
 
 static void modestack_add_limit(struct modestackdata *md, int dir, uint32_t limit)
@@ -514,8 +543,10 @@ static void modestack_add_limit(struct modestackdata *md, int dir, uint32_t limi
 			modestack_flush(md);
 		md->limit = limit;
 	}
-	else if (dir = MTYPE_DEL)
+	else if (dir == MTYPE_DEL)
 		md->limit = 0;
+	else
+		slog(LG_ERROR, "modestack_add_limit(): invalid direction");
 	md->limitused = 1;
 }
 
@@ -531,8 +562,10 @@ static void modestack_add_ext(struct modestackdata *md, int dir, int i, const ch
 			modestack_flush(md);
 		strlcpy(md->extmodes[i], value, sizeof md->extmodes[i]);
 	}
-	else if (dir = MTYPE_DEL)
+	else if (dir == MTYPE_DEL)
 		md->extmodes[i][0] = '\0';
+	else
+		slog(LG_ERROR, "modestack_add_ext(): invalid direction");
 	md->extmodesused[i] = 1;
 }
 
@@ -604,6 +637,8 @@ void modestack_mode_simple(char *source, char *channel, int dir, int32_t flags)
 {
 	struct modestackdata *md;
 
+	if (flags == 0)
+		return;
 	md = modestack_init(source, channel);
 	modestack_add_simple(md, dir, flags);
 	if (!md->event)
@@ -645,107 +680,6 @@ void modestack_mode_param(char *source, char *channel, int dir, char type, const
 
 	md = modestack_init(source, channel);
 	modestack_add_param(md, dir, type, value);
-	if (!md->event)
-		md->event = event_add_once("flush_cmode_callback", modestack_flush_callback, md, 0);
-}
-
-#define CMTYPE_UNKNOWN 0
-#define CMTYPE_SIMPLE 1
-#define CMTYPE_LIMIT 2
-#define CMTYPE_EXT 3
-#define CMTYPE_PARAM 4
-
-/* legacy interface, blah */
-void cmode(char *source, ...)
-{
-	va_list va;
-	char *channel, *modes, m, *param;
-	struct modestackdata *md;
-	int dir = MTYPE_NUL;
-	int type = CMTYPE_UNKNOWN;
-	int i = 0;
-	uint32_t flag = 0;
-
-	if (!source)
-	{
-		/* yuck */
-		modestack_flush(&modestackdata);
-		return;
-	}
-	va_start(va, source);
-	channel = va_arg(va, char *);
-	md = modestack_init(source, channel);
-	modes = va_arg(va, char *);
-	slog(LG_DEBUG, "cmode(): %s MODE %s %s", source, channel, modes);
-	while (*modes != '\0')
-	{
-		m = *modes++;
-		if (m == '+')
-		{
-			dir = MTYPE_ADD;
-			continue;
-		}
-		if (m == '-')
-		{
-			dir = MTYPE_DEL;
-			continue;
-		}
-		if (m == 'k' || strchr(ircd->ban_like_modes, m))
-			type = CMTYPE_PARAM;
-		else if (m == 'l')
-			type = CMTYPE_LIMIT;
-		else
-		{
-			for (i = 0; mode_list[i].mode != '\0'; i++)
-			{
-				if (m == mode_list[i].mode)
-					type = CMTYPE_SIMPLE, flag = mode_list[i].value;
-			}
-			for (i = 0; status_mode_list[i].mode != '\0'; i++)
-			{
-				if (m == status_mode_list[i].mode)
-					type = CMTYPE_PARAM;
-			}
-			/* this one must be last */
-			for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
-			{
-				if (m == ignore_mode_list[i].mode)
-				{
-					type = CMTYPE_EXT;
-					break;
-				}
-			}
-		}
-		if (type == CMTYPE_UNKNOWN)
-		{
-			slog(LG_INFO, "cmode(): unknown mode %c", m);
-			continue;
-		}
-		if (type == CMTYPE_PARAM || (dir == MTYPE_ADD && type != CMTYPE_SIMPLE))
-			param = va_arg(va, char *);
-		else
-			param = NULL;
-		switch (type)
-		{
-			case CMTYPE_SIMPLE:
-				modestack_add_simple(md, dir, flag);
-				break;
-			case CMTYPE_LIMIT:
-				modestack_add_limit(md, dir, dir == MTYPE_ADD ? atoi(param) : 0);
-				break;
-			case CMTYPE_EXT:
-				modestack_add_ext(md, dir, i, param);
-				break;
-			case CMTYPE_PARAM:
-				modestack_add_param(md, dir, m, param);
-		}
-	}
-	va_end(va);
-	/*
-	 * We now schedule the stack to occur as soon as we return to io_loop. This makes
-	 * stacking 1:1 transactionally, but really, that's how it should work. Lag is
-	 * bad, people! --nenolod
-	 */
 	if (!md->event)
 		md->event = event_add_once("flush_cmode_callback", modestack_flush_callback, md, 0);
 }
@@ -824,71 +758,6 @@ char *channel_modes(channel_t *c, boolean_t doparams)
 	}
 	strlcpy(p, params, fullmode + sizeof fullmode - p);
 	return fullmode;
-}
-
-/* i'm putting usermode in here too */
-void user_mode(user_t *user, char *modes)
-{
-	int dir = MTYPE_ADD;
-
-	if (!user)
-	{
-		slog(LG_DEBUG, "user_mode(): called for nonexistant user");
-		return;
-	}
-
-	while (*modes != '\0')
-	{
-		switch (*modes)
-		{
-		  case '+':
-			  dir = MTYPE_ADD;
-			  break;
-		  case '-':
-			  dir = MTYPE_DEL;
-			  break;
-		  case 'i':
-			  if (dir == MTYPE_ADD)
-			  {
-				  if (!(user->flags & UF_INVIS))
-				  	user->server->invis++;
-				  user->flags |= UF_INVIS;
-			  }
-			  else if (dir = MTYPE_DEL)
-			  {
-				  if (user->flags & UF_INVIS)
-					  user->server->invis--;
-				  user->flags &= ~UF_INVIS;
-			  }
-			  break;
-		  case 'o':
-			  if (dir == MTYPE_ADD)
-			  {
-				  if (!is_ircop(user))
-				  {
-					  user->flags |= UF_IRCOP;
-					  slog(LG_DEBUG, "user_mode(): %s is now an IRCop", user->nick);
-					  snoop("OPER: %s (%s)", user->nick, user->server->name);
-					  user->server->opers++;
-					  hook_call_event("user_oper", user);
-				  }
-			  }
-			  else if (dir = MTYPE_DEL)
-			  {
-				  if (is_ircop(user))
-				  {
-					  user->flags &= ~UF_IRCOP;
-					  slog(LG_DEBUG, "user_mode(): %s is no longer an IRCop", user->nick);
-					  snoop("DEOPER: %s (%s)", user->nick, user->server->name);
-					  user->server->opers--;
-					  hook_call_event("user_deoper", user);
-				  }
-			  }
-		  default:
-			  break;
-		}
-		modes++;
-	}
 }
 
 void check_modes(mychan_t *mychan, boolean_t sendnow)

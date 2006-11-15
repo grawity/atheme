@@ -3,7 +3,7 @@
  * (C) 2005 Trystan Scott Lee
  * Contact trystan@nomadirc.net
  *
- * Please read COPYING and README for furhter details.
+ * Please read COPYING and README for further details.
  *
  * Based on the original code from Denora
  * 
@@ -398,7 +398,7 @@ char *xmlrpc_write_header(int length)
 	tm = *localtime(&ts);
 	strftime(timebuf, XMLRPC_BUFSIZE - 1, "%Y-%m-%d %H:%M:%S", &tm);
 
-	snprintf(buf, XMLRPC_BUFSIZE, "HTTP/1.1 200 OK\n\rConnection: close\n\r" "Content-Length: %d\n\r" "Content-Type: text/xml\n\r" "Date: %s\n\r" "Server: Atheme %s\r\n\r\n", length, timebuf, version);
+	snprintf(buf, XMLRPC_BUFSIZE, "HTTP/1.1 200 OK\r\nConnection: close\r\n" "Content-Length: %d\r\n" "Content-Type: text/xml\r\n" "Date: %s\r\n" "Server: Atheme/%s\r\n\r\n", length, timebuf, version);
 	return xmlrpc_strdup(buf);
 }
 
@@ -509,7 +509,7 @@ void xmlrpc_generic_error(int code, const char *string)
 	int len;
 
 	snprintf(buf, XMLRPC_BUFSIZE,
-		 "<?xml version=\"1.0\"?>\r\n <methodResponse>\n\r  <fault>\n\r   <value>\n\r    <struct>\n\r     <member>\n\r      <name>faultCode</name>\n\r      <value><int>%d</int></value>\n\r     </member>\n\r     <member>\n\r      <name>faultString</name>\n\r      <value><string>%s</string></value>\n\r     </member>\n\r    </struct>\n\r   </value>\r\n  </fault>\r\n </methodResponse>",
+		 "<?xml version=\"1.0\"?>\r\n<methodResponse>\r\n <fault>\r\n  <value>\r\n   <struct>\r\n    <member>\r\n     <name>faultCode</name>\r\n     <value><int>%d</int></value>\r\n    </member>\r\n    <member>\r\n     <name>faultString</name>\r\n     <value><string>%s</string></value>\r\n    </member>\r\n   </struct>\r\n  </value>\r\n </fault>\r\n</methodResponse>",
 		 code, string);
 	len = strlen(buf);
 
@@ -654,7 +654,7 @@ char *xmlrpc_integer(char *buf, int value)
 
 /*************************************************************************/
 
-char *xmlrpc_string(char *buf, char *value)
+char *xmlrpc_string(char *buf, const char *value)
 {
 	char encoded[XMLRPC_BUFSIZE];
 	*buf = '\0';
@@ -1109,9 +1109,9 @@ int xmlrpc_set_options(int type, const char *value)
 
 /*************************************************************************/
 
-char *xmlrpc_char_encode(char *outbuffer, char *s1)
+char *xmlrpc_char_encode(char *outbuffer, const char *s1)
 {
-	int i;
+	long unsigned int i;
 	unsigned char c;
 	char buf2[15];
 	char buf3[XMLRPC_BUFSIZE];
@@ -1124,12 +1124,12 @@ char *xmlrpc_char_encode(char *outbuffer, char *s1)
 		return (char *)"";
 	}
 
-	for (i = 0; i <= (int)strlen(s1) - 1; i++)
+	for (i = 0; i <= strlen(s1) - 1; i++)
 	{
 		c = s1[i];
 		if (c > 127)
 		{
-			snprintf(buf2, 15, "&#%ld;", (long int)c);
+			snprintf(buf2, 15, "&#%c;", c);
 			if (outbuffer)
 			{
 				snprintf(buf3, XMLRPC_BUFSIZE, "%s%s", outbuffer, buf2);

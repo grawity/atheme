@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService STATUS function.
  *
- * $Id: status.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: status.c 6887 2006-10-22 16:29:18Z jilles $
  */
 
 #include "atheme.h"
@@ -12,26 +12,15 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/status", FALSE, _modinit, _moddeinit,
-	"$Id: status.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: status.c 6887 2006-10-22 16:29:18Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ns_cmd_acc(char *origin);
-static void ns_cmd_status(char *origin);
+static void ns_cmd_acc(sourceinfo_t *si, int parc, char *parv[]);
+static void ns_cmd_status(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_status = {
-	"STATUS",
-	"Displays session information.",
-	AC_NONE,
-	ns_cmd_status
-};
-
-command_t ns_acc = {
-	"ACC",
-	"Displays parsable session information",
-	AC_NONE,
-	ns_cmd_acc
-};
+command_t ns_status = { "STATUS", "Displays session information.", AC_NONE, 0, ns_cmd_status };
+command_t ns_acc = { "ACC", "Displays parsable session information", AC_NONE, 2, ns_cmd_acc };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -41,6 +30,7 @@ void _modinit(module_t *m)
 	MODULE_USE_SYMBOL(ns_helptree, "nickserv/main", "ns_helptree");
 
 	command_add(&ns_acc, ns_cmdtree);
+	help_addentry(ns_helptree, "ACC", "help/nickserv/acc", NULL);
 	command_add(&ns_status, ns_cmdtree);
 	help_addentry(ns_helptree, "STATUS", "help/nickserv/status", NULL);
 }
@@ -48,66 +38,88 @@ void _modinit(module_t *m)
 void _moddeinit()
 {
 	command_delete(&ns_acc, ns_cmdtree);
+	help_delentry(ns_helptree, "ACC");
 	command_delete(&ns_status, ns_cmdtree);
 	help_delentry(ns_helptree, "STATUS");
 }
 
-static void ns_cmd_acc(char *origin)
+static void ns_cmd_acc(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *targ = strtok(NULL, " ");
+	char *targuser = parv[0];
+	char *targaccount = parv[1];
 	user_t *u;
+	myuser_t *mu;
 
-	if (!targ)
-		u = user_find_named(origin);
+	if (!targuser)
+	{
+		u = si->su;
+		targuser = u != NULL ? u->nick : "?";
+	}
 	else
-		u = user_find_named(targ);
+		u = user_find_named(targuser);
 
 	if (!u)
 	{
-		notice(nicksvs.nick, origin, "User not online.");
+		command_fail(si, fault_nosuch_target, "%s%s%s ACC 0 (offline)", targuser, parc >= 2 ? " -> " : "", parc >= 2 ? targaccount : "");
 		return;
 	}
 
-	logcommand(nicksvs.me, user_find_named(origin), CMDLOG_GET, "ACC %s", u->nick);
-
-	if (!u->myuser)
-	{
-		notice(nicksvs.nick, origin, "%s ACC 0", u->nick);
-		return;
-	}
+	if (!targaccount)
+		targaccount = u->nick;
+	if (!strcmp(targaccount, "*"))
+		mu = u->myuser;
 	else
-		notice(nicksvs.nick, origin, "%s ACC 3", u->nick);
+		mu = myuser_find_ext(targaccount);
+
+	if (!mu)
+	{
+		command_fail(si, fault_nosuch_target, "%s%s%s ACC 0 (not registered)", u->nick, parc >= 2 ? " -> " : "", parc >= 2 ? targaccount : "");
+		return;
+	}
+
+	if (u->myuser == mu)
+		command_success_nodata(si, "%s%s%s ACC 3", u->nick, parc >= 2 ? " -> " : "", parc >= 2 ? mu->name : "");
+	else if (!irccasecmp(mu->name, u->nick) && myuser_access_verify(u, mu))
+		command_success_nodata(si, "%s%s%s ACC 2", u->nick, parc >= 2 ? " -> " : "", parc >= 2 ? mu->name : "");
+	else
+		command_success_nodata(si, "%s%s%s ACC 1", u->nick, parc >= 2 ? " -> " : "", parc >= 2 ? mu->name : "");
 }
 
-static void ns_cmd_status(char *origin)
+static void ns_cmd_status(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *u = user_find_named(origin);
+	logcommand(si, CMDLOG_GET, "STATUS");
 
-	logcommand(nicksvs.me, u, CMDLOG_GET, "STATUS");
-
-	if (!u->myuser)
+	if (!si->smu)
+		command_success_nodata(si, "You are not logged in.");
+	else
 	{
-		notice(nicksvs.nick, origin, "You are not logged in.");
-		return;
+		command_success_nodata(si, "You are logged in as \2%s\2.", si->smu->name);
+
+		if (is_soper(si->smu))
+		{
+			operclass_t *operclass;
+
+			operclass = si->smu->soper->operclass;
+			if (operclass == NULL)
+				command_success_nodata(si, "You are a services root administrator.");
+			else
+				command_success_nodata(si, "You are a services operator of class %s.", operclass->name);
+		}
 	}
 
-	notice(nicksvs.nick, origin, "You are logged in as \2%s\2.", u->myuser->name);
-
-	if (is_soper(u->myuser))
+	if (si->su != NULL && (si->smu == NULL || irccasecmp(si->smu->name, si->su->nick)))
 	{
-		operclass_t *operclass;
+		myuser_t *mu;
 
-		operclass = u->myuser->soper->operclass;
-		if (operclass == NULL)
-			notice(nicksvs.nick, origin, "You are a services root administrator.");
-		else
-			notice(nicksvs.nick, origin, "You are a services operator of class %s.", operclass->name);
+		mu = myuser_find(si->su->nick);
+		if (mu != NULL && myuser_access_verify(si->su, mu))
+			command_success_nodata(si, "You are recognized as \2%s\2.", mu->name);
 	}
 
-	if (is_admin(u))
-		notice(nicksvs.nick, origin, "You are a server administrator.");
+	if (si->su != NULL && is_admin(si->su))
+		command_success_nodata(si, "You are a server administrator.");
 
-	if (is_ircop(u))
-		notice(nicksvs.nick, origin, "You are an IRC operator.");
+	if (si->su != NULL && is_ircop(si->su))
+		command_success_nodata(si, "You are an IRC operator.");
 }
 

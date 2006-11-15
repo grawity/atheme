@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService KICK functions.
  *
- * $Id: clear_bans.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: clear_bans.c 6577 2006-09-30 21:17:34Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/clear_bans", FALSE, _modinit, _moddeinit,
-	"$Id: clear_bans.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: clear_bans.c 6577 2006-09-30 21:17:34Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_cmd_clear_bans(char *origin, char *channel);
+static void cs_cmd_clear_bans(sourceinfo_t *si, int parc, char *parv[]);
 
-fcommand_t cs_clear_bans = { "BANS", AC_NONE, cs_cmd_clear_bans };
+command_t cs_clear_bans = { "BANS", "Clears bans or other lists of a channel.",
+	AC_NONE, 2, cs_cmd_clear_bans };
 
 list_t *cs_clear_cmds;
 list_t *cs_helptree;
@@ -28,25 +29,24 @@ void _modinit(module_t *m)
 	MODULE_USE_SYMBOL(cs_clear_cmds, "chanserv/clear", "cs_clear_cmds");
 	MODULE_USE_SYMBOL(cs_helptree, "chanserv/main", "cs_helptree");
 
-	fcommand_add(&cs_clear_bans, cs_clear_cmds);
+	command_add(&cs_clear_bans, cs_clear_cmds);
 	help_addentry(cs_helptree, "CLEAR BANS", "help/cservice/clear_bans", NULL);	
 }
 
 void _moddeinit()
 {
-	fcommand_delete(&cs_clear_bans, cs_clear_cmds);
+	command_delete(&cs_clear_bans, cs_clear_cmds);
 
 	help_delentry(cs_helptree, "CLEAR BANS");
 }
 
-static void cs_cmd_clear_bans(char *origin, char *channel)
+static void cs_cmd_clear_bans(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *u = user_find_named(origin);
 	channel_t *c;
-	mychan_t *mc = mychan_find(channel);
+	mychan_t *mc = mychan_find(parv[0]);
 	chanban_t *cb;
 	node_t *n, *tn;
-	char *item = strtok(NULL, " "), *p;
+	char *item = parv[1], *p;
 	int hits;
 
 	if (item == NULL)
@@ -59,37 +59,37 @@ static void cs_cmd_clear_bans(char *origin, char *channel)
 	{
 		if (!strchr(ircd->ban_like_modes, *p))
 		{
-			notice(chansvs.nick, origin, "Invalid mode; valid ones are %s.", ircd->ban_like_modes);
+			command_fail(si, fault_badparams, "Invalid mode; valid ones are %s.", ircd->ban_like_modes);
 			return;
 		}
 	}
 	if (*item == '\0')
 	{
-		notice(chansvs.nick, origin, "Invalid mode; valid ones are %s.", ircd->ban_like_modes);
+		command_fail(si, fault_badparams, "Invalid mode; valid ones are %s.", ircd->ban_like_modes);
 		return;
 	}
 
-	if (!(c = channel_find(channel)))
+	if (!(c = channel_find(parv[0])))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 does not exist.", channel);
+		command_fail(si, fault_nosuch_target, "\2%s\2 does not exist.", parv[0]);
 		return;
 	}
 
 	if (!mc)
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is not registered.", c->name);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", c->name);
 		return;
 	}
 
-	if (!chanacs_user_has_flag(mc, u, CA_RECOVER))
+	if (!chanacs_source_has_flag(mc, si, CA_RECOVER))
 	{
-		notice(chansvs.nick, origin, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
 		return;
 	}
 	
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		notice(chansvs.nick, origin, "\2%s\2 is closed.", channel);
+		command_fail(si, fault_noprivs, "\2%s\2 is closed.", parv[0]);
 		return;
 	}
 
@@ -104,9 +104,9 @@ static void cs_cmd_clear_bans(char *origin, char *channel)
 		hits++;
 	}
 
-	logcommand(chansvs.me, u, CMDLOG_DO, "%s CLEAR BANS %s",
+	logcommand(si, CMDLOG_DO, "%s CLEAR BANS %s",
 			mc->name, item);
 
-	notice(chansvs.nick, origin, "Cleared %s modes on \2%s\2 (%d removed).",
-			item, channel, hits);
+	command_success_nodata(si, "Cleared %s modes on \2%s\2 (%d removed).",
+			item, parv[0], hits);
 }

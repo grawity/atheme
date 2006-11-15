@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 4559 2006-01-10 12:04:41Z jilles $
+ * $Id: main.c 6657 2006-10-04 21:22:47Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 4559 2006-01-10 12:04:41Z jilles $",
+	"$Id: main.c 6657 2006-10-04 21:22:47Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -22,16 +22,11 @@ list_t ms_cmdtree;
 list_t ms_helptree;
 
 /* main services client routine */
-static void memoserv(char *origin, uint8_t parc, char *parv[])
+static void memoserv(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *cmd, *s;
+	char *cmd;
+        char *text;
 	char orig[BUFSIZE];
-
-	if (!origin)
-	{
-		slog(LG_DEBUG, "services(): recieved a request with no origin!");
-		return;
-	}
 
 	/* this should never happen */
 	if (parv[0][0] == '&')
@@ -45,49 +40,18 @@ static void memoserv(char *origin, uint8_t parc, char *parv[])
 
 	/* lets go through this to get the command */
 	cmd = strtok(parv[parc - 1], " ");
+	text = strtok(NULL, "");
 
 	if (!cmd)
 		return;
-
-	/* ctcp? case-sensitive as per rfc */
-	if (!strcmp(cmd, "\001PING"))
+	if (*cmd == '\001')
 	{
-		if (!(s = strtok(NULL, " ")))
-			s = " 0 ";
-
-		strip(s);
-		notice(memosvs.nick, origin, "\001PING %s\001", s);
+		handle_ctcp_common(cmd, text, si->su->nick, memosvs.nick);
 		return;
 	}
-	else if (!strcmp(cmd, "\001VERSION\001"))
-	{
-		notice(memosvs.nick, origin,
-		       "\001VERSION atheme-%s. %s %s %s%s%s%s%s%s%s%s%s TS5ow\001",
-		       version, revision, me.name,
-		       (match_mapping) ? "A" : "",
-		       (me.loglevel & LG_DEBUG) ? "d" : "",
-		       (me.auth) ? "e" : "",
-		       (config_options.flood_msgs) ? "F" : "",
-		       (config_options.leave_chans) ? "l" : "", 
-		       (config_options.join_chans) ? "j" : "", 
-		       (!match_mapping) ? "R" : "", 
-		       (config_options.raw) ? "r" : "", 
-		       (runflags & RF_LIVE) ? "n" : "");
-
-		return;
-	}
-	else if (!strcmp(cmd, "\001KOG\001"))
-	{
-		notice(memosvs.nick,origin,
-			"\001KOG Take me to your leader \001");
-	}
-
-	/* ctcps we don't care about are ignored */
-	else if (*cmd == '\001')
-		return;
 
 	/* take the command through the hash table */
-	command_exec(memosvs.me, origin, cmd, &ms_cmdtree);
+	command_exec_split(si->service, si, cmd, text, &ms_cmdtree);
 }
 
 static void memoserv_config_ready(void *unused)
@@ -96,7 +60,8 @@ static void memoserv_config_ready(void *unused)
 		del_service(memosvs.me);
 
 	memosvs.me = add_service(memosvs.nick, memosvs.user,
-				 memosvs.host, memosvs.real, memoserv);
+				 memosvs.host, memosvs.real,
+				 memoserv, &ms_cmdtree);
 	memosvs.disp = memosvs.me->disp;
 
         hook_del_hook("config_ready", memoserv_config_ready);
@@ -113,7 +78,7 @@ void _modinit(module_t *m)
         if (!cold_start)
         {
                 memosvs.me = add_service(memosvs.nick, memosvs.user,
-			memosvs.host, memosvs.real, memoserv);
+			memosvs.host, memosvs.real, memoserv, &ms_cmdtree);
                 memosvs.disp = memosvs.me->disp;
         }
 }

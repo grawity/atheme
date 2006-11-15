@@ -1,27 +1,38 @@
 /*
- * Copyright (c) 2005 William Pitcock, et al.
+ * Copyright (c) 2005-2006 William Pitcock, et al.
  * Rights to this code are as documented in doc/LICENSE.
  *
- * This file contains code for the NickServ IDENTIFY function.
+ * This file contains code for the NickServ IDENTIFY and LOGIN functions.
  *
- * $Id: identify.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: identify.c 6643 2006-10-02 15:54:30Z jilles $
  */
 
 #include "atheme.h"
 
+/* Check whether we are compiling IDENTIFY or LOGIN */
+#ifdef NICKSERV_LOGIN
+#define COMMAND_UC "LOGIN"
+#define COMMAND_LC "login"
+#else
+#define COMMAND_UC "IDENTIFY"
+#define COMMAND_LC "identify"
+#endif
+
 DECLARE_MODULE_V1
 (
-	"nickserv/identify", FALSE, _modinit, _moddeinit,
-	"$Id: identify.c 5686 2006-07-03 16:25:03Z jilles $",
+	"nickserv/" COMMAND_LC, FALSE, _modinit, _moddeinit,
+	"$Id: identify.c 6643 2006-10-02 15:54:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ns_cmd_identify(char *origin);
+static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_identify = { "IDENTIFY", "Identifies to services for a nickname.",
-				AC_NONE, ns_cmd_identify };
-command_t ns_id = { "ID", "Alias for IDENTIFY",
-				AC_NONE, ns_cmd_identify };
+#ifdef NICKSERV_LOGIN
+command_t ns_login = { "LOGIN", "Authenticates to a services account.", AC_NONE, 2, ns_cmd_login };
+#else
+command_t ns_identify = { "IDENTIFY", "Identifies to services for a nickname.", AC_NONE, 2, ns_cmd_login };
+command_t ns_id = { "ID", "Alias for IDENTIFY", AC_NONE, 2, ns_cmd_login };
+#endif
 
 list_t *ns_cmdtree, *ns_helptree, *ms_cmdtree;
 
@@ -30,46 +41,62 @@ void _modinit(module_t *m)
 	MODULE_USE_SYMBOL(ns_cmdtree, "nickserv/main", "ns_cmdtree");
 	MODULE_USE_SYMBOL(ns_helptree, "nickserv/main", "ns_helptree");
 
+#ifdef NICKSERV_LOGIN
+	command_add(&ns_login, ns_cmdtree);
+	help_addentry(ns_helptree, "LOGIN", "help/nickserv/login", NULL);
+#else
 	command_add(&ns_identify, ns_cmdtree);
 	command_add(&ns_id, ns_cmdtree);
 	help_addentry(ns_helptree, "IDENTIFY", "help/nickserv/identify", NULL);
 	help_addentry(ns_helptree, "ID", "help/nickserv/identify", NULL);
+#endif
 }
 
 void _moddeinit()
 {
+#ifdef NICKSERV_LOGIN
+	command_delete(&ns_login, ns_cmdtree);
+	help_delentry(ns_helptree, "LOGIN");
+#else
 	command_delete(&ns_identify, ns_cmdtree);
 	command_delete(&ns_id, ns_cmdtree);
 	help_delentry(ns_helptree, "IDENTIFY");
 	help_delentry(ns_helptree, "ID");
+#endif
 }
 
-static void ns_cmd_identify(char *origin)
+static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 {
-	user_t *u = user_find_named(origin);
+	user_t *u = si->su;
 	myuser_t *mu;
 	chanuser_t *cu;
 	chanacs_t *ca;
 	node_t *n, *tn;
-	metadata_t *md;
-
-	char *target = strtok(NULL, " ");
-	char *password = strtok(NULL, " ");
+	char *target = parv[0];
+	char *password = parv[1];
 	char buf[BUFSIZE], strfbuf[32];
 	char lau[BUFSIZE], lao[BUFSIZE];
 	struct tm tm;
 	metadata_t *md_failnum;
 
-	if (target && !password)
+	if (si->su == NULL)
 	{
-		password = target;
-		target = origin;
+		command_fail(si, fault_noprivs, "\2%s\2 can only be executed via IRC.", COMMAND_UC);
+		return;
 	}
 
-	if (!target && !password)
+#ifndef NICKSERV_LOGIN
+	if (!nicksvs.no_nick_ownership && target && !password)
 	{
-		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "IDENTIFY");
-		notice(nicksvs.nick, origin, "Syntax: IDENTIFY [nick] <password>");
+		password = target;
+		target = si->su->nick;
+	}
+#endif
+
+	if (!target || !password)
+	{
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, COMMAND_UC);
+		command_fail(si, fault_needmoreparams, nicksvs.no_nick_ownership ? "Syntax: " COMMAND_UC " <account> <password>" : "Syntax: " COMMAND_UC " [nick] <password>");
 		return;
 	}
 
@@ -77,20 +104,20 @@ static void ns_cmd_identify(char *origin)
 
 	if (!mu)
 	{
-		notice(nicksvs.nick, origin, "\2%s\2 is not a registered nickname.", target);
+		command_fail(si, fault_nosuch_target, "\2%s\2 is not a registered nickname.", target);
 		return;
 	}
 
-	if (md = metadata_find(mu, METADATA_USER, "private:freeze:freezer"))
+	if (metadata_find(mu, METADATA_USER, "private:freeze:freezer"))
 	{
-		notice(nicksvs.nick, origin, "You cannot identify to \2%s\2 because the nickname has been frozen.", mu->name);
-		logcommand(nicksvs.me, u, CMDLOG_LOGIN, "failed IDENTIFY to %s (frozen)", mu->name);
+		command_fail(si, fault_authfail, nicksvs.no_nick_ownership ? "You cannot login as \2%s\2 because the account has been frozen." : "You cannot identify to \2%s\2 because the nickname has been frozen.", mu->name);
+		logcommand(si, CMDLOG_LOGIN, "failed " COMMAND_UC " to %s (frozen)", mu->name);
 		return;
 	}
 
 	if (u->myuser == mu)
 	{
-		notice(nicksvs.nick, origin, "You are already logged in as \2%s\2.", mu->name);
+		command_fail(si, fault_authfail, "You are already logged in as \2%s\2.", mu->name);
 		return;
 	}
 	else if (u->myuser != NULL && ircd_on_logout(u->nick, u->myuser->name, NULL))
@@ -104,8 +131,8 @@ static void ns_cmd_identify(char *origin)
 	{
 		if (LIST_LENGTH(&mu->logins) >= me.maxlogins)
 		{
-			notice(nicksvs.nick, origin, "There are already \2%d\2 sessions logged in to \2%s\2 (maximum allowed: %d).", LIST_LENGTH(&mu->logins), mu->name, me.maxlogins);
-			logcommand(nicksvs.me, u, CMDLOG_LOGIN, "failed IDENTIFY to %s (too many logins)", mu->name);
+			command_fail(si, fault_toomany, "There are already \2%d\2 sessions logged in to \2%s\2 (maximum allowed: %d).", LIST_LENGTH(&mu->logins), mu->name, me.maxlogins);
+			logcommand(si, CMDLOG_LOGIN, "failed " COMMAND_UC " to %s (too many logins)", mu->name);
 			return;
 		}
 
@@ -148,9 +175,9 @@ static void ns_cmd_identify(char *origin)
 		strlcat(lao, u->host, BUFSIZE);
 		metadata_add(mu, METADATA_USER, "private:host:actual", lao);
 
-		logcommand(nicksvs.me, u, CMDLOG_LOGIN, "IDENTIFY");
+		logcommand(si, CMDLOG_LOGIN, COMMAND_UC);
 
-		notice(nicksvs.nick, origin, "You are now identified for \2%s\2.", u->myuser->name);
+		command_success_nodata(si, nicksvs.no_nick_ownership ? "You are now logged in as \2%s\2." : "You are now identified for \2%s\2.", u->myuser->name);
 
 		/* check for failed attempts and let them know */
 		if (md_failnum && (atoi(md_failnum->value) > 0))
@@ -161,7 +188,7 @@ static void ns_cmd_identify(char *origin)
 			tm = *localtime(&mu->lastlogin);
 			strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &tm);
 
-			notice(nicksvs.nick, origin, "\2%d\2 failed %s since %s.",
+			command_success_nodata(si, "\2%d\2 failed %s since %s.",
 				atoi(md_failnum->value), (atoi(md_failnum->value) == 1) ? "login" : "logins", strfbuf);
 
 			md_failtime = metadata_find(mu, METADATA_USER, "private:loginfail:lastfailtime");
@@ -171,7 +198,7 @@ static void ns_cmd_identify(char *origin)
 			tm = *localtime(&ts);
 			strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &tm);
 
-			notice(nicksvs.nick, origin, "Last failed attempt from: \2%s\2 on %s.",
+			command_success_nodata(si, "Last failed attempt from: \2%s\2 on %s.",
 				md_failaddr->value, strfbuf);
 
 			metadata_delete(mu, METADATA_USER, "private:loginfail:failnum");	/* md_failnum now invalid */
@@ -180,6 +207,14 @@ static void ns_cmd_identify(char *origin)
 		}
 
 		mu->lastlogin = CURRTIME;
+
+		/* XXX: ircd_on_login supports hostmasking, we just dont have it yet. */
+		/* don't allow them to join regonly chans until their
+		 * email is verified */
+		if (!(mu->flags & MU_WAITAUTH))
+			ircd_on_login(si->su->nick, mu->name, NULL);
+
+		hook_call_event("user_identify", u);
 
 		/* now we get to check for xOP */
 		/* we don't check for host access yet (could match different
@@ -200,8 +235,8 @@ static void ns_cmd_identify(char *origin)
 						if (!config_options.join_chans)
 							join(cu->chan->name, chansvs.nick);
 					}
-					ban(chansvs.nick, ca->mychan->name, u);
-					remove_ban_exceptions(chansvs.me->me, channel_find(ca->mychan->name), u);
+					ban(chansvs.me->me, ca->mychan->chan, u);
+					remove_ban_exceptions(chansvs.me->me, ca->mychan->chan, u);
 					kick(chansvs.nick, ca->mychan->name, u->nick, "User is banned from this channel");
 					continue;
 				}
@@ -244,20 +279,12 @@ static void ns_cmd_identify(char *origin)
 			}
 		}
 
-		/* XXX: ircd_on_login supports hostmasking, we just dont have it yet. */
-		/* don't allow them to join regonly chans until their
-		 * email is verified */
-		if (!(mu->flags & MU_WAITAUTH))
-			ircd_on_login(origin, mu->name, NULL);
-
-		hook_call_event("user_identify", u);
-
 		return;
 	}
 
-	logcommand(nicksvs.me, u, CMDLOG_LOGIN, "failed IDENTIFY to %s (bad password)", mu->name);
+	logcommand(si, CMDLOG_LOGIN, "failed " COMMAND_UC " to %s (bad password)", mu->name);
 
-	notice(nicksvs.nick, origin, "Invalid password for \2%s\2.", mu->name);
+	command_fail(si, fault_authfail, "Invalid password for \2%s\2.", mu->name);
 
 	/* record the failed attempts */
 	/* note that we reuse this buffer later when warning opers about failed logins */

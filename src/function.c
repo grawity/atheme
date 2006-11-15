@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains misc routines.
  *
- * $Id: function.c 5756 2006-07-06 19:54:45Z jilles $
+ * $Id: function.c 7105 2006-11-06 11:40:20Z jilles $
  */
 
 #include "atheme.h"
@@ -133,8 +133,21 @@ void slog(uint32_t level, const char *fmt, ...)
 	va_end(args);
 }
 
-/* svs is really service_t * but that's not available in extern.h */
-void logcommand(void *svs, user_t *source, int level, const char *fmt, ...)
+void logcommand(sourceinfo_t *si, int level, const char *fmt, ...)
+{
+	va_list args;
+	char lbuf[BUFSIZE];
+
+	va_start(args, fmt);
+	vsnprintf(lbuf, BUFSIZE, fmt, args);
+	va_end(args);
+	if (si->su != NULL)
+		logcommand_user(si->service, si->su, level, "%s", lbuf);
+	else
+		logcommand_external(si->service, si->v != NULL ? si->v->description : "unknown", si->connection, si->sourcedesc, si->smu, level, "%s", lbuf);
+}
+
+void logcommand_user(service_t *svs, user_t *source, int level, const char *fmt, ...)
 {
 	va_list args;
 	time_t t;
@@ -159,7 +172,7 @@ void logcommand(void *svs, user_t *source, int level, const char *fmt, ...)
 	{
 		fprintf(log_file, "%s %s %s:%s!%s@%s[%s] %s\n",
 				datetime,
-				svs != NULL ? ((service_t *)svs)->name : me.name,
+				svs != NULL ? svs->name : me.name,
 				source->myuser != NULL ? source->myuser->name : "",
 				source->nick, source->user, source->vhost,
 				source->ip[0] != '\0' ? source->ip : source->host,
@@ -176,7 +189,7 @@ void logcommand(void *svs, user_t *source, int level, const char *fmt, ...)
 	va_end(args);
 }
 
-void logcommand_external(void *svs, char *type, connection_t *source, myuser_t *login, int level, const char *fmt, ...)
+void logcommand_external(service_t *svs, const char *type, connection_t *source,const char *sourcedesc, myuser_t *login, int level, const char *fmt, ...)
 {
 	va_list args;
 	time_t t;
@@ -199,11 +212,13 @@ void logcommand_external(void *svs, char *type, connection_t *source, myuser_t *
 
 	if (log_file)
 	{
-		fprintf(log_file, "%s %s %s:%s[%s] %s\n",
+		fprintf(log_file, "%s %s %s:%s(%s)[%s] %s\n",
 				datetime,
-				svs != NULL ? ((service_t *)svs)->name : me.name,
+				svs != NULL ? svs->name : me.name,
 				login != NULL ? login->name : "",
-				type, source->hbuf,
+				type,
+				source != NULL ? source->hbuf : "<noconn>",
+				sourcedesc != NULL ? sourcedesc : "<unknown>",
 				lbuf);
 
 		fflush(log_file);
@@ -217,85 +232,6 @@ void logcommand_external(void *svs, char *type, connection_t *source, myuser_t *
 	va_end(args);
 }
 
-/* return the current time in milliseconds */
-uint32_t time_msec(void)
-{
-#ifdef HAVE_GETTIMEOFDAY
-	struct timeval tv;
-
-	gettimeofday(&tv, NULL);
-	return tv.tv_sec * 1000 + tv.tv_usec / 1000;
-#else
-	return CURRTIME * 1000;
-#endif
-}
-
-/*
- * regex_compile()
- *  Compile a regex of `pattern' and return it.
- */
-regex_t *regex_create(char *pattern)
-{
-	static char errmsg[BUFSIZE];
-	int errnum;
-	regex_t *preg;
-	
-	if (pattern == NULL)
-	{
-		return NULL;
-	}
-	
-	preg = (regex_t *)malloc(sizeof(regex_t));
-	errnum = regcomp(preg, pattern, REG_ICASE | REG_EXTENDED);
-	
-	if (errnum != 0)
-	{
-		regerror(errnum, preg, errmsg, BUFSIZE);
-		slog(LG_ERROR, "regex_match(): %s\n", errmsg);
-		regfree(preg);
-		free(preg);
-		return NULL;
-	}
-	
-	return preg;
-}
-
-/*
- * regex_match()
- *  Internal wrapper API for POSIX-based regex matching.
- *  `preg' is the regex to check with, `string' needs to be checked against.
- *  Returns `true' on match, `false' else.
- */
-boolean_t regex_match(regex_t *preg, char *string)
-{
-	boolean_t retval;
-	
-	if (preg == NULL || string == NULL)
-	{
-		slog(LG_ERROR, "regex_match(): we were given NULL string or pattern, bad!");
-		return FALSE;
-	}
-
-	/* match it */
-	if (regexec(preg, string, 0, NULL, 0) == 0)
-		retval = TRUE;
-	else
-		retval = FALSE;
-	
-	return retval;
-}
-
-/*
- * regex_destroy()
- *  Perform cleanup with regex `preg', free associated memory.
- */
-boolean_t regex_destroy(regex_t *preg)
-{
-	regfree(preg);
-	free(preg);
-	return TRUE;
-}
-
 /*
  * This generates a hash value, based on chongo's hash algo,
  * located at http://www.isthe.com/chongo/tech/comp/fnv/
@@ -307,11 +243,6 @@ boolean_t regex_destroy(regex_t *preg)
 uint32_t shash(const unsigned char *p)
 {
 	unsigned int hval = HASHINIT;
-
-#ifndef _WIN32
-	if (!strstr(me.execname, "atheme"))
-		return (rand() % HASHSIZE);
-#endif
 
 	if (!p)
 		return (0);
@@ -374,32 +305,6 @@ char *r_itoa(int num)
 }
 #endif
 
-/* convert mode flags to a text mode string */
-char *flags_to_string(int32_t flags)
-{
-	static char buf[32];
-	char *s = buf;
-	int i;
-
-	for (i = 0; mode_list[i].mode != 0; i++)
-		if (flags & mode_list[i].value)
-			*s++ = mode_list[i].mode;
-
-	*s = 0;
-
-	return buf;
-}
-
-/* convert a mode character to a flag. */
-int32_t mode_to_flag(char c)
-{
-	int i;
-
-	for (i = 0; mode_list[i].mode != 0 && mode_list[i].mode != c; i++);
-
-	return mode_list[i].value;
-}
-
 /* return the time elapsed since an event */
 char *time_ago(time_t event)
 {
@@ -457,17 +362,17 @@ char *time_ago(time_t event)
 char *timediff(time_t seconds)
 {
 	static char buf[BUFSIZE];
-	int days, hours, minutes;
+	long unsigned days, hours, minutes;
 
-	days = (int)(seconds / 86400);
+	days = seconds / 86400;
 	seconds %= 86400;
-	hours = (int)(seconds / 3600);
+	hours = seconds / 3600;
 	hours %= 3600;
-	minutes = (int)(seconds / 60);
+	minutes = seconds / 60;
 	minutes %= 60;
 	seconds %= 60;
 
-	snprintf(buf, sizeof(buf), "%d day%s, %d:%02d:%02lu", days, (days == 1) ? "" : "s", hours, minutes, (unsigned long)seconds);
+	snprintf(buf, sizeof(buf), "%lu day%s, %lu:%02lu:%02lu", days, (days == 1) ? "" : "s", hours, minutes, (long unsigned) seconds);
 
 	return buf;
 }
@@ -531,12 +436,18 @@ int validemail(char *email)
 
 boolean_t validhostmask(char *host)
 {
+	if (strchr(host, ' '))
+		return FALSE;
+
 	/* make sure it has ! and @ */
 	if (!strchr(host, '!') || !strchr(host, '@'))
 		return FALSE;
 
 	/* XXX this NICKLEN is too long */
 	if (strlen(host) > NICKLEN + USERLEN + HOSTLEN + 1)
+		return FALSE;
+
+	if (host[0] == ',' || host[0] == '-' || host[0] == '#' || host[0] == '@' || host[0] == '!')
 		return FALSE;
 
 	return TRUE;
@@ -552,9 +463,9 @@ boolean_t validhostmask(char *host)
  *
  * u is whoever caused this to be called, the corresponding service
  *   in case of xmlrpc
- * type is EMAIL_*, see include/atheme.h
+ * type is EMAIL_*, see include/tools.h
  * mu is the recipient user
- * param depends on type, also see include/atheme.h
+ * param depends on type, also see include/tools.h
  *
  * XXX -- sendemail() is broken on Windows.
  */
@@ -639,10 +550,10 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 	strlcpy(subject, me.netname, sizeof subject);
 	strlcat(subject, " ", sizeof subject);
 	if (type == EMAIL_REGISTER)
-		if (nicksvs.nick)
-			strlcat(subject, "Nickname Registration", sizeof subject);
-		else
+		if (nicksvs.no_nick_ownership)
 			strlcat(subject, "Account Registration", sizeof subject);
+		else
+			strlcat(subject, "Nickname Registration", sizeof subject);
 	else if (type == EMAIL_SENDPASS)
 		strlcat(subject, "Password Retrieval", sizeof subject);
 	else if (type == EMAIL_SETEMAIL)
@@ -687,7 +598,7 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 	if (type == EMAIL_REGISTER)
 	{
 		fprintf(out, "In order to complete your registration, you must send the following\ncommand on IRC:\n");
-		fprintf(out, "/MSG %s VERIFY REGISTER %s %s\n\n", (nicksvs.nick ? nicksvs.nick : usersvs.nick), mu->name, param);
+		fprintf(out, "/MSG %s VERIFY REGISTER %s %s\n\n", nicksvs.nick, mu->name, param);
 		fprintf(out, "Thank you for registering your %s on the %s IRC " "network!\n\n",
 				(nicksvs.nick ? "nickname" : "account"), me.netname);
 	}
@@ -699,7 +610,7 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 	else if (type == EMAIL_SETEMAIL)
 	{
 		fprintf(out, "In order to complete your email change, you must send\n" "the following command on IRC:\n");
-		fprintf(out, "/MSG %s VERIFY EMAILCHG %s %s\n\n", (nicksvs.nick ? nicksvs.nick : usersvs.nick), mu->name, param);
+		fprintf(out, "/MSG %s VERIFY EMAILCHG %s %s\n\n", nicksvs.nick, mu->name, param);
 	}
 	if (type == EMAIL_MEMO)
 	{
@@ -742,19 +653,6 @@ boolean_t is_founder(mychan_t *mychan, myuser_t *myuser)
 	return FALSE;
 }
 
-boolean_t is_xop(mychan_t *mychan, myuser_t *myuser, uint32_t level)
-{
-	chanacs_t *ca;
-
-	if (!myuser)
-		return FALSE;
-
-	if ((ca = chanacs_find(mychan, myuser, level)))
-		return TRUE;
-
-	return FALSE;
-}
-
 boolean_t should_owner(mychan_t *mychan, myuser_t *myuser)
 {
 	if (!myuser)
@@ -783,7 +681,7 @@ boolean_t should_protect(mychan_t *mychan, myuser_t *myuser)
 	if (MU_NOOP & myuser->flags)
 		return FALSE;
 
-	if (is_xop(mychan, myuser, CA_SET))
+	if (chanacs_find(mychan, myuser, CA_SET))
 		return TRUE;
 
 	return FALSE;
@@ -849,28 +747,6 @@ boolean_t verify_password(myuser_t *mu, char *password)
 		}
 	else
 		return (strcmp(mu->pass, password) == 0);
-}
-
-/* stolen from Sentinel */
-int token_to_value(struct Token token_table[], char *token)
-{
-	int i;
-
-	if ((token_table != NULL) && (token != NULL))
-	{
-		for (i = 0; token_table[i].text != NULL; i++)
-		{
-			if (strcasecmp(token_table[i].text, token) == 0)
-			{
-				return token_table[i].value;
-			}
-		}
-		/* If no match... */
-		return TOKEN_UNMATCHED;
-	}
-
-	/* Otherwise... */
-	return TOKEN_ERROR;
 }
 
 char *sbytes(float x)

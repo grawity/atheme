@@ -5,7 +5,7 @@
  * This file contains code for the NickServ LIST function.
  * Based on Alex Lambert's LISTEMAIL.
  *
- * $Id: list.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: list.c 6631 2006-10-02 10:24:13Z jilles $
  */
 
 #include "atheme.h"
@@ -13,13 +13,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/list", FALSE, _modinit, _moddeinit,
-	"$Id: list.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: list.c 6631 2006-10-02 10:24:13Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void ns_cmd_list(char *origin);
+static void ns_cmd_list(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_list = { "LIST", "Lists nicknames registered matching a given pattern.", PRIV_USER_AUSPEX, ns_cmd_list };
+command_t ns_list = { "LIST", "Lists nicknames registered matching a given pattern.", PRIV_USER_AUSPEX, 1, ns_cmd_list };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -38,64 +38,65 @@ void _moddeinit()
 	help_delentry(ns_helptree, "LIST");
 }
 
-static void ns_cmd_list(char *origin)
+struct list_state
 {
-	user_t *u = user_find_named(origin);
-	myuser_t *mu;
-	node_t *n;
-	char *nickpattern = strtok(NULL, " ");
-	char buf[BUFSIZE];
-	uint32_t i;
-	uint32_t matches = 0;
+	sourceinfo_t *origin;
+	char *pattern;
+	int matches;
+};
 
-	if (u == NULL)
-		return;
+static int list_foreach_cb(dictionary_elem_t *delem, void *privdata)
+{
+	struct list_state *state = (struct list_state *) privdata;
+	myuser_t *mu = (myuser_t *) delem->node.data;
+	char buf[BUFSIZE];
+
+	if (!match(state->pattern, mu->name))
+	{
+		/* in the future we could add a LIMIT parameter */
+		*buf = '\0';
+
+		if (metadata_find(mu, METADATA_USER, "private:freeze:freezer")) {
+			if (*buf)
+				strlcat(buf, " ", BUFSIZE);
+
+			strlcat(buf, "\2[frozen]\2", BUFSIZE);
+		}
+		if (metadata_find(mu, METADATA_USER, "private:mark:setter")) {
+			if (*buf)
+				strlcat(buf, " ", BUFSIZE);
+
+			strlcat(buf, "\2[marked]\2", BUFSIZE);
+		}
+
+		command_success_nodata(state->origin, "- %s (%s) %s", mu->name, mu->email, buf);
+		state->matches++;
+	}
+	return 0;
+}
+
+static void ns_cmd_list(sourceinfo_t *si, int parc, char *parv[])
+{
+	char *nickpattern = parv[0];
+	struct list_state state;
 
 	if (!nickpattern)
 	{
-		notice(nicksvs.nick, origin, STR_INSUFFICIENT_PARAMS, "LIST");
-		notice(nicksvs.nick, origin, "Syntax: LIST <nickname pattern>");
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "LIST");
+		command_fail(si, fault_needmoreparams, "Syntax: LIST <pattern>");
 		return;
 	}
 
-	wallops("\2%s\2 is searching the nickname database for nicknames matching \2%s\2", origin, nickpattern);
-	notice(nicksvs.nick, origin, "Nicknames matching pattern \2%s\2:", nickpattern);
+	snoop("LIST:ACCOUNTS: \2%s\2 by \2%s\2", nickpattern, get_oper_name(si));
 
+	state.origin = si;
+	state.pattern = nickpattern;
+	state.matches = 0;
+	dictionary_foreach(mulist, list_foreach_cb, &state);
 
-	for (i = 0; i < HASHSIZE; i++)
-	{
-		LIST_FOREACH(n, mulist[i].head)
-		{
-			mu = (myuser_t *)n->data;
-
-
-			if (!match(nickpattern, mu->name))
-			{
-				/* in the future we could add a LIMIT parameter */
-				*buf = '\0';
-
-				if (metadata_find(mu, METADATA_USER, "private:freeze:freezer")) {
-					if (*buf)
-						strlcat(buf, " ", BUFSIZE);
-
-					strlcat(buf, "\2[frozen]\2", BUFSIZE);
-				}
-				if (metadata_find(mu, METADATA_USER, "private:mark:setter")) {
-					if (*buf)
-						strlcat(buf, " ", BUFSIZE);
-
-					strlcat(buf, "\2[marked]\2", BUFSIZE);
-				}
-				
-					notice(nicksvs.nick, origin, "- %s (%s) %s", mu->name, mu->email, buf);
-					matches++;
-			}
-		}
-	}
-
-	logcommand(nicksvs.me, u, CMDLOG_ADMIN, "LIST %s (%d matches)", nickpattern, matches);
-	if (matches == 0)
-		notice(nicksvs.nick, origin, "No nicknames matched pattern \2%s\2", nickpattern);
+	logcommand(si, CMDLOG_ADMIN, "LIST %s (%d matches)", nickpattern, state.matches);
+	if (state.matches == 0)
+		command_success_nodata(si, "No nicknames matched pattern \2%s\2", nickpattern);
 	else
-		notice(nicksvs.nick, origin, "\2%d\2 match%s for pattern \2%s\2", matches, matches != 1 ? "es" : "", nickpattern);
+		command_success_nodata(si, "\2%d\2 match%s for pattern \2%s\2", state.matches, state.matches != 1 ? "es" : "", nickpattern);
 }

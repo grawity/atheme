@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2003-2004 E. Will et al.
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains functionality which implements the OService REHASH command.
  *
- * $Id: rehash.c 5686 2006-07-03 16:25:03Z jilles $
+ * $Id: rehash.c 6927 2006-10-24 15:22:05Z jilles $
  */
 
 #include "atheme.h"
@@ -12,14 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/rehash", FALSE, _modinit, _moddeinit,
-	"$Id: rehash.c 5686 2006-07-03 16:25:03Z jilles $",
+	"$Id: rehash.c 6927 2006-10-24 15:22:05Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void os_cmd_rehash(char *origin);
+static void os_cmd_rehash(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_rehash = { "REHASH", "Reload the configuration data.",
-                        PRIV_ADMIN, os_cmd_rehash };
+command_t os_rehash = { "REHASH", "Reload the configuration data.", PRIV_ADMIN, 0, os_cmd_rehash };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -40,19 +39,19 @@ void _moddeinit()
 }
 
 /* REHASH */
-void os_cmd_rehash(char *origin)
+void os_cmd_rehash(sourceinfo_t *si, int parc, char *parv[])
 {
-	snoop("UPDATE: \2%s\2", origin);
-	wallops("Updating database by request of \2%s\2.", origin);
+	snoop("UPDATE: \2%s\2", get_oper_name(si));
+	wallops("Updating database by request of \2%s\2.", get_oper_name(si));
 	expire_check(NULL);
 	db_save(NULL);
 
-	snoop("REHASH: \2%s\2", origin);
-	logcommand(opersvs.me, user_find_named(origin), CMDLOG_ADMIN, "REHASH");
-	wallops("Rehashing \2%s\2 by request of \2%s\2.", config_file, origin);
+	snoop("REHASH: \2%s\2", get_oper_name(si));
+	logcommand(si, CMDLOG_ADMIN, "REHASH");
+	wallops("Rehashing \2%s\2 by request of \2%s\2.", config_file, get_oper_name(si));
 
-	if (!conf_rehash())
-	{
-		notice(opersvs.nick, origin, "REHASH of \2%s\2 failed. Please corrrect any errors in the " "file and try again.", config_file);
-	}
+	if (conf_rehash())
+		command_success_nodata(si, "REHASH completed.");
+	else
+		command_fail(si, fault_nosuch_target, "REHASH of \2%s\2 failed. Please corrrect any errors in the file and try again.", config_file);
 }

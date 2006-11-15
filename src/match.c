@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  *
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains customized casemapping functions.
  * This code was mostly lifted from ircd 2.10.
  *
- * $Id: match.c 3347 2005-10-31 04:04:34Z nenolod $
+ * $Id: match.c 6931 2006-10-24 16:53:07Z jilles $
  */
 
 #include "atheme.h"
@@ -122,10 +122,10 @@ void set_match_mapping(int type)
 ** Written by Douglas A Lewis (dalewis@acsu.buffalo.edu)
 */
 
-int match(char *mask, char *name)
+int match(const char *mask, const char *name)
 {
-	u_char *m = (u_char *)mask, *n = (u_char *)name;
-	char *ma = mask, *na = name;
+	const u_char *m = (const u_char *)mask, *n = (const u_char *)name;
+	const char *ma = mask, *na = name;
 	int wild = 0, q = 0, calls = 0;
 
 	if (!mask || !name)
@@ -147,22 +147,22 @@ int match(char *mask, char *name)
 			while (*m == '*')
 				m++;
 			wild = 1;
-			ma = (char *)m;
-			na = (char *)n;
+			ma = (const char *)m;
+			na = (const char *)n;
 		}
 
 		if (!*m)
 		{
 			if (!*n)
 				return 0;
-			for (m--; (m > (u_char *) mask) && (*m == '?' || *m == '&' || *m == '#'); m--)
+			for (m--; (m > (const u_char *) mask) && (*m == '?' || *m == '&' || *m == '#'); m--)
 				;
-			if ((m > (u_char *) mask) && (*m == '*') && (m[-1] != '\\'))
+			if ((m > (const u_char *) mask) && (*m == '*') && (m[-1] != '\\'))
 				return 0;
 			if (!wild)
 				return 1;
-			m = (u_char *) ma;
-			n = (u_char *)++ na;
+			m = (const u_char *) ma;
+			n = (const u_char *)++ na;
 		}
 		else if (!*n)
 			return 1;
@@ -178,8 +178,8 @@ int match(char *mask, char *name)
 		{
 			if (!wild)
 				return 1;
-			m = (u_char *) ma;
-			n = (u_char *)++ na;
+			m = (const u_char *) ma;
+			n = (const u_char *)++ na;
 		}
 		else
 		{
@@ -578,3 +578,103 @@ const unsigned int charattrs[] = {
 	/* 0xFE */ 0,
 	/* 0xFF */ 0,
 };
+
+/*
+ * regex_compile()
+ *  Compile a regex of `pattern' and return it.
+ */
+regex_t *regex_create(char *pattern, int flags)
+{
+	static char errmsg[BUFSIZE];
+	int errnum;
+	regex_t *preg;
+	
+	if (pattern == NULL)
+	{
+		return NULL;
+	}
+	
+	preg = (regex_t *)malloc(sizeof(regex_t));
+	errnum = regcomp(preg, pattern, (flags & AREGEX_ICASE ? REG_ICASE : 0) | REG_EXTENDED);
+	
+	if (errnum != 0)
+	{
+		regerror(errnum, preg, errmsg, BUFSIZE);
+		slog(LG_ERROR, "regex_match(): %s\n", errmsg);
+		regfree(preg);
+		free(preg);
+		return NULL;
+	}
+	
+	return preg;
+}
+
+char *regex_extract(char *pattern, char **pend, int *pflags)
+{
+	char c, *p, *p2;
+	boolean_t backslash = FALSE;
+
+	c = *pattern;
+	if (isalnum(c) || isspace(c) || c == '\\')
+		return NULL;
+	p = pattern + 1;
+	while (*p != c || backslash)
+	{
+		if (*p == '\0')
+			return NULL;
+		if (backslash || *p == '\\')
+			backslash = !backslash;
+		p++;
+	}
+	p2 = p;
+	p++;
+	*pflags = 0;
+	while (*p != '\0' && *p != ' ')
+	{
+		if (*p == 'i')
+			*pflags |= AREGEX_ICASE;
+		else if (!isalnum(*p))
+			return NULL;
+		p++;
+	}
+	*pend = p;
+	*p2 = '\0';
+	return pattern + 1;
+}
+
+/*
+ * regex_match()
+ *  Internal wrapper API for POSIX-based regex matching.
+ *  `preg' is the regex to check with, `string' needs to be checked against.
+ *  Returns `true' on match, `false' else.
+ */
+boolean_t regex_match(regex_t *preg, char *string)
+{
+	boolean_t retval;
+	
+	if (preg == NULL || string == NULL)
+	{
+		slog(LG_ERROR, "regex_match(): we were given NULL string or pattern, bad!");
+		return FALSE;
+	}
+
+	/* match it */
+	if (regexec(preg, string, 0, NULL, 0) == 0)
+		retval = TRUE;
+	else
+		retval = FALSE;
+	
+	return retval;
+}
+
+/*
+ * regex_destroy()
+ *  Perform cleanup with regex `preg', free associated memory.
+ */
+boolean_t regex_destroy(regex_t *preg)
+{
+	regfree(preg);
+	free(preg);
+	return TRUE;
+}
+

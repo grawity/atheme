@@ -1,13 +1,15 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the routines that deal with the configuration.
  *
- * $Id: conf.c 5466 2006-06-20 23:24:29Z jilles $
+ * $Id: conf.c 7029 2006-11-02 16:49:46Z jilles $
  */
 
 #include "atheme.h"
+#include "uplink.h"
+#include "pmodule.h"
 
 #define PARAM_ERROR(ce) { slog(LG_INFO, "%s:%i: no parameter for " \
                           "configuration option: %s", \
@@ -23,10 +25,8 @@ static int c_general(CONFIGENTRY *);
 static int c_database(CONFIGENTRY *);
 static int c_uplink(CONFIGENTRY *);
 static int c_nickserv(CONFIGENTRY *);
-static int c_userserv(CONFIGENTRY *);
 static int c_saslserv(CONFIGENTRY *);
 static int c_memoserv(CONFIGENTRY *);
-static int c_helpserv(CONFIGENTRY *);
 static int c_loadmodule(CONFIGENTRY *);
 static int c_operclass(CONFIGENTRY *);
 static int c_operator(CONFIGENTRY *);
@@ -85,12 +85,7 @@ static int c_ni_user(CONFIGENTRY *);
 static int c_ni_host(CONFIGENTRY *);
 static int c_ni_real(CONFIGENTRY *);
 static int c_ni_spam(CONFIGENTRY *);
-
-/* UserServ client information. */
-static int c_ui_nick(CONFIGENTRY *);
-static int c_ui_user(CONFIGENTRY *);
-static int c_ui_host(CONFIGENTRY *);
-static int c_ui_real(CONFIGENTRY *);
+static int c_ni_no_nick_ownership(CONFIGENTRY *);
 
 /* SaslServ client information. */
 static int c_ss_nick(CONFIGENTRY *);
@@ -103,12 +98,6 @@ static int c_ms_nick(CONFIGENTRY *);
 static int c_ms_user(CONFIGENTRY *);
 static int c_ms_host(CONFIGENTRY *);
 static int c_ms_real(CONFIGENTRY *);
-
-/* HelpServ client information. */
-static int c_hs_nick(CONFIGENTRY *);
-static int c_hs_user(CONFIGENTRY *);
-static int c_hs_host(CONFIGENTRY *);
-static int c_hs_real(CONFIGENTRY *);
 
 /* Database information. */
 static int c_db_user(CONFIGENTRY *);
@@ -157,6 +146,7 @@ static struct Token cflags[] = {
   { "VERBOSE",     MC_VERBOSE     },
   { "KEEPTOPIC",   MC_KEEPTOPIC   },
   { "VERBOSE_OPS", MC_VERBOSE_OPS },
+  { "TOPICLOCK",   MC_TOPICLOCK   },
   { "NONE",        0              },
   { NULL, 0 }
 };
@@ -169,9 +159,7 @@ list_t conf_oi_table;
 list_t conf_ni_table;
 list_t conf_db_table;
 list_t conf_gi_table;
-list_t conf_ui_table;
 list_t conf_ms_table;
-list_t conf_hs_table;
 list_t conf_la_table;
 list_t conf_ss_table;
 
@@ -429,6 +417,28 @@ void del_conf_item(char *name, list_t *conflist)
 	BlockHeapFree(conftable_heap, ct);
 }
 
+/* stolen from Sentinel */
+int token_to_value(struct Token token_table[], char *token)
+{
+	int i;
+
+	if ((token_table != NULL) && (token != NULL))
+	{
+		for (i = 0; token_table[i].text != NULL; i++)
+		{
+			if (strcasecmp(token_table[i].text, token) == 0)
+			{
+				return token_table[i].value;
+			}
+		}
+		/* If no match... */
+		return TOKEN_UNMATCHED;
+	}
+
+	/* Otherwise... */
+	return TOKEN_ERROR;
+}
+
 void init_newconf(void)
 {
 	conftable_heap = BlockHeapCreate(sizeof(struct ConfTable), 32);
@@ -448,10 +458,8 @@ void init_newconf(void)
 	add_top_conf("OPERSERV", c_oservice);
 	add_top_conf("OSERVICE", c_oservice);
 	add_top_conf("NICKSERV", c_nickserv);
-	add_top_conf("USERSERV", c_userserv);
 	add_top_conf("SASLSERV", c_saslserv);
 	add_top_conf("MEMOSERV", c_memoserv);
-	add_top_conf("HELPSERV", c_helpserv);
 	add_top_conf("UPLINK", c_uplink);
 	add_top_conf("GENERAL", c_general);
 	add_top_conf("DATABASE", c_database);
@@ -533,12 +541,7 @@ void init_newconf(void)
 	add_conf_item("HOST", &conf_ni_table, c_ni_host);
 	add_conf_item("REAL", &conf_ni_table, c_ni_real);
 	add_conf_item("SPAM", &conf_ni_table, c_ni_spam);
-
-	/* userserv{} block */
-	add_conf_item("NICK", &conf_ui_table, c_ui_nick);
-	add_conf_item("USER", &conf_ui_table, c_ui_user);
-	add_conf_item("HOST", &conf_ui_table, c_ui_host);
-	add_conf_item("REAL", &conf_ui_table, c_ui_real);
+	add_conf_item("NO_NICK_OWNERSHIP", &conf_ni_table, c_ni_no_nick_ownership);
 
 	/* saslserv{} block */
 	add_conf_item("NICK", &conf_ss_table, c_ss_nick);
@@ -552,12 +555,6 @@ void init_newconf(void)
 	add_conf_item("HOST", &conf_ms_table, c_ms_host);
 	add_conf_item("REAL", &conf_ms_table, c_ms_real);
 	
-	/* memoserv{} block */
-	add_conf_item("NICK", &conf_hs_table, c_hs_nick);
-	add_conf_item("USER", &conf_hs_table, c_hs_user);
-	add_conf_item("HOST", &conf_hs_table, c_hs_host);
-	add_conf_item("REAL", &conf_hs_table, c_hs_real);
-
 	/* database{} block */
 	add_conf_item("USER", &conf_db_table, c_db_user);
 	add_conf_item("HOST", &conf_db_table, c_db_host);
@@ -600,12 +597,6 @@ static int c_nickserv(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_userserv(CONFIGENTRY *ce)
-{
-	subblock_handler(ce, &conf_ui_table);
-	return 0;
-}
-
 static int c_saslserv(CONFIGENTRY *ce)
 {
 	subblock_handler(ce, &conf_ss_table);
@@ -615,12 +606,6 @@ static int c_saslserv(CONFIGENTRY *ce)
 static int c_memoserv(CONFIGENTRY *ce)
 {
 	subblock_handler(ce, &conf_ms_table);
-	return 0;
-}
-
-static int c_helpserv(CONFIGENTRY *ce)
-{
-	subblock_handler(ce, &conf_hs_table);
 	return 0;
 }
 
@@ -1325,6 +1310,9 @@ static int c_gi_cflags(CONFIGENTRY *ce)
 		}
 	}
 
+	if (config_options.defcflags & MC_TOPICLOCK)
+		config_options.defcflags |= MC_KEEPTOPIC;
+
 	return 0;
 }
 
@@ -1470,43 +1458,9 @@ static int c_ni_spam(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ui_nick(CONFIGENTRY *ce)
+static int c_ni_no_nick_ownership(CONFIGENTRY *ce)
 {
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	usersvs.nick = sstrdup(ce->ce_vardata);
-
-	return 0;
-}
-
-static int c_ui_user(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	usersvs.user = sstrdup(ce->ce_vardata);
-
-	return 0;
-}
-
-static int c_ui_host(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	usersvs.host = sstrdup(ce->ce_vardata);
-
-	return 0;
-}
-
-static int c_ui_real(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	usersvs.real = sstrdup(ce->ce_vardata);
-
+	nicksvs.no_nick_ownership = TRUE;
 	return 0;
 }
 
@@ -1590,46 +1544,6 @@ static int c_ms_real(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_hs_nick(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	helpsvs.nick = sstrdup(ce->ce_vardata);
-
-	return 0;
-}
-
-static int c_hs_user(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	helpsvs.user = sstrdup(ce->ce_vardata);
-
-	return 0;
-}
-
-static int c_hs_host(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	helpsvs.host = sstrdup(ce->ce_vardata);
-
-	return 0;
-}
-
-static int c_hs_real(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	helpsvs.real = sstrdup(ce->ce_vardata);
-
-	return 0;
-}
-
 static int c_gl_nick(CONFIGENTRY *ce)
 {
 	if (ce->ce_vardata == NULL)
@@ -1676,6 +1590,7 @@ static int c_gi_sras(CONFIGENTRY *ce)
 
 	for (flce = ce->ce_entries; flce; flce = flce->ce_next)
 		soper_add(flce->ce_varname, NULL);
+	slog(LG_ERROR, "%s:%d: general::sras is obsolete, please use operclass and operator instead", ce->ce_fileptr->cf_filename, ce->ce_varlinenum);
 
 	return 0;
 }

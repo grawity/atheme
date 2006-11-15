@@ -4,7 +4,7 @@
  *
  * Fine grained services operator privileges
  *
- * $Id: privs.h 4419 2006-01-02 12:41:30Z jilles $
+ * $Id: privs.h 6961 2006-10-26 22:22:50Z jilles $
  */
 
 #ifndef PRIVS_H
@@ -34,6 +34,7 @@
 /* operserv */
 #define PRIV_OMODE           "operserv:omode"
 #define PRIV_AKILL           "operserv:akill"
+#define PRIV_MASS_AKILL      "operserv:massakill"
 #define PRIV_JUPE            "operserv:jupe"
 #define PRIV_NOOP            "operserv:noop"
 #define PRIV_GLOBAL          "operserv:global"
@@ -46,12 +47,43 @@
 #define AC_SRA "general:admin"
 #define is_sra(mu) (has_priv_myuser(mu, PRIV_ADMIN))
 
+struct operclass_ {
+  char *name;
+  char *privs; /* priv1 priv2 priv3... */
+};
+
+/* soper list struct */
+struct soper_ {
+  myuser_t *myuser;
+  char *name;
+  operclass_t *operclass;
+};
+
+/* privs.c */
+E list_t operclasslist;
+E list_t soperlist;
+
+E void init_privs(void);
+
+E operclass_t *operclass_add(char *name, char *privs);
+E void operclass_delete(operclass_t *operclass);
+E operclass_t *operclass_find(char *name);
+
+E soper_t *soper_add(char *name, operclass_t *operclass);
+E void soper_delete(soper_t *soper);
+E soper_t *soper_find(myuser_t *myuser);
+E soper_t *soper_find_named(char *name);
+
+
 /* has_any_privs(): used to determine whether we should give detailed
  * messages about disallowed things
  * warning: do not use this for any kind of real privilege! */
-E boolean_t has_any_privs(user_t *);
-/* has_priv(): for online users */
-E boolean_t has_priv(user_t *, const char *);
+E boolean_t has_any_privs(sourceinfo_t *);
+E boolean_t has_any_privs_user(user_t *);
+/* has_priv(): for sources of commands */
+E boolean_t has_priv(sourceinfo_t *, const char *);
+/* has_priv_user(): for online users */
+E boolean_t has_priv_user(user_t *, const char *);
 /* has_priv_myuser(): channel succession etc */
 E boolean_t has_priv_myuser(myuser_t *, const char *);
 /* has_priv_operclass(): /os specs etc */

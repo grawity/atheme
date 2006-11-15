@@ -4,7 +4,7 @@
  *
  * Protocol handlers, both generic and the actual declarations themselves.
  *
- * $Id: phandler.h 5628 2006-07-01 23:38:42Z jilles $
+ * $Id: phandler.h 6515 2006-09-27 17:13:42Z jilles $
  */
 
 #ifndef PHANDLER_H
@@ -36,22 +36,52 @@ struct ircd_ {
 
 typedef struct ircd_ ircd_t;
 
+/* values for type */
+/*  -- what the HELL are these used for? A grep reveals nothing.. --w00t
+ *  -- they are used to provide a hint to third-party module coders about what
+ *     ircd they are working with. --nenolod
+ */
+#define PROTOCOL_ASUKA			1
+#define PROTOCOL_BAHAMUT		2
+#define PROTOCOL_CHARYBDIS		3
+#define PROTOCOL_DREAMFORGE		4
+#define PROTOCOL_HYPERION		5
+#define PROTOCOL_INSPIRCD		6
+#define PROTOCOL_IRCNET			7
+#define PROTOCOL_MONKEY			8 /* obsolete */
+#define PROTOCOL_PLEXUS			9
+#define PROTOCOL_PTLINK			10
+#define PROTOCOL_RATBOX			11
+#define PROTOCOL_SCYLLA			12
+#define PROTOCOL_SHADOWIRCD		13
+#define PROTOCOL_SORCERY		14
+#define PROTOCOL_ULTIMATE3		15
+#define PROTOCOL_UNDERNET		16
+#define PROTOCOL_UNREAL			17
+#define PROTOCOL_SOLIDIRCD		18
+#define PROTOCOL_NEFARIOUS		19
+
+#define PROTOCOL_OTHER			255
+
+/* forced nick change types */
+#define FNC_REGAIN 0 /* give a registered user their nick back */
+#define FNC_FORCE  1 /* force a user off their nick (kill if unsupported) */
+
 /* server login, usually sends PASS, CAPAB, SERVER and SVINFO
  * you can still change ircd->uses_uid at this point
  * set me.bursting = TRUE
  * return 1 if sts() failed (by returning 1), otherwise 0 */
 E uint8_t (*server_login)(void);
 /* introduce a client on the services server */
-E void (*introduce_nick)(char *nick, char *user, char *host, char *real, char *uid);
+E void (*introduce_nick)(user_t *u);
 /* send an invite for a given user to a channel
  * the source may not be on the channel */
 E void (*invite_sts)(user_t *source, user_t *target, channel_t *channel);
 /* quit a client on the services server with the given message */
 E void (*quit_sts)(user_t *u, char *reason);
 /* send wallops
- * check config_options.silent and do nothing if it's set
  * use something that only opers can see if easily possible */
-E void (*wallops)(char *fmt, ...);
+E void (*wallops_sts)(const char *text);
 /* join a channel with a client on the services server
  * the client should be introduced opped
  * isnew indicates the channel modes (and bans XXX) should be bursted
@@ -72,12 +102,20 @@ E void (*kick)(char *from, char *channel, char *to, char *reason);
 /* send a privmsg
  * here it's ok to assume the source is able to send */
 E void (*msg)(char *from, char *target, char *fmt, ...);
-/* send a notice
+/* send a notice to a user
  * from can be a client on the services server or the services server
- * itself (me.name or ME)
+ * itself (NULL) */
+E void (*notice_user_sts)(user_t *from, user_t *target, const char *text);
+/* send a global notice to all users on servers matching the mask
+ * from is a client on the services server
+ * mask is either "*" or it has a non-wildcard TLD */
+E void (*notice_global_sts)(user_t *from, const char *mask, const char *text);
+/* send a notice to a channel
+ * from can be a client on the services server or the services server
+ * itself (NULL)
  * if the source cannot send because it is not on the channel, send the
  * notice from the server or join for a moment */
-E void (*notice_sts)(char *from, char *target, char *fmt, ...);
+E void (*notice_channel_sts)(user_t *from, channel_t *target, const char *text);
 /* send a notice to ops in a channel
  * source may or may not be on channel
  * generic_wallchops() sends an individual notice to each channel operator */
@@ -128,6 +166,11 @@ E void (*sethost_sts)(char *source, char *target, char *host);
  * FNC_FORCE:  force a user off their nick (kill if unsupported)
  */
 E void (*fnc_sts)(user_t *source, user_t *u, char *newnick, int type);
+/* temporarily make a nick unavailable to users
+ * source is the responsible service
+ * duration is in seconds, 0 to remove the effect of a previous call
+ * account is an account that may still use the nick, or NULL */
+E void (*holdnick_sts)(user_t *source, int duration, const char *nick, myuser_t *account);
 /* change nick, user, host and/or services login name for a user
  * target may also be a not yet fully introduced UID (for SASL) */
 E void (*svslogin_sts)(char *target, char *nick, char *user, char *host, char *login);
@@ -135,15 +178,17 @@ E void (*svslogin_sts)(char *target, char *nick, char *user, char *host, char *l
 E void (*sasl_sts) (char *target, char mode, char *data);
 
 E uint8_t generic_server_login(void);
-E void generic_introduce_nick(char *nick, char *ser, char *host, char *real, char *uid);
+E void generic_introduce_nick(user_t *u);
 E void generic_invite_sts(user_t *source, user_t *target, channel_t *channel);
 E void generic_quit_sts(user_t *u, char *reason);
-E void generic_wallops(char *fmt, ...);
+E void generic_wallops_sts(const char *text);
 E void generic_join_sts(channel_t *c, user_t *u, boolean_t isnew, char *modes);
 E void generic_chan_lowerts(channel_t *c, user_t *u);
 E void generic_kick(char *from, char *channel, char *to, char *reason);
 E void generic_msg(char *from, char *target, char *fmt, ...);
-E void generic_notice(char *from, char *target, char *fmt, ...);
+E void generic_notice_user_sts(user_t *from, user_t *target, const char *text);
+E void generic_notice_global_sts(user_t *from, const char *mask, const char *text);
+E void generic_notice_channel_sts(user_t *from, channel_t *target, const char *text);
 E void generic_wallchops(user_t *source, channel_t *target, char *message);
 E void generic_numeric_sts(char *from, int numeric, char *target, char *fmt, ...);
 E void generic_skill(char *from, char *nick, char *fmt, ...);
@@ -158,6 +203,7 @@ E boolean_t generic_on_logout(char *origin, char *user, char *wantedhost);
 E void generic_jupe(char *server, char *reason);
 E void generic_sethost_sts(char *source, char *target, char *host);
 E void generic_fnc_sts(user_t *source, user_t *u, char *newnick, int type);
+E void generic_holdnick_sts(user_t *source, int duration, const char *nick, myuser_t *account);
 E void generic_svslogin_sts(char *target, char *nick, char *user, char *host, char *login);
 E void generic_sasl_sts(char *target, char mode, char *data);
 
@@ -168,9 +214,4 @@ E struct cmode_ *prefix_mode_list;
 
 E ircd_t *ircd;
 
-/* This stuff is for databases, but it's the same sort of concept. */
-E void (*db_save)(void *arg);
-E void (*db_load)(void);
-
 #endif
-

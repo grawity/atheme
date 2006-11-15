@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Undernet base64 routine.
  *
- * $Id: ubase64.c 5193 2006-05-03 14:31:53Z jilles $
+ * $Id: ubase64.c 6931 2006-10-24 16:53:07Z jilles $
  */
 
 #include "atheme.h"
@@ -53,7 +53,7 @@ uint32_t base64touint(char *buf)
 	uint32_t v = 0;
 	int count = 6;
 
-	while (--count >= 0 && (bits = ub64_lookuptab[255 & (int)*buf++]) != '\377')
+	while (--count >= 0 && (bits = ub64_lookuptab[255 & *buf++]) != '\377')
 		v = v << 6 | bits;
 	return v;
 }

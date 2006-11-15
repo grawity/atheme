@@ -15,7 +15,7 @@ prefix		= @prefix@
 exec_prefix	= @exec_prefix@
 bindir		= @bindir@
 datadir		= @datadir@
-sysconfdir		= @sysconfdir@
+sysconfdir	= @sysconfdir@
 libdir		= @libdir@
 sbindir		= @sbindir@
 DOCDIR		= @DOCDIR@
@@ -26,15 +26,13 @@ MKDEP		= @MKDEP@ -DPREFIX=\"@prefix@\" -I../include -I../libatheme @PGINC@
 PICFLAGS	= @PICFLAGS@
 CFLAGS		= @CFLAGS@ -I../include -I../libatheme @PGINC@
 
-VERSION		= 0.1
-
 LIBS		= @LIBS@ @PQLIB@
 LDFLAGS		= @LDFLAGS@
 CPPFLAGS	= @CPPFLAGS@
 
 default: all
 
-BASE_SRCS = @POSIX_CRYPTC@ ircservices.c
+BASE_SRCS = @POSIX_CRYPTC@ ircservices.c sorservices.c
 
 SRCS = ${BASE_SRCS}
 
@@ -45,8 +43,8 @@ all: protocols
 build: all
 
 install: build
-	${INSTALL} -d ${MODDIR}/crypto
-	${INSTALL} -m 755 *.so ${MODDIR}/crypto
+	${INSTALL} -d $(DESTDIR)${MODDIR}/crypto
+	${INSTALL} -m 755 *.so $(DESTDIR)${MODDIR}/crypto
 
 protocols: $(OBJS)
 
@@ -55,10 +53,15 @@ protocols: $(OBJS)
 .c.so:
 	${CC} ${PICFLAGS} ${CPPFLAGS} ${CFLAGS} $< -o $@
 
-.PHONY: clean distclean
+.PHONY: depend clean distclean
+# This sed command sucks but I don't know a better way -- jilles
+depend:
+	${MKDEP} ${PICFLAGS} ${CPPFLAGS} ${CFLAGS} ${BASE_SRCS} | sed -e 's/\.o:/.so:/' > .depend
 
 clean:
 	${RM} -f *.so
 
 distclean: clean
 	${RM} -f Makefile version.c.last
+
+include .depend

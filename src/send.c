@@ -1,14 +1,15 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains socket routines.
  * Based off of W. Campbell's code.
  *
- * $Id: send.c 5065 2006-04-14 03:55:44Z w00t $
+ * $Id: send.c 6931 2006-10-24 16:53:07Z jilles $
  */
 
 #include "atheme.h"
+#include "uplink.h"
 
 /* send a line to the server, append the \r\n */
 int8_t sts(char *fmt, ...)
@@ -34,17 +35,15 @@ int8_t sts(char *fmt, ...)
 
 	cnt.bout += len;
 
-	sendq_add(curr_uplink->conn, buf, len, 0);
+	sendq_add(curr_uplink->conn, buf, len);
 
 	return 0;
 }
 
 void reconn(void *arg)
 {
-	uint32_t i;
-	server_t *s;
 	channel_t *c;
-	node_t *n, *tn;
+	dictionary_iteration_state_t state;
 
 	if (me.connected)
 		return;
@@ -55,23 +54,11 @@ void reconn(void *arg)
 	 * we do not clear users here because when you delete a server,
 	 * it deletes its users
 	 */
-	for (i = 0; i < HASHSIZE; i++)
-	{
-		LIST_FOREACH_SAFE(n, tn, servlist[i].head)
-		{
-			s = (server_t *)n->data;
-			if (s != me.me)
-				server_delete(s->name);
-		}
-	}
+	server_delete(me.actual);
 	/* remove all the channels left */
-	for (i = 0; i < HASHSIZE; i++)
+	DICTIONARY_FOREACH(c, &state, chanlist)
 	{
-		LIST_FOREACH_SAFE(n, tn, chanlist[i].head)
-		{
-			c = (channel_t *)n->data;
-			channel_delete(c->name);
-		}
+		channel_delete(c->name);
 	}
 	/* this leaves me.me and all users on it (i.e. services) */
 
@@ -108,5 +95,8 @@ void io_loop(void)
 			event_run();
 
 		connection_select(25000);
+
+		/* actually handle signals when it's safe to do so -- jilles */
+		check_signals();
 	}
 }

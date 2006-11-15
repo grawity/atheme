@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 5824 2006-07-09 18:05:30Z jilles $
+ * $Id: main.c 7015 2006-11-01 00:13:30Z jilles $
  */
 
 #include "atheme.h"
@@ -12,62 +12,54 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 5824 2006-07-09 18:05:30Z jilles $",
+	"$Id: main.c 7015 2006-11-01 00:13:30Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void cs_join(chanuser_t *cu);
-static void cs_part(chanuser_t *cu);
+static void cs_join(hook_channel_joinpart_t *hdata);
+static void cs_part(hook_channel_joinpart_t *hdata);
 static void cs_register(mychan_t *mc);
 static void cs_newchan(channel_t *c);
 static void cs_keeptopic_topicset(channel_t *c);
+static void cs_topiccheck(hook_channel_topic_check_t *data);
 static void cs_tschange(channel_t *c);
 static void cs_leave_empty(void *unused);
 
 list_t cs_cmdtree;
-list_t cs_fcmdtree;
 list_t cs_helptree;
 
 E list_t mychan;
 
 static void join_registered(boolean_t all)
 {
-	node_t *n;	uint32_t i;
+	node_t *n;
+	mychan_t *mc;
+	dictionary_iteration_state_t state;
 
-	for (i = 0; i < HASHSIZE; i++)
+	DICTIONARY_FOREACH(mc, &state, mclist)
 	{
-		LIST_FOREACH(n, mclist[i].head)
+		if (all)
 		{
-			mychan_t *mc = n->data;
-
-			if (all)
-			{
-				join(mc->name, chansvs.nick);
-				continue;
-			}
-			else if (mc->chan != NULL && mc->chan->members.count != 0)
-			{
-				join(mc->name, chansvs.nick);
-				continue;
-			}
+			join(mc->name, chansvs.nick);
+			continue;
+		}
+		else if (mc->chan != NULL && mc->chan->members.count != 0)
+		{
+			join(mc->name, chansvs.nick);
+			continue;
 		}
 	}
 }
 
 /* main services client routine */
-static void chanserv(char *origin, uint8_t parc, char *parv[])
+static void chanserv(sourceinfo_t *si, int parc, char *parv[])
 {
-	mychan_t *mc;
-	char *cmd, *s;
+	mychan_t *mc = NULL;
 	char orig[BUFSIZE];
-	boolean_t is_fcommand = FALSE;
-	hook_cmessage_data_t cdata;
-
-        if (!origin)
-        {
-                slog(LG_DEBUG, "services(): recieved a request with no origin!");
-                return;
-        }
+	char newargs[BUFSIZE];
+	uint32_t oldflags;
+	char *cmd;
+	char *args;
 
 	/* this should never happen */
 	if (parv[parc - 2][0] == '&')
@@ -100,9 +92,6 @@ static void chanserv(char *origin, uint8_t parc, char *parv[])
 			/* fantasy disabled on this channel. don't message them, just bail. */
 			return;
 		}
-
-		/* we're ok to go */
-		is_fcommand = TRUE;
 	}
 
 	/* make a copy of the original for debugging */
@@ -113,53 +102,45 @@ static void chanserv(char *origin, uint8_t parc, char *parv[])
 
 	if (!cmd)
 		return;
-
-	/* ctcp? case-sensitive as per rfc */
-	if (!strcmp(cmd, "\001PING"))
+	if (*cmd == '\001')
 	{
-		if (!(s = strtok(NULL, " ")))
-			s = " 0 ";
-
-		strip(s);
-		notice(chansvs.nick, origin, "\001PING %s\001", s);
+		handle_ctcp_common(cmd, strtok(NULL, ""), si->su->nick, chansvs.nick);
 		return;
 	}
-	else if (!strcmp(cmd, "\001VERSION\001"))
-	{
-		notice(chansvs.nick, origin,
-		       "\001VERSION atheme-%s. %s %s %s%s%s%s%s%s%s%s%s TS5ow\001",
-		       version, revision, me.name,
-		       (match_mapping) ? "A" : "",
-		       (me.loglevel & LG_DEBUG) ? "d" : "",
-		       (me.auth) ? "e" : "",
-		       (config_options.flood_msgs) ? "F" : "",
-		       (config_options.leave_chans) ? "l" : "",
-		       (config_options.join_chans) ? "j" : "", (!match_mapping) ? "R" : "", (config_options.raw) ? "r" : "", (runflags & RF_LIVE) ? "n" : "");
-
-		return;
-	}
-	else if (!strcmp(cmd, "\001CLIENTINFO\001"))
-	{
-		/* easter egg :X */
-		notice(chansvs.nick, origin, "\001CLIENTINFO 114 97 107 97 117 114\001");
-		return;
-	}
-
-	/* ctcps we don't care about are ignored */
-	else if (*cmd == '\001')
-		return;
 
 	/* take the command through the hash table */
-	if (!is_fcommand)
-		command_exec(chansvs.me, origin, cmd, &cs_cmdtree);
+	if (mc == NULL)
+		command_exec_split(si->service, si, cmd, strtok(NULL, ""), &cs_cmdtree);
 	else
 	{
-		fcommand_exec_floodcheck(chansvs.me, parv[parc - 2], origin, cmd, &cs_fcmdtree);
-
-		cdata.u = user_find_named(origin);
-		cdata.c = channel_find(parv[parc - 2]);
-		cdata.msg = parv[parc - 1];
-		hook_call_event("channel_message", &cdata);
+		if (strlen(cmd) > 2 && (cmd[0] == '!' || !strcasecmp(cmd, ".flags")) && strcasecmp(cmd + 1, "set") && isalpha(cmd[1]))
+		{
+			/* XXX not really nice to look up the command twice
+			 * -- jilles */
+			if (command_find(&cs_cmdtree, cmd + 1) == NULL)
+				return;
+			if (floodcheck(si->su, si->service->me))
+				return;
+			/* construct <channel> <args> */
+			strlcpy(newargs, parv[parc - 2], sizeof newargs);
+			args = strtok(NULL, "");
+			if (args != NULL)
+			{
+				strlcat(newargs, " ", sizeof newargs);
+				strlcat(newargs, args, sizeof newargs);
+			}
+			/* let the command know it's called as fantasy cmd */
+			si->c = mc->chan;
+			/* fantasy commands are always verbose
+			 * (due to the way this works, we can't allow !set)
+			 */
+			oldflags = mc->flags & MC_VERBOSE_MASK;
+			mc->flags &= ~MC_VERBOSE_MASK;
+			mc->flags |= MC_VERBOSE;
+			command_exec_split(si->service, si, cmd + 1, newargs, &cs_cmdtree);
+			mc->flags &= ~MC_VERBOSE_MASK;
+			mc->flags |= oldflags;
+		}
 	}
 }
 
@@ -169,7 +150,8 @@ static void chanserv_config_ready(void *unused)
 		del_service(chansvs.me);
 
 	chansvs.me = add_service(chansvs.nick, chansvs.user,
-				 chansvs.host, chansvs.real, chanserv);
+				 chansvs.host, chansvs.real,
+				 chanserv, &cs_cmdtree);
 	chansvs.disp = chansvs.me->disp;
 	if (chansvs.fantasy)
 		fcmd_agent = chansvs.me;
@@ -187,7 +169,7 @@ void _modinit(module_t *m)
 
 	if (!cold_start)
 	{
-		chansvs.me = add_service(chansvs.nick, chansvs.user, chansvs.host, chansvs.real, chanserv);
+		chansvs.me = add_service(chansvs.nick, chansvs.user, chansvs.host, chansvs.real, chanserv, &cs_cmdtree);
 		chansvs.disp = chansvs.me->disp;
 		if (chansvs.fantasy)
 			fcmd_agent = chansvs.me;
@@ -201,12 +183,14 @@ void _modinit(module_t *m)
 	hook_add_event("channel_register");
 	hook_add_event("channel_add");
 	hook_add_event("channel_topic");
+	hook_add_event("channel_can_change_topic");
 	hook_add_event("channel_tschange");
 	hook_add_hook("channel_join", (void (*)(void *)) cs_join);
 	hook_add_hook("channel_part", (void (*)(void *)) cs_part);
 	hook_add_hook("channel_register", (void (*)(void *)) cs_register);
 	hook_add_hook("channel_add", (void (*)(void *)) cs_newchan);
 	hook_add_hook("channel_topic", (void (*)(void *)) cs_keeptopic_topicset);
+	hook_add_hook("channel_can_change_topic", (void (*)(void *)) cs_topiccheck);
 	hook_add_hook("channel_tschange", (void (*)(void *)) cs_tschange);
 	event_add("cs_leave_empty", cs_leave_empty, NULL, 300);
 }
@@ -226,14 +210,16 @@ void _moddeinit(void)
 	hook_del_hook("channel_register", (void (*)(void *)) cs_register);
 	hook_del_hook("channel_add", (void (*)(void *)) cs_newchan);
 	hook_del_hook("channel_topic", (void (*)(void *)) cs_keeptopic_topicset);
+	hook_del_hook("channel_can_change_topic", (void (*)(void *)) cs_topiccheck);
 	hook_del_hook("channel_tschange", (void (*)(void *)) cs_tschange);
 	event_delete(cs_leave_empty, NULL);
 }
 
-static void cs_join(chanuser_t *cu)
+static void cs_join(hook_channel_joinpart_t *hdata)
 {
-	user_t *u = cu->user;
-	channel_t *chan = cu->chan;
+	chanuser_t *cu = hdata->cu;
+	user_t *u;
+	channel_t *chan;
 	mychan_t *mc;
 	uint32_t flags;
 	metadata_t *md;
@@ -241,8 +227,10 @@ static void cs_join(chanuser_t *cu)
 	chanacs_t *ca2;
 	boolean_t secure = FALSE;
 
-	if (is_internal_client(cu->user))
+	if (cu == NULL || is_internal_client(cu->user))
 		return;
+	u = cu->user;
+	chan = cu->chan;
 
 	/* first check if this is a registered channel at all */
 	mc = mychan_find(chan->name);
@@ -262,7 +250,7 @@ static void cs_join(chanuser_t *cu)
 			u->myuser->flags & MU_NOOP);
 
 	/* auto stuff */
-	if ((mc->flags & MC_STAFFONLY) && !has_priv(u, PRIV_JOIN_STAFFONLY))
+	if ((mc->flags & MC_STAFFONLY) && !has_priv_user(u, PRIV_JOIN_STAFFONLY))
 	{
 		/* Stay on channel if this would empty it -- jilles */
 		if (chan->nummembers <= (config_options.join_chans ? 2 : 1))
@@ -271,9 +259,10 @@ static void cs_join(chanuser_t *cu)
 			if (!config_options.join_chans)
 				join(chan->name, chansvs.nick);
 		}
-		ban(chansvs.nick, chan->name, u);
+		ban(chansvs.me->me, chan, u);
 		remove_ban_exceptions(chansvs.me->me, chan, u);
 		kick(chansvs.nick, chan->name, u->nick, "You are not authorized to be on this channel");
+		hdata->cu = NULL;
 		return;
 	}
 
@@ -301,9 +290,10 @@ static void cs_join(chanuser_t *cu)
 			}
 		}
 		else
-			ban(chansvs.nick, chan->name, u);
+			ban(chansvs.me->me, chan, u);
 		remove_ban_exceptions(chansvs.me->me, chan, u);
 		kick(chansvs.nick, chan->name, u->nick, "User is banned from this channel");
+		hdata->cu = NULL;
 		return;
 	}
 
@@ -404,10 +394,14 @@ static void cs_join(chanuser_t *cu)
 		mc->used = CURRTIME;
 }
 
-static void cs_part(chanuser_t *cu)
+static void cs_part(hook_channel_joinpart_t *hdata)
 {
+	chanuser_t *cu;
 	mychan_t *mc;
 
+	cu = hdata->cu;
+	if (cu == NULL)
+		return;
 	mc = mychan_find(cu->chan->name);
 	if (mc == NULL)
 		return;
@@ -442,7 +436,7 @@ static void cs_register(mychan_t *mc)
 	}
 }
 
-/* Called on set of a topic */
+/* Called on every set of a topic, after updating our internal structures */
 static void cs_keeptopic_topicset(channel_t *c)
 {
 	mychan_t *mc;
@@ -482,6 +476,44 @@ static void cs_keeptopic_topicset(channel_t *c)
 		slog(LG_DEBUG, "KeepTopic: topic cleared for %s", c->name);
 }
 
+/* Called when a topic change is received from the network, before altering
+ * our internal structures */
+static void cs_topiccheck(hook_channel_topic_check_t *data)
+{
+	mychan_t *mc;
+	uint32_t accessfl = 0;
+
+	mc = mychan_find(data->c->name);
+	if (mc == NULL)
+		return;
+
+	if ((mc->flags & (MC_KEEPTOPIC | MC_TOPICLOCK)) == (MC_KEEPTOPIC | MC_TOPICLOCK))
+	{
+		if (data->u == NULL || !((accessfl = chanacs_user_flags(mc, data->u)) & CA_TOPIC))
+		{
+			/* topic burst or unauthorized user, revert it */
+			data->approved = 1;
+			slog(LG_DEBUG, "cs_topiccheck(): reverting topic change on channel %s by %s",
+					data->c->name,
+					data->u != NULL ? data->u->nick : "<server>");
+
+			if (data->u != NULL && !(mc->mlock_off & CMODE_TOPIC))
+			{
+				/* they do not have access to be opped either,
+				 * deop them and set +t */
+				/* note: channel_mode() takes nicks, not UIDs
+				 * when used with a non-NULL source */
+				if (ircd->uses_halfops && !(accessfl & (CA_OP | CA_AUTOOP | CA_HALFOP | CA_AUTOHALFOP)))
+					channel_mode_va(chansvs.me->me, data->c,
+							3, "+t-oh", data->u->nick, data->u->nick);
+				else if (!ircd->uses_halfops && !(accessfl & (CA_OP | CA_AUTOOP)))
+					channel_mode_va(chansvs.me->me, data->c,
+							2, "+t-o", data->u->nick);
+			}
+		}
+	}
+}
+
 /* Called on creation of a channel */
 static void cs_newchan(channel_t *c)
 {
@@ -490,11 +522,9 @@ static void cs_newchan(channel_t *c)
 	metadata_t *md;
 	char *setter;
 	char *text;
-#if 0
-	time_t channelts;
-#endif
+	time_t channelts = 0;
 	time_t topicts;
-
+	char str[21];
 
 	if (!(mc = mychan_find(c->name)))
 		return;
@@ -503,10 +533,16 @@ static void cs_newchan(channel_t *c)
 	 * -- jilles */
 	mc->flags |= MC_MLOCK_CHECK;
 
-	if (chansvs.changets && c->ts > mc->registered && mc->registered > 0)
+	md = metadata_find(mc, METADATA_CHANNEL, "private:channelts");
+	if (md != NULL)
+		channelts = atol(md->value);
+	if (channelts == 0)
+		channelts = mc->registered;
+
+	if (chansvs.changets && c->ts > channelts && channelts > 0)
 	{
 		/* Stop the splitrider -- jilles */
-		c->ts = mc->registered;
+		c->ts = channelts;
 		clear_simple_modes(c);
 		c->modes |= CMODE_NOEXT | CMODE_TOPIC;
 		check_modes(mc, FALSE);
@@ -517,26 +553,20 @@ static void cs_newchan(channel_t *c)
 		/* make sure it parts again sometime (empty SJOIN etc) */
 		mc->flags |= MC_INHABIT;
 	}
+	else if (c->ts != channelts)
+	{
+		snprintf(str, sizeof str, "%lu", (unsigned long)c->ts);
+		metadata_add(mc, METADATA_CHANNEL, "private:channelts", str);
+	}
+	else if (!(MC_TOPICLOCK & mc->flags))
+		/* Same channel, let's assume ircd has kept topic.
+		 * However, if topiclock is enabled, we must change it back
+		 * regardless.
+		 * -- jilles */
+		return;
 
 	if (!(MC_KEEPTOPIC & mc->flags))
 		return;
-
-#if 0
-	md = metadata_find(mc, METADATA_CHANNEL, "private:channelts");
-	if (md == NULL)
-		return;
-	channelts = atol(md->value);
-	if (channelts == c->ts)
-	{
-		/* Same channel, let's assume ircd has kept it.
-		 * Probably not a good assumption if the ircd doesn't do
-		 * topic bursting.
-		 * -- jilles
-		 */
-		slog(LG_DEBUG, "Not doing keeptopic for %s because of equal channelTS", c->name);
-		return;
-	}
-#endif
 
 	md = metadata_find(mc, METADATA_CHANNEL, "private:topic:setter");
 	if (md == NULL)
@@ -560,9 +590,14 @@ static void cs_newchan(channel_t *c)
 static void cs_tschange(channel_t *c)
 {
 	mychan_t *mc;
+	char str[21];
 
 	if (!(mc = mychan_find(c->name)))
 		return;
+
+	/* store new TS */
+	snprintf(str, sizeof str, "%lu", (unsigned long)c->ts);
+	metadata_add(mc, METADATA_CHANNEL, "private:channelts", str);
 
 	/* schedule a mode lock check when we know the new modes
 	 * -- jilles */
@@ -571,28 +606,24 @@ static void cs_tschange(channel_t *c)
 
 static void cs_leave_empty(void *unused)
 {
-	int i;
-	node_t *n;
 	mychan_t *mc;
+	dictionary_iteration_state_t state;
 
 	(void)unused;
-	for (i = 0; i < HASHSIZE; i++)
+	DICTIONARY_FOREACH(mc, &state, mclist)
 	{
-		LIST_FOREACH(n, mclist[i].head)
+		if (!(mc->flags & MC_INHABIT))
+			continue;
+		mc->flags &= ~MC_INHABIT;
+		if (mc->chan != NULL &&
+				(!config_options.chan || irccmp(mc->name, config_options.chan)) &&
+				(!config_options.join_chans ||
+				 (config_options.leave_chans && mc->chan->nummembers == 1) ||
+				 metadata_find(mc, METADATA_CHANNEL, "private:close:closer")) &&
+				chanuser_find(mc->chan, chansvs.me->me))
 		{
-			mc = n->data;
-			if (!(mc->flags & MC_INHABIT))
-				continue;
-			mc->flags &= ~MC_INHABIT;
-			if (mc->chan != NULL &&
-					(!config_options.join_chans ||
-					 (config_options.leave_chans && mc->chan->nummembers == 1) ||
-					 metadata_find(mc, METADATA_CHANNEL, "private:close:closer")) &&
-					chanuser_find(mc->chan, chansvs.me->me))
-			{
-				slog(LG_DEBUG, "cs_leave_empty(): leaving %s", mc->chan->name);
-				part(mc->chan->name, chansvs.nick);
-			}
+			slog(LG_DEBUG, "cs_leave_empty(): leaving %s", mc->chan->name);
+			part(mc->chan->name, chansvs.nick);
 		}
 	}
 }

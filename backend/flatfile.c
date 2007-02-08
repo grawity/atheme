@@ -5,7 +5,7 @@
  * This file contains the implementation of the Atheme 0.1
  * flatfile database format, with metadata extensions.
  *
- * $Id: flatfile.c 6895 2006-10-22 21:07:24Z jilles $
+ * $Id: flatfile.c 7397 2006-12-26 11:58:18Z jilles $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 DECLARE_MODULE_V1
 (
 	"backend/flatfile", TRUE, _modinit, NULL,
-	"$Id: flatfile.c 6895 2006-10-22 21:07:24Z jilles $",
+	"$Id: flatfile.c 7397 2006-12-26 11:58:18Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -75,6 +75,13 @@ static int flatfile_db_save_myusers_cb(dictionary_elem_t *delem, void *privdata)
 		fprintf(f, "AC %s %s\n", mu->name, (char *)tn->data);
 	}
 
+	LIST_FOREACH(tn, mu->nicks.head)
+	{
+		mynick_t *mn = tn->data;
+
+		fprintf(f, "MN %s %s %ld %ld\n", mu->name, mn->nick, (long)mn->registered, (long)mn->lastseen);
+	}
+
 	return 0; 
 }
 
@@ -85,9 +92,9 @@ static void flatfile_db_save(void *arg)
 	chanacs_t *ca;
 	kline_t *k;
 	svsignore_t *svsignore;
+	soper_t *soper;
 	node_t *n, *tn, *tn2;
 	FILE *f;
-	uint32_t i;
 	int errno1, was_errored = 0;
 	dictionary_iteration_state_t state;
 
@@ -97,7 +104,7 @@ static void flatfile_db_save(void *arg)
 	muout = 0, mcout = 0, caout = 0, kout = 0;
 
 	/* write to a temporary file first */
-	if (!(f = fopen("etc/atheme.db.new", "w")))
+	if (!(f = fopen(DATADIR "/atheme.db.new", "w")))
 	{
 		errno1 = errno;
 		slog(LG_ERROR, "db_save(): cannot create atheme.db.new: %s", strerror(errno1));
@@ -107,7 +114,7 @@ static void flatfile_db_save(void *arg)
 	}
 
 	/* write the database version */
-	fprintf(f, "DBV 4\n");
+	fprintf(f, "DBV 5\n");
 
 	slog(LG_DEBUG, "db_save(): saving myusers");
 
@@ -162,7 +169,7 @@ static void flatfile_db_save(void *arg)
 				metadata_t *md = (metadata_t *)tn2->data;
 
 				fprintf(f, "MD A %s:%s %s %s\n", ca->mychan->name,
-					(ca->host) ? ca->host : ca->myuser->name, md->name, md->value);
+					(ca->myuser) ? ca->myuser->name : ca->host, md->name, md->value);
 			}
 
 			caout++;
@@ -187,6 +194,19 @@ static void flatfile_db_save(void *arg)
 		fprintf(f, "SI %s %ld %s %s\n", svsignore->mask, (long)svsignore->settime, svsignore->setby, svsignore->reason);
 	}
 
+	/* Services operators */
+	slog(LG_DEBUG, "db_save(): saving sopers");
+
+	LIST_FOREACH(n, soperlist.head)
+	{
+		soper = n->data;
+
+		if (soper->flags & SOPER_CONF || soper->myuser == NULL)
+			continue;
+
+		/* SO <account> <operclass> <flags> */
+		fprintf(f, "SO %s %s %d\n", soper->myuser->name, soper->classname, soper->flags);
+	}
 
 	slog(LG_DEBUG, "db_save(): saving klines");
 
@@ -216,10 +236,10 @@ static void flatfile_db_save(void *arg)
 	/* now, replace the old database with the new one, using an atomic rename */
 	
 #ifdef _WIN32
-	unlink( "etc/atheme.db" );
+	unlink(DATADIR "/atheme.db" );
 #endif
 	
-	if ((rename("etc/atheme.db.new", "etc/atheme.db")) < 0)
+	if ((rename(DATADIR "/atheme.db.new", DATADIR "/atheme.db")) < 0)
 	{
 		errno1 = errno;
 		slog(LG_ERROR, "db_save(): cannot rename atheme.db.new to atheme.db: %s", strerror(errno1));
@@ -240,7 +260,7 @@ static void flatfile_db_load(void)
 	FILE *f;
 	char *item, *s, dBuf[BUFSIZE];
 
-	f = fopen("etc/atheme.db", "r");
+	f = fopen(DATADIR "/atheme.db", "r");
 	if (f == NULL)
 	{
 		slog(LG_ERROR, "db_load(): can't open atheme.db for reading: %s", strerror(errno));
@@ -265,7 +285,7 @@ static void flatfile_db_load(void)
 		if (!strcmp("DBV", item))
 		{
 			i = atoi(strtok(NULL, " "));
-			if (i > 4)
+			if (i > 5)
 			{
 				slog(LG_INFO, "db_load(): database version is %d; i only understand 4 (Atheme 0.2), 3 (Atheme 0.2 without CA_ACLVIEW), 2 (Atheme 0.1) or 1 (Shrike)", i);
 				exit(EXIT_FAILURE);
@@ -366,7 +386,6 @@ static void flatfile_db_load(void)
 		if (!strcmp("MI", item))
 		{
 			char *user, *target, *strbuf;
-			myuser_t *tmu;
 
 			user = strtok(NULL, " ");
 			target = strtok(NULL, "\n");
@@ -401,6 +420,48 @@ static void flatfile_db_load(void)
 			}
 
 			myuser_access_add(mu, mask);
+		}
+
+		/* registered nick */
+		if (!strcmp("MN", item))
+		{
+			char *user, *nick, *treg, *tseen;
+			mynick_t *mn;
+
+			user = strtok(NULL, " ");
+			nick = strtok(NULL, " ");
+			treg = strtok(NULL, " ");
+			tseen = strtok(NULL, " ");
+
+			mu = myuser_find(user);
+			if (mu == NULL || nick == NULL || tseen == NULL)
+			{
+				slog(LG_DEBUG, "db_load(): invalid registered nick<%s> for user<%s>", nick, user);
+				continue;
+			}
+
+			mn = mynick_add(mu, nick);
+			mn->registered = atoi(treg);
+			mn->lastseen = atoi(tseen);
+		}
+
+		/* services oper */
+		if (!strcmp("SO", item))
+		{
+			char *user, *class, *flagstr;
+
+			user = strtok(NULL, " ");
+			class = strtok(NULL, " ");
+			flagstr = strtok(NULL, "\n");
+
+			mu = myuser_find(user);
+
+			if (!mu || !class || !flagstr)
+			{
+				slog(LG_DEBUG, "db_load(): invalid services oper (SO %s %s %s)", user, class, flagstr);
+				continue;
+			}
+			soper_add(mu->name, class, atoi(flagstr) & ~SOPER_CONF);
 		}
 
 		/* mychans */
@@ -444,6 +505,9 @@ static void flatfile_db_load(void)
 					if (*s != '\0' && *s != ':' && !strchr(s, ','))
 						mc->mlock_key = sstrdup(s);
 				}
+
+				if (i < 5 && config_options.join_chans)
+					mc->flags |= MC_GUARD;
 			}
 		}
 
@@ -475,12 +539,16 @@ static void flatfile_db_load(void)
 			else if (type[0] == 'A')
 			{
 				chanacs_t *ca;
-				char *chan = strtok(name, ":");
-				char *mask = strtok(NULL, " ");
+				char *mask;
 
-				ca = chanacs_find_by_mask(mychan_find(chan), mask, CA_NONE);
-				if (ca != NULL)
-					metadata_add(ca, METADATA_CHANACS, property, value);
+				mask = strrchr(name, ':');
+				if (mask != NULL)
+				{
+					*mask++ = '\0';
+					ca = chanacs_find_by_mask(mychan_find(name), mask, CA_NONE);
+					if (ca != NULL)
+						metadata_add(ca, METADATA_CHANACS, property, value);
+				}
 			}
 		}
 

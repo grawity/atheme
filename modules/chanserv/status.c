@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService STATUS function.
  *
- * $Id: status.c 6815 2006-10-21 20:37:21Z jilles $
+ * $Id: status.c 7179 2006-11-17 19:58:40Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/status", FALSE, _modinit, _moddeinit,
-	"$Id: status.c 6815 2006-10-21 20:37:21Z jilles $",
+	"$Id: status.c 7179 2006-11-17 19:58:40Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -72,7 +72,7 @@ static void cs_cmd_status(sourceinfo_t *si, int parc, char *parv[])
 			command_success_nodata(si, "You are founder on \2%s\2.", mc->name);
 
 		flags = chanacs_source_flags(mc, si);
-		if (flags & CA_AKICK)
+		if (flags & CA_AKICK && !(flags & CA_REMOVE))
 			command_success_nodata(si, "You are banned from \2%s\2.", mc->name);
 		else if (flags != 0)
 		{
@@ -93,23 +93,20 @@ static void cs_cmd_status(sourceinfo_t *si, int parc, char *parv[])
 
 		if (is_soper(si->smu))
 		{
-			operclass_t *operclass;
+			soper_t *soper = si->smu->soper;
 
-			operclass = si->smu->soper->operclass;
-			if (operclass == NULL)
-				command_success_nodata(si, "You are a services root administrator.");
-			else
-				command_success_nodata(si, "You are a services operator of class %s.", operclass->name);
+			command_success_nodata(si, "You are a services operator of class %s.", soper->operclass ? soper->operclass->name : soper->classname);
 		}
 	}
 
-	if (si->su != NULL && (si->smu == NULL || irccasecmp(si->smu->name, si->su->nick)))
+	if (si->su != NULL)
 	{
-		myuser_t *mu;
+		mynick_t *mn;
 
-		mu = myuser_find(si->su->nick);
-		if (mu != NULL && myuser_access_verify(si->su, mu))
-			command_success_nodata(si, "You are recognized as \2%s\2.", mu->name);
+		mn = mynick_find(si->su->nick);
+		if (mn != NULL && mn->owner != si->smu &&
+				myuser_access_verify(si->su, mn->owner))
+			command_success_nodata(si, "You are recognized as \2%s\2.", mn->owner->name);
 	}
 
 	if (si->su != NULL && is_admin(si->su))

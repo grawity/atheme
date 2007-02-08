@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2006 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * Data structures for account information.
  *
- * $Id: account.h 6971 2006-10-26 23:12:00Z jilles $
+ * $Id: account.h 7381 2006-12-23 22:53:28Z jilles $
  */
 
 #ifndef ACCOUNT_H
@@ -64,6 +64,8 @@ struct myuser_
 
   /* openservices patch */
   list_t access_list;
+
+  list_t nicks; /* registered nicks, must include mu->name if nonempty */
 };
 
 #define MU_HOLD        0x00000001
@@ -80,6 +82,19 @@ struct myuser_
 /* memoserv rate limiting parameters */
 #define MEMO_MAX_NUM   5
 #define MEMO_MAX_TIME  180
+
+/* registered nick */
+struct mynick_
+{
+  char nick[NICKLEN];
+
+  myuser_t *owner;
+
+  time_t registered;
+  time_t lastseen;
+
+  node_t node; /* for myuser_t.nicks */
+};
 
 struct mychan_
 {
@@ -110,10 +125,12 @@ struct mychan_
 #define MC_KEEPTOPIC   0x00000040
 #define MC_VERBOSE_OPS 0x00000080
 #define MC_TOPICLOCK   0x00000100
+#define MC_GUARD       0x00000200
 
 /* The following are temporary state */
 #define MC_INHABIT     0x80000000 /* we're on channel to enforce akick/staffonly/close */
 #define MC_MLOCK_CHECK 0x40000000 /* we need to check mode locks */
+#define MC_FORCEVERBOSE 0x20000000 /* fantasy cmd in progress, be verbose */
 
 #define MC_VERBOSE_MASK (MC_VERBOSE | MC_VERBOSE_OPS)
 
@@ -192,7 +209,21 @@ struct mymemo_ {
 typedef struct {
 	user_t *u;
 	mychan_t *mc;
+	sourceinfo_t *si;
 } hook_channel_req_t;
+
+typedef struct {
+	sourceinfo_t *si;
+	myuser_t *mu;
+	mynick_t *mn;
+} hook_user_req_t;
+
+typedef struct {
+	sourceinfo_t *si;
+	const char *account;
+	const char *email;
+	int approved; /* Write non-zero here to disallow the registration */
+} hook_user_register_check_t;
 
 /* pmodule.c XXX */
 E boolean_t backend_loaded;
@@ -205,7 +236,6 @@ E void (*db_load)(void);
 E boolean_t is_founder(mychan_t *mychan, myuser_t *myuser);
 E boolean_t should_owner(mychan_t *mychan, myuser_t *myuser);
 E boolean_t should_protect(mychan_t *mychan, myuser_t *myuser);
-E boolean_t is_soper(myuser_t *myuser);
 
 E void set_password(myuser_t *mu, char *newpassword);
 E boolean_t verify_password(myuser_t *mu, char *password);
@@ -222,6 +252,7 @@ E void kline_expire(void *arg);
 
 /* account.c */
 E dictionary_tree_t *mulist;
+E dictionary_tree_t *nicklist;
 E dictionary_tree_t *mclist;
 
 E void init_accounts(void);
@@ -236,6 +267,10 @@ E boolean_t myuser_access_verify(user_t *u, myuser_t *mu);
 E boolean_t myuser_access_add(myuser_t *mu, char *mask);
 E char *myuser_access_find(myuser_t *mu, char *mask);
 E void myuser_access_delete(myuser_t *mu, char *mask);
+
+E mynick_t *mynick_add(myuser_t *mu, const char *name);
+E void mynick_delete(mynick_t *mn);
+E mynick_t *mynick_find(const char *name);
 
 E mychan_t *mychan_add(char *name);
 E void mychan_delete(char *name);

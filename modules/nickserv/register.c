@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ REGISTER function.
  *
- * $Id: register.c 7073 2006-11-04 23:21:21Z jilles $
+ * $Id: register.c 7381 2006-12-23 22:53:28Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/register", FALSE, _modinit, _moddeinit,
-	"$Id: register.c 7073 2006-11-04 23:21:21Z jilles $",
+	"$Id: register.c 7381 2006-12-23 22:53:28Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -57,11 +57,13 @@ static int register_foreach_cb(dictionary_elem_t *delem, void *privdata)
 static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 {
 	myuser_t *mu;
+	mynick_t *mn;
 	node_t *n;
 	char *account;
 	char *pass = parv[0];
 	char *email = parv[1];
 	char lau[BUFSIZE], lao[BUFSIZE];
+	hook_user_register_check_t hdata;
 
 	if (si->smu)
 	{
@@ -129,12 +131,19 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 	}
 
 	/* make sure it isn't registered already */
-	mu = myuser_find(account);
-	if (mu != NULL)
+	if (nicksvs.no_nick_ownership ? myuser_find(account) != NULL : mynick_find(account) != NULL)
 	{
-		command_fail(si, fault_alreadyexists, "\2%s\2 is already registered.", mu->name);
+		command_fail(si, fault_alreadyexists, "\2%s\2 is already registered.", account);
 		return;
 	}
+
+	hdata.si = si;
+	hdata.account = account;
+	hdata.email = email;
+	hdata.approved = 0;
+	hook_call_event("user_can_register", &hdata);
+	if (hdata.approved != 0)
+		return;
 
 	/* make sure they're within limits */
 	tcnt = 0;
@@ -149,6 +158,12 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 	mu = myuser_add(account, pass, email, config_options.defuflags);
 	mu->registered = CURRTIME;
 	mu->lastlogin = CURRTIME;
+	if (!nicksvs.no_nick_ownership)
+	{
+		mn = mynick_add(mu, mu->name);
+		mn->registered = CURRTIME;
+		mn->lastseen = CURRTIME;
+	}
 
 	if (me.auth == AUTH_EMAIL)
 	{
@@ -183,7 +198,11 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 			ircd_on_login(si->su->nick, mu->name, NULL);
 	}
 
-	snoop("REGISTER: \2%s\2 to \2%s\2", account, email);
+	if (!nicksvs.no_nick_ownership && si->su != NULL)
+		snoop("REGISTER: \2%s\2 to \2%s\2", account, email);
+	else
+		snoop("REGISTER: \2%s\2 to \2%s\2 by \2%s\2", account, email,
+				si->su != NULL ? si->su->nick : get_source_name(si));
 	logcommand(si, CMDLOG_REGISTER, "REGISTER to %s", email);
 	if (is_soper(mu))
 	{

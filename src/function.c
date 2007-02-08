@@ -4,12 +4,13 @@
  *
  * This file contains misc routines.
  *
- * $Id: function.c 7105 2006-11-06 11:40:20Z jilles $
+ * $Id: function.c 7233 2006-11-19 19:25:53Z jilles $
  */
 
 #include "atheme.h"
 
 FILE *log_file;
+int log_force;
 
 /* there is no way windows has this command. */
 #ifdef _WIN32
@@ -106,7 +107,7 @@ void slog(uint32_t level, const char *fmt, ...)
 	char buf[64];
 	char lbuf[BUFSIZE];
 
-	if (level > me.loglevel)
+	if (!log_force && (level & me.loglevel) == 0)
 		return;
 
 	va_start(args, fmt);
@@ -155,7 +156,8 @@ void logcommand_user(service_t *svs, user_t *source, int level, const char *fmt,
 	char datetime[64];
 	char lbuf[BUFSIZE];
 
-	/* XXX use level */
+	if (!log_force && (level & me.loglevel) == 0)
+		return;
 
 	va_start(args, fmt);
 
@@ -197,7 +199,8 @@ void logcommand_external(service_t *svs, const char *type, connection_t *source,
 	char datetime[64];
 	char lbuf[BUFSIZE];
 
-	/* XXX use level */
+	if (!log_force && (level & me.loglevel) == 0)
+		return;
 
 	va_start(args, fmt);
 
@@ -682,17 +685,6 @@ boolean_t should_protect(mychan_t *mychan, myuser_t *myuser)
 		return FALSE;
 
 	if (chanacs_find(mychan, myuser, CA_SET))
-		return TRUE;
-
-	return FALSE;
-}
-
-boolean_t is_soper(myuser_t *myuser)
-{
-	if (!myuser)
-		return FALSE;
-
-	if (myuser->soper)
 		return TRUE;
 
 	return FALSE;

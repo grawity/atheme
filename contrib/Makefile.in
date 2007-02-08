@@ -3,7 +3,7 @@
 #
 # This file contains build instructions.
 #
-# $Id: Makefile.in 6943 2006-10-25 17:04:55Z jilles $
+# $Id: Makefile.in 7503 2007-01-18 12:50:58Z jilles $
 #
 
 CC		= @CC@
@@ -18,6 +18,7 @@ datadir		= @datadir@
 sysconfdir	= @sysconfdir@
 libdir		= @libdir@
 sbindir		= @sbindir@
+localstatedir	= @localstatedir@
 DOCDIR		= @DOCDIR@
 MODDIR		= @MODDIR@
 SHAREDIR	= @SHAREDIR@
@@ -35,6 +36,7 @@ default: all
 SRCS = \
 	cs_kickdots.c		\
 	cs_ping.c		\
+	cs_sync.c		\
 	fc_dice.c		\
 	gen_echoserver.c	\
 	gen_httpd.c		\
@@ -46,7 +48,8 @@ SRCS = \
 	ircd_noprotect.c	\
 	ns_generatepass.c	\
 	os_pingspam.c		\
-	os_testcmd.c
+	os_testcmd.c		\
+	os_logonnews.c
 
 # To compile your own modules, add them to SRCS or make blegh.so
 # Note: anope_convert.c cannot be compiled with this Makefile as it is

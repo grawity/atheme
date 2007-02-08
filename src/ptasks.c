@@ -4,7 +4,7 @@
  *
  * Protocol tasks, such as handle_stats().
  *
- * $Id: ptasks.c 6931 2006-10-24 16:53:07Z jilles $
+ * $Id: ptasks.c 7317 2006-12-05 00:14:26Z jilles $
  */
 
 #include "atheme.h"
@@ -34,14 +34,15 @@ void handle_version(user_t *u)
 	if (floodcheck(u, NULL))
 		return;
 
-	numeric_sts(me.name, 351, u->nick, ":atheme-%s. %s %s%s%s%s%s%s%s%s%s [%s]",
+	numeric_sts(me.name, 351, u->nick, ":atheme-%s. %s %s%s%s%s%s%s%s%s%s%s [%s]",
 		    version, me.name, 
 		    (match_mapping) ? "A" : "",
-		    (me.loglevel & LG_DEBUG) ? "d" : "",
+		    (log_force || me.loglevel & (LG_DEBUG | LG_RAWDATA)) ? "d" : "",
 		    (me.auth) ? "e" : "",
 		    (config_options.flood_msgs) ? "F" : "",
 		    (config_options.leave_chans) ? "l" : "", 
 		    (config_options.join_chans) ? "j" : "", 
+		    (chansvs.changets) ? "t" : "",
 		    (!match_mapping) ? "R" : "",
 		    (config_options.raw) ? "r" : "",
 		    (runflags & RF_LIVE) ? "n" : "",
@@ -82,7 +83,8 @@ void handle_stats(user_t *u, char req)
 	node_t *n;
 	uplink_t *uplink;
 	soper_t *soper;
-	int i;
+	int i, j;
+	char fl[10];
 
 	if (floodcheck(u, NULL))
 		return;
@@ -173,9 +175,17 @@ void handle_stats(user_t *u, char req)
 		  {
 			  soper = n->data;
 
-			  numeric_sts(me.name, 243, u->nick, "O *@* * %s %s %s",
-					  soper->myuser ? soper->myuser->name : soper->name,
-					  soper->operclass ? soper->operclass->name : "*", "-1");
+			  j = 0;
+			  if (!(soper->flags & SOPER_CONF))
+				  fl[j++] = 'D';
+			  if (soper->operclass != NULL && soper->operclass->flags & OPERCLASS_NEEDOPER)
+				  fl[j++] = 'O';
+			  if (j == 0)
+				  fl[j++] = '*';
+			  fl[j] = '\0';
+			  numeric_sts(me.name, 243, u->nick, "O *@* %s %s %s %s",
+					  fl, soper->myuser ? soper->myuser->name : soper->name,
+					  soper->operclass ? soper->operclass->name : soper->classname, "-1");
 		  }
 		  break;
 
@@ -195,6 +205,8 @@ void handle_stats(user_t *u, char req)
 		  numeric_sts(me.name, 249, u->nick, "T :user       %7d", cnt.user);
 		  numeric_sts(me.name, 249, u->nick, "T :chan       %7d", cnt.chan);
 		  numeric_sts(me.name, 249, u->nick, "T :myuser     %7d", cnt.myuser);
+		  numeric_sts(me.name, 249, u->nick, "T :myuser_acc %7d", cnt.myuser_access);
+		  numeric_sts(me.name, 249, u->nick, "T :mynick     %7d", cnt.mynick);
 		  numeric_sts(me.name, 249, u->nick, "T :mychan     %7d", cnt.mychan);
 		  numeric_sts(me.name, 249, u->nick, "T :chanacs    %7d", cnt.chanacs);
 
@@ -300,15 +312,16 @@ void handle_motd(user_t *u)
 	FILE *f;
 	char lbuf[BUFSIZE];
 	char ebuf[BUFSIZE];
-	char nbuf[BUFSIZE];
+	char ubuf[BUFSIZE];
 	char cbuf[BUFSIZE];
+	char nbuf[BUFSIZE];
 
 	if (u == NULL)
 		return;
 	if (floodcheck(u, NULL))
 		return;
 
-	f = fopen("etc/atheme.motd", "r");
+	f = fopen(SYSCONFDIR "/atheme.motd", "r");
 	if (!f)
 	{
 		numeric_sts(me.name, 422, u->nick, ":The MOTD file is unavailable.");
@@ -316,7 +329,8 @@ void handle_motd(user_t *u)
 	}
 
 	snprintf(ebuf, BUFSIZE, "%d", config_options.expire / 86400);
-	snprintf(nbuf, BUFSIZE, "%d", cnt.myuser);
+	snprintf(ubuf, BUFSIZE, "%d", cnt.myuser);
+	snprintf(nbuf, BUFSIZE, "%d", nicksvs.no_nick_ownership ? 0 : cnt.mynick);
 	snprintf(cbuf, BUFSIZE, "%d", cnt.mychan);
 
 	numeric_sts(me.name, 375, u->nick, ":- %s Message of the Day -", me.name);
@@ -327,7 +341,8 @@ void handle_motd(user_t *u)
 
 		replace(lbuf, BUFSIZE, "&network&", me.netname);
 		replace(lbuf, BUFSIZE, "&expiry&", ebuf);
-		replace(lbuf, BUFSIZE, "&myusers&", nbuf);
+		replace(lbuf, BUFSIZE, "&myusers&", ubuf);
+		replace(lbuf, BUFSIZE, "&mynicks&", nbuf);
 		replace(lbuf, BUFSIZE, "&mychans&", cbuf);
 
 		numeric_sts(me.name, 372, u->nick, ":- %s", lbuf);
@@ -362,12 +377,6 @@ void handle_message(sourceinfo_t *si, char *target, boolean_t is_notice, char *m
 		if (cdata.c == NULL)
 			return;
 		hook_call_event("channel_message", &cdata);
-
-		/* If target is a channel but command is no fantasy command,
-		 * it will be normal chatter
-		 */
-		if (*message != '!' && *message != '.' && *message != '@')
-			return;
 	}
 
 	if (si->service == NULL)
@@ -494,15 +503,12 @@ void handle_topic(channel_t *c, char *setter, time_t ts, char *topic)
 
 void handle_kill(sourceinfo_t *si, char *victim, char *reason)
 {
-	char *source;
+	const char *source;
 	user_t *u;
 	static time_t lastkill = 0;
 	static unsigned int killcount = 0;
 
-	if (si->s != NULL)
-		source = si->s->name;
-	else
-		source = si->su->nick;
+	source = get_oper_name(si);
 
 	u = user_find(victim);
 	if (u == NULL)
@@ -539,7 +545,8 @@ void handle_eob(server_t *s)
 		return;
 	if (s->flags & SF_EOB)
 		return;
-	slog(LG_DEBUG, "handle_eob(): end of burst from %s", s->name);
+	slog(LG_NETWORK, "handle_eob(): end of burst from %s (%d users)",
+			s->name, s->users);
 	hook_call_event("server_eob", s);
 	s->flags |= SF_EOB;
 	/* convert P10 style EOB to ircnet/ratbox style */

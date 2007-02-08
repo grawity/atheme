@@ -6,7 +6,7 @@
  * Some sources used: Run's documentation, beware's description,
  * raw data sent by asuka.
  *
- * $Id: undernet.c 6995 2006-10-28 15:04:27Z jilles $
+ * $Id: undernet.c 7357 2006-12-10 22:15:34Z jilles $
  */
 
 #include "atheme.h"
@@ -14,7 +14,7 @@
 #include "pmodule.h"
 #include "protocol/undernet.h"
 
-DECLARE_MODULE_V1("protocol/undernet", TRUE, _modinit, NULL, "$Id: undernet.c 6995 2006-10-28 15:04:27Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/undernet", TRUE, _modinit, NULL, "$Id: undernet.c 7357 2006-12-10 22:15:34Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -186,7 +186,7 @@ static void undernet_notice_global_sts(user_t *from, const char *mask, const cha
 		LIST_FOREACH(n, tldlist.head)
 		{
 			tld = n->data;
-			sts(":%s O %s*%s :%s", from ? from->uid : me.numeric, ircd->tldprefix, tld->name, text);
+			sts("%s O %s*%s :%s", from ? from->uid : me.numeric, ircd->tldprefix, tld->name, text);
 		}
 	}
 	else
@@ -196,9 +196,9 @@ static void undernet_notice_global_sts(user_t *from, const char *mask, const cha
 static void undernet_notice_channel_sts(user_t *from, channel_t *target, const char *text)
 {
 	if (from == NULL || chanuser_find(target, from))
-		sts(":%s O %s :%s", from ? from->uid : me.numeric, target->name, text);
+		sts("%s O %s :%s", from ? from->uid : me.numeric, target->name, text);
 	else
-		sts(":%s O %s :%s: %s", me.numeric, target->name, from->nick, text);
+		sts("%s O %s :[%s:%s] %s", me.numeric, target->name, from->nick, target->name, text);
 }
 
 static void undernet_wallchops(user_t *sender, channel_t *channel, char *message)
@@ -543,7 +543,7 @@ static void m_burst(sourceinfo_t *si, int parc, char *parv[])
 				cu->modes = 0;
 		}
 
-		slog(LG_INFO, "m_burst(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
+		slog(LG_DEBUG, "m_burst(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 		c->ts = ts;
 		hook_call_event("channel_tschange", c);
 	}
@@ -669,8 +669,6 @@ static void m_nick(sourceinfo_t *si, int parc, char *parv[])
 	/* if it's only 2 then it's a nickname change */
 	else if (parc == 2)
 	{
-		node_t *n;
-
                 if (!si->su)
                 {       
                         slog(LG_DEBUG, "m_nick(): server trying to change nick: %s", si->s != NULL ? si->s->name : "<none>");

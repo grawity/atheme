@@ -4,7 +4,7 @@
  *
  * Channel stuff.
  *
- * $Id: channels.c 6933 2006-10-24 22:03:31Z jilles $
+ * $Id: channels.c 7341 2006-12-08 00:01:54Z jilles $
  */
 
 #include "atheme.h"
@@ -104,7 +104,7 @@ channel_t *channel_add(const char *name, uint32_t ts)
 
 	hook_call_event("channel_add", c);
 
-	if (config_options.chan != NULL && !irccmp(config_options.chan, name))
+	if (config_options.chan != NULL && !irccasecmp(config_options.chan, name))
 		joinall(config_options.chan);
 
 	return c;
@@ -123,7 +123,7 @@ channel_t *channel_add(const char *name, uint32_t ts)
  *
  * Side Effects:
  *     - channel_delete hook is called
- *     - a channel and its members are recursively destroyed
+ *     - a channel and all attached structures are destroyed
  *     - no protocol messages are sent for any remaining members
  */
 void channel_delete(const char *name)
@@ -159,16 +159,20 @@ void channel_delete(const char *name)
 
 	hook_call_event("channel_delete", c);
 
-	/* we assume all lists should be null */
-
 	dictionary_delete(chanlist, c->name);
 
 	if ((mc = mychan_find(c->name)))
 		mc->chan = NULL;
 
 	clear_simple_modes(c);
+	chanban_clear(c);
 
 	free(c->name);
+	if (c->topic != NULL)
+		free(c->topic);
+	if (c->topic_setter != NULL)
+		free(c->topic_setter);
+
 	BlockHeapFree(chan_heap, c);
 
 	cnt.chan--;

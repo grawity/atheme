@@ -4,7 +4,7 @@
  *
  * See doc/LICENSE for licensing information.
  *
- * $Id: privs.c 6961 2006-10-26 22:22:50Z jilles $
+ * $Id: privs.c 7225 2006-11-19 15:44:42Z jilles $
  */
 
 #include "atheme.h"
@@ -46,6 +46,13 @@ operclass_t *operclass_add(char *name, char *privs)
 	operclass->name = sstrdup(name);
 	operclass->privs = sstrdup(privs);
 	cnt.operclass++;
+	LIST_FOREACH(n, soperlist.head)
+	{
+		soper_t *soper = n->data;
+		if (soper->operclass == NULL &&
+				!strcasecmp(name, soper->classname))
+			soper->operclass = operclass;
+	}
 	return operclass;
 }
 
@@ -59,6 +66,12 @@ void operclass_delete(operclass_t *operclass)
 	n = node_find(operclass, &operclasslist);
 	node_del(n, &operclasslist);
 	node_free(n);
+	LIST_FOREACH(n, soperlist.head)
+	{
+		soper_t *soper = n->data;
+		if (soper->operclass == operclass)
+			soper->operclass = NULL;
+	}
 	free(operclass->name);
 	free(operclass->privs);
 	BlockHeapFree(operclass_heap, operclass);
@@ -85,16 +98,31 @@ operclass_t *operclass_find(char *name)
  * S O P E R S *
  ***************/
 
-soper_t *soper_add(char *name, operclass_t *operclass)
+soper_t *soper_add(char *name, char *classname, int flags)
 {
 	soper_t *soper;
 	myuser_t *mu = myuser_find(name);
 	node_t *n;
+	operclass_t *operclass = operclass_find(classname);
 
-	if (mu ? soper_find(mu) : soper_find_named(name))
+	soper = mu ? soper_find(mu) : soper_find_named(name);
+	if (soper != NULL)
 	{
-		slog(LG_INFO, "soper_add(): duplicate soper %s", name);
-		return NULL;
+		if (flags & SOPER_CONF && !(soper->flags & SOPER_CONF))
+		{
+			slog(LG_INFO, "soper_add(): conf soper %s (%s) is replacing DB soper with class %s", name, classname, soper->classname);
+			soper_delete(soper);
+		}
+		else if (!(flags & SOPER_CONF) && soper->flags & SOPER_CONF)
+		{
+			slog(LG_INFO, "soper_add(): ignoring DB soper %s (%s) because of conf soper with class %s", name, classname, soper->classname);
+			return NULL;
+		}
+		else
+		{
+			slog(LG_INFO, "soper_add(): duplicate soper %s", name);
+			return NULL;
+		}
 	}
 	slog(LG_DEBUG, "soper_add(): %s -> %s", (mu) ? mu->name : name, operclass ? operclass->name : "<null>");
 
@@ -115,6 +143,8 @@ soper_t *soper_add(char *name, operclass_t *operclass)
 		soper->myuser = NULL;
 	}
 	soper->operclass = operclass;
+	soper->classname = sstrdup(classname);
+	soper->flags = flags;
 
 	cnt.soper++;
 
@@ -143,6 +173,8 @@ void soper_delete(soper_t *soper)
 
 	if (soper->name)
 		free(soper->name);
+
+	free(soper->classname);
 
 	BlockHeapFree(soper_heap, soper);
 
@@ -179,6 +211,28 @@ soper_t *soper_find_named(char *name)
 	}
 
 	return NULL;
+}
+
+boolean_t is_soper(myuser_t *myuser)
+{
+	if (!myuser)
+		return FALSE;
+
+	if (myuser->soper)
+		return TRUE;
+
+	return FALSE;
+}
+
+boolean_t is_conf_soper(myuser_t *myuser)
+{
+	if (!myuser)
+		return FALSE;
+
+	if (myuser->soper && myuser->soper->flags & SOPER_CONF)
+		return TRUE;
+
+	return FALSE;
 }
 
 /* name1 name2 name3... */
@@ -247,8 +301,10 @@ boolean_t has_priv_user(user_t *u, const char *priv)
 	if (u->myuser && is_soper(u->myuser))
 	{
 		operclass = u->myuser->soper->operclass;
-		if (operclass == NULL) /* old sras = {} */
-			return TRUE;
+		if (operclass == NULL)
+			return FALSE;
+		if (operclass->flags & OPERCLASS_NEEDOPER && !is_ircop(u))
+			return FALSE;
 		if (string_in_list(operclass->privs, priv))
 			return TRUE;
 	}
@@ -266,8 +322,8 @@ boolean_t has_priv_myuser(myuser_t *mu, const char *priv)
 	if (!is_soper(mu))
 		return FALSE;
 	operclass = mu->soper->operclass;
-	if (operclass == NULL) /* old sras = {} */
-		return TRUE;
+	if (operclass == NULL)
+		return FALSE;
 	if (string_in_list(operclass->privs, priv))
 		return TRUE;
 	return FALSE;
@@ -275,9 +331,29 @@ boolean_t has_priv_myuser(myuser_t *mu, const char *priv)
 
 boolean_t has_priv_operclass(operclass_t *operclass, const char *priv)
 {
-	if (operclass == NULL) /* old sras = {} */
-		return TRUE;
+	if (operclass == NULL)
+		return FALSE;
 	if (string_in_list(operclass->privs, priv))
 		return TRUE;
 	return FALSE;
+}
+
+boolean_t has_all_operclass(sourceinfo_t *si, operclass_t *operclass)
+{
+	char *privs2;
+	char *priv;
+
+	privs2 = sstrdup(operclass->privs);
+	priv = strtok(privs2, " ");
+	while (priv != NULL)
+	{
+		if (!has_priv(si, priv))
+		{
+			free(privs2);
+			return FALSE;
+		}
+		priv = strtok(NULL, " ");
+	}
+	free(privs2);
+	return TRUE;
 }

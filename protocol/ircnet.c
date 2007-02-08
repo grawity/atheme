@@ -6,7 +6,7 @@
  * Derived mainly from the documentation (or lack thereof)
  * in my protocol bridge.
  *
- * $Id: ircnet.c 6983 2006-10-27 21:51:38Z jilles $
+ * $Id: ircnet.c 7307 2006-11-29 00:47:32Z jilles $
  */
 
 #include "atheme.h"
@@ -14,7 +14,7 @@
 #include "pmodule.h"
 #include "protocol/ircnet.h"
 
-DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 6983 2006-10-27 21:51:38Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ircnet", TRUE, _modinit, NULL, "$Id: ircnet.c 7307 2006-11-29 00:47:32Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -194,7 +194,7 @@ static void ircnet_notice_channel_sts(user_t *from, channel_t *target, const cha
 	if (from == NULL || chanuser_find(target, from))
 		sts(":%s NOTICE %s :%s", from ? CLIENT_NAME(from) : ME, target->name, text);
 	else
-		sts(":%s NOTICE %s :%s: %s", ME, target->name, from->nick, text);
+		sts(":%s NOTICE %s :[%s:%s] %s", ME, target->name, from->nick, target->name, text);
 }
 
 /* numeric wrapper */
@@ -505,8 +505,6 @@ static void m_nick(sourceinfo_t *si, int parc, char *parv[])
 	/* if it's only 1 then it's a nickname change */
 	else if (parc == 1)
 	{
-		node_t *n;
-
                 if (!si->su)
                 {       
                         slog(LG_DEBUG, "m_nick(): server trying to change nick: %s", si->s != NULL ? si->s->name : "<none>");
@@ -532,7 +530,6 @@ static void m_nick(sourceinfo_t *si, int parc, char *parv[])
 static void m_save(sourceinfo_t *si, int parc, char *parv[])
 {
 	user_t *u;
-	node_t *n;
 
 	u = user_find(parv[0]);
 	if (u == NULL)
@@ -552,7 +549,7 @@ static void m_save(sourceinfo_t *si, int parc, char *parv[])
 	{
 		slog(LG_DEBUG, "m_save(): nickname change for `%s': %s", u->nick, u->uid);
 
-		user_changenick(si->su, parv[0], 0);
+		user_changenick(u, u->uid, 0);
 
 		handle_nickchange(u);
 	}

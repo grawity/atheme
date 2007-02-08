@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService SET command.
  *
- * $Id: set.c 7073 2006-11-04 23:21:21Z jilles $
+ * $Id: set.c 7067 2006-11-04 20:14:57Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/set", FALSE, _modinit, _moddeinit,
-	"$Id: set.c 7073 2006-11-04 23:21:21Z jilles $",
+	"$Id: set.c 7067 2006-11-04 20:14:57Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 

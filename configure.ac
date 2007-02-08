@@ -3,16 +3,16 @@ dnl Rights to this code are documented in doc/LICENSE.
 dnl
 dnl This file is the autoconf stub.
 dnl
-dnl $Id: configure.ac 7151 2006-11-15 13:36:17Z jilles $
+dnl $Id: configure.ac 7603 2007-02-08 21:30:17Z jilles $
 
 dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.57)
 
-AC_INIT(atheme, 2.0.0, bugs@atheme.org)
+AC_INIT(atheme, 2.1.0, bugs@atheme.org)
 
 dnl Sneaky way to get an id into the configure script.
-AC_COPYRIGHT([$Id: configure.ac 7151 2006-11-15 13:36:17Z jilles $])
+AC_COPYRIGHT([$Id: configure.ac 7603 2007-02-08 21:30:17Z jilles $])
 
 AC_CONFIG_AUX_DIR(autoconf)
 
@@ -139,7 +139,8 @@ else
   AC_MSG_ERROR([Cannot find a type with size of 64 bits])
 fi
 
-AC_CHECK_TYPE(socklen_t, unsigned int)
+dnl socklen_t check removed, it does not properly detect socklen_t
+dnl on macos x, and systems without socklen_t are obsolete -- jilles
 
 echo " "
 echo "Tweaks"
@@ -148,11 +149,14 @@ echo " "
 DOCDIR='${prefix}/doc'
 MODDIR='${exec_prefix}'
 SHAREDIR='${prefix}'
+LOGDIR="var"
+DATADIR="etc"
+RUNDIR="var"
 
 FHSPATHS="no"
 AC_MSG_CHECKING(if you want FHS-like pathnames)
 AC_ARG_ENABLE(fhs-paths,
-AC_HELP_STRING([--enable-fhs-paths],[ Use more FHS-like pathnames.]),
+AC_HELP_STRING([--enable-fhs-paths],[ Use more FHS-like pathnames (for packagers).]),
 [
   case "$enableval" in
   yes)
@@ -160,6 +164,9 @@ AC_HELP_STRING([--enable-fhs-paths],[ Use more FHS-like pathnames.]),
     DOCDIR='${datadir}/doc/atheme'
     MODDIR='${libdir}/atheme'
     SHAREDIR='${datadir}/atheme'
+    LOGDIR='${localstatedir}/log/atheme'
+    DATADIR='${localstatedir}/lib/atheme'
+    RUNDIR='${localstatedir}/run/atheme'
     ;;
   no)
     FHSPATHS="no"
@@ -170,6 +177,9 @@ AC_MSG_RESULT($FHSPATHS)
 AC_SUBST(DOCDIR)
 AC_SUBST(MODDIR)
 AC_SUBST(SHAREDIR)
+AC_SUBST(DATADIR)
+AC_SUBST(LOGDIR)
+AC_SUBST(RUNDIR)
 dnl the following is wrong! -- jilles
 dnl AC_DEFINE_UNQUOTED([MODDIR], "${MODDIR}", [Module root directory.])
 
@@ -541,7 +551,7 @@ ac_save_LDFLAGS="${LDFLAGS} -pg"
 LDFLAGS=${ac_save_LDFLAGS}
 ])
 
-ac_save_CFLAGS="${CFLAGS} ${orig_CFLAGS} ${CWARNS} -DPREFIX=\\\"\${prefix}\\\" -DMODDIR=\\\"\${MODDIR}\\\" -DSHAREDIR=\\\"${SHAREDIR}\\\""
+ac_save_CFLAGS="${CFLAGS} ${orig_CFLAGS} ${CWARNS} -DPREFIX=\\\"\${prefix}\\\" -DMODDIR=\\\"\${MODDIR}\\\" -DSHAREDIR=\\\"${SHAREDIR}\\\" -DSYSCONFDIR=\\\"${sysconfdir}\\\" -DLOGDIR=\\\"${LOGDIR}\\\" -DRUNDIR=\\\"${RUNDIR}\\\" -DDATADIR=\\\"${DATADIR}\\\""
 CFLAGS=${ac_save_CFLAGS}
 dnl export CFLAGS
 
@@ -572,6 +582,10 @@ Configuration:
         Atheme version       : ${PACKAGE_VERSION}
         Installation prefix  : ${prefix}
         Module root directory: `eval echo $d`
+        Config directory     : ${sysconfdir}
+        Logfile directory    : ${LOGDIR}
+        Data directory       : ${DATADIR}
+        PID directory        : ${RUNDIR}
         Large network support: ${LARGENET}
         PostgreSQL support   : ${POSTGRESQL}
         OpenSSL SASL support : ${SSL}

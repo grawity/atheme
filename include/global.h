@@ -5,7 +5,7 @@
  *
  * Global data
  *
- * $Id: global.h 6175 2006-08-20 19:29:12Z jilles $
+ * $Id: global.h 7363 2006-12-13 00:49:59Z jilles $
  */
 
 #ifndef _GLOBAL_H
@@ -32,7 +32,7 @@ struct me
   char *mta;                    /* path to mta program                */
   char *numeric;		/* server numeric		      */
 
-  uint8_t loglevel;             /* logging level                      */
+  uint32_t loglevel;            /* logging level                      */
   uint32_t maxfd;               /* how many fds do we have?           */
   uint32_t mdlimit;		/* metadata entry limit		      */
   time_t start;                 /* starting time                      */
@@ -43,6 +43,7 @@ struct me
 
   uint16_t maxlogins;           /* maximum logins per username        */
   uint16_t maxusers;            /* maximum usernames from one email   */
+  uint16_t maxnicks;            /* maximum nicks from one username    */
   uint16_t maxchans;            /* maximum chans from one username    */
   uint8_t auth;                 /* registration auth type             */
   uint16_t emaillimit;          /* maximum number of emails sent      */
@@ -112,6 +113,7 @@ struct cnt
   uint32_t chan;
   uint32_t chanuser;
   uint32_t myuser;
+  uint32_t mynick;
   uint32_t mychan;
   uint32_t chanacs;
   uint32_t node;
@@ -119,6 +121,7 @@ struct cnt
   uint32_t bout;
   uint32_t uplink;
   uint32_t operclass;
+  uint32_t myuser_access;
 };
 
 E struct cnt cnt;

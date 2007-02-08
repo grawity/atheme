@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService SENDPASS function.
  *
- * $Id: sendpass.c 7073 2006-11-04 23:21:21Z jilles $
+ * $Id: sendpass.c 7067 2006-11-04 20:14:57Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/sendpass", FALSE, _modinit, _moddeinit,
-	"$Id: sendpass.c 7073 2006-11-04 23:21:21Z jilles $",
+	"$Id: sendpass.c 7067 2006-11-04 20:14:57Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 

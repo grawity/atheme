@@ -19,8 +19,11 @@ You should also read the README and FAQ files.
 1. INSTALLATION
 ---------------
 
-IMPORTANT NOTE: it is not recommended to use (and therefore install) Atheme as
-root. Use an unprivileged user account.
+NOTE: if you are using a third party package of Atheme, most of this section
+will not apply.
+
+IMPORTANT NOTE: it is not recommended to use and install Atheme as root.
+Use an unprivileged user account.
 
 Atheme should compile and run on most POSIX compliant systems.  The list of
 platforms that Atheme has been tested on includes:
@@ -72,6 +75,9 @@ Atheme will compile. To install, type:
 The newly-compiled binary and several supporting files will be copied to the
 directory you specified in the "configure" script.
 
+It is recommended to keep the source directory; you will need it to
+(re)compile modules later.
+
 Next, you'll want to go to the directory you specified in "configure" and edit
 etc/atheme.conf. You'll need to change every setting or Atheme will not work.
 
@@ -79,6 +85,9 @@ etc/atheme.conf. You'll need to change every setting or Atheme will not work.
 ------------
 
 IMPORTANT NOTE: backup your configuration file and database!
+
+All custom modules should be recompiled as well. Loading old modules can
+cause Atheme to crash.
 
 Sometimes upgrading requires more than recompiling and reinstalling. Be sure to
 read doc/RELEASE for important notes concerning the release. This file will
@@ -93,7 +102,9 @@ network, you'll need to add some lines in your IRCd's configuration. Atheme
 connects to IRCd, not the other way around.
 
 This is where I can't help you. Every IRCd is different. Look for documentation
-for "connect{}" or "link{}" or "C/N lines" for your IRCd.
+for "connect{}" or "link{}" or "C/N lines" for your IRCd. You need to allow
+Atheme to introduce other servers (e.g. "hub_mask" or "H line"), otherwise
+it will probably be disconnected when the OperServ JUPE command is used.
 
 To be perfectly honest, if you can't figure this out you should be running
 neither IRCd nor services.

@@ -4,7 +4,7 @@
  *
  * Implements nickserv RETURN.
  *
- * $Id: return.c 7073 2006-11-04 23:21:21Z jilles $
+ * $Id: return.c 7067 2006-11-04 20:14:57Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/return", FALSE, _modinit, _moddeinit,
-	"$Id: return.c 7073 2006-11-04 23:21:21Z jilles $",
+	"$Id: return.c 7067 2006-11-04 20:14:57Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 

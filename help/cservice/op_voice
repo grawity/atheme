@@ -1,4 +1,4 @@
-Help for OP|DEOP|HALFOP|DEHALFOP|VOICE|DEVOICE:
+Help for OP|DEOP|VOICE|DEVOICE:
 
 These commands perform status mode changes on a channel.
 
@@ -8,10 +8,7 @@ notified that you did it.
 If the last parameter is omitted the action is performed
 on the person requesting the command.
 
-Most IRC networks do not support halfops.
-
 Syntax: OP|DEOP <#channel> [nickname]
-Syntax: HALFOP|DEHALFOP <#channel> [nickname]
 Syntax: VOICE|DEVOICE <#channel> [nickname]
 
 Examples:

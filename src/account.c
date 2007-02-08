@@ -4,16 +4,18 @@
  *
  * Account-related functions.
  *
- * $Id: account.c 6969 2006-10-26 23:10:14Z jilles $
+ * $Id: account.c 7395 2006-12-25 16:32:51Z jilles $
  */
 
 #include "atheme.h"
 #include "uplink.h" /* XXX, for sendq_flush(curr_uplink->conn); */
 
 dictionary_tree_t *mulist;
+dictionary_tree_t *nicklist;
 dictionary_tree_t *mclist;
 
 static BlockHeap *myuser_heap;  /* HEAP_USER */
+static BlockHeap *mynick_heap;  /* HEAP_USER */
 static BlockHeap *mychan_heap;	/* HEAP_CHANNEL */
 static BlockHeap *chanacs_heap;	/* HEAP_CHANACS */
 static BlockHeap *metadata_heap;	/* HEAP_CHANUSER */
@@ -35,18 +37,20 @@ static BlockHeap *metadata_heap;	/* HEAP_CHANUSER */
 void init_accounts(void)
 {
 	myuser_heap = BlockHeapCreate(sizeof(myuser_t), HEAP_USER);
+	mynick_heap = BlockHeapCreate(sizeof(myuser_t), HEAP_USER);
 	mychan_heap = BlockHeapCreate(sizeof(mychan_t), HEAP_CHANNEL);
 	chanacs_heap = BlockHeapCreate(sizeof(chanacs_t), HEAP_CHANUSER);
 	metadata_heap = BlockHeapCreate(sizeof(metadata_t), HEAP_CHANUSER);
 
-	if (myuser_heap == NULL || mychan_heap == NULL || chanacs_heap == NULL
-			|| metadata_heap == NULL)
+	if (myuser_heap == NULL || mynick_heap == NULL || mychan_heap == NULL
+			|| chanacs_heap == NULL || metadata_heap == NULL)
 	{
 		slog(LG_ERROR, "init_accounts(): block allocator failure.");
 		exit(EXIT_FAILURE);
 	}
 
 	mulist = dictionary_create("myuser", HASH_USER, irccasecmp);
+	nicklist = dictionary_create("mynick", HASH_USER, irccasecmp);
 	mclist = dictionary_create("mychan", HASH_CHANNEL, irccasecmp);
 }
 
@@ -68,11 +72,14 @@ void init_accounts(void)
  * Side Effects:
  *      - the created account is added to the accounts DTree,
  *        this may be undesirable for a factory.
+ *
+ * Caveats:
+ *      - if nicksvs.no_nick_ownership is not enabled, the caller is
+ *        responsible for adding a nick with the same name
  */
 myuser_t *myuser_add(char *name, char *pass, char *email, uint32_t flags)
 {
 	myuser_t *mu;
-	node_t *n;
 	soper_t *soper;
 
 	mu = myuser_find(name);
@@ -85,7 +92,6 @@ myuser_t *myuser_add(char *name, char *pass, char *email, uint32_t flags)
 
 	slog(LG_DEBUG, "myuser_add(): %s -> %s", name, email);
 
-	n = node_create();
 	mu = BlockHeapAlloc(myuser_heap);
 
 	/* set the password later */
@@ -137,10 +143,12 @@ void myuser_delete(myuser_t *mu)
 {
 	myuser_t *successor;
 	mychan_t *mc;
+	mynick_t *mn;
 	chanacs_t *ca;
 	user_t *u;
 	node_t *n, *tn;
 	metadata_t *md;
+	mymemo_t *memo;
 	dictionary_iteration_state_t state;
 
 	if (!mu)
@@ -152,17 +160,14 @@ void myuser_delete(myuser_t *mu)
 	slog(LG_DEBUG, "myuser_delete(): %s", mu->name);
 
 	/* log them out */
-	if (authservice_loaded)
+	LIST_FOREACH_SAFE(n, tn, mu->logins.head)
 	{
-		LIST_FOREACH_SAFE(n, tn, mu->logins.head)
+		u = (user_t *)n->data;
+		if (!authservice_loaded || !ircd_on_logout(u->nick, mu->name, NULL))
 		{
-			u = (user_t *)n->data;
-			if (!ircd_on_logout(u->nick, mu->name, NULL))
-			{
-				u->myuser = NULL;
-				node_del(n, &mu->logins);
-				node_free(n);
-			}
+			u->myuser = NULL;
+			node_del(n, &mu->logins);
+			node_free(n);
 		}
 	}
 
@@ -221,6 +226,27 @@ void myuser_delete(myuser_t *mu)
 	/* kill any authcookies */
 	authcookie_destroy_all(mu);
 
+	/* delete memos */
+	LIST_FOREACH_SAFE(n, tn, mu->memos.head)
+	{
+		memo = (mymemo_t *)n->data;
+
+		node_del(n, &mu->memos);
+		node_free(n);
+		free(memo);
+	}
+
+	/* delete access entries */
+	LIST_FOREACH_SAFE(n, tn, mu->access_list.head)
+		myuser_access_delete(mu, (char *)n->data);
+
+	/* delete their nicks */
+	LIST_FOREACH_SAFE(n, tn, mu->nicks.head)
+	{
+		mn = (mynick_t *)n->data;
+		mynick_delete(mn);
+	}
+
 	/* mu->name is the index for this dtree */
 	dictionary_delete(mulist, mu->name);
 
@@ -251,10 +277,11 @@ myuser_t *myuser_find(const char *name)
 /*
  * myuser_find_ext(const char *name)
  *
- * Same as myuser_find() but with undernet-style `=nick' expansion.
+ * Same as myuser_find() but with nick group support and undernet-style
+ * `=nick' expansion.
  *
  * Inputs:
- *      - account name to retrieve or =nick notation for wanted account.
+ *      - account name/nick to retrieve or =nick notation for wanted account.
  *
  * Outputs:
  *      - account wanted or NULL if it's not in the DTree.
@@ -265,17 +292,23 @@ myuser_t *myuser_find(const char *name)
 myuser_t *myuser_find_ext(const char *name)
 {
 	user_t *u;
+	mynick_t *mn;
 
 	if (name == NULL)
 		return NULL;
 
 	if (*name == '=')
 	{
-		u = user_find(name + 1);
+		u = user_find_named(name + 1);
 		return u != NULL ? u->myuser : NULL;
 	}
-	else
+	else if (nicksvs.no_nick_ownership)
 		return myuser_find(name);
+	else
+	{
+		mn = mynick_find(name);
+		return mn != NULL ? mn->owner : NULL;
+	}
 }
 
 /*
@@ -349,9 +382,9 @@ myuser_access_verify(user_t *u, myuser_t *mu)
 	if (!use_myuser_access)
 		return FALSE;
 
-	snprintf(buf, BUFSIZE, "%s@%s", u->user, u->vhost);
-	snprintf(buf2, BUFSIZE, "%s@%s", u->user, u->host);
-	snprintf(buf3, BUFSIZE, "%s@%s", u->user, u->ip);
+	snprintf(buf, sizeof buf, "%s@%s", u->user, u->vhost);
+	snprintf(buf2, sizeof buf2, "%s@%s", u->user, u->host);
+	snprintf(buf3, sizeof buf3, "%s@%s", u->user, u->ip);
 
 	LIST_FOREACH(n, mu->access_list.head)
 	{
@@ -401,6 +434,8 @@ myuser_access_add(myuser_t *mu, char *mask)
 	msk = sstrdup(mask);
 	n = node_create();
 	node_add(msk, n, &mu->access_list);
+
+	cnt.myuser_access++;
 
 	return TRUE;
 }
@@ -468,11 +503,114 @@ myuser_access_delete(myuser_t *mu, char *mask)
 		if (!strcasecmp(entry, mask))
 		{
 			node_del(n, &mu->access_list);
+			node_free(n);
 			free(entry);
+
+			cnt.myuser_access--;
 
 			return;
 		}
 	}
+}
+
+/***************
+ * M Y N I C K *
+ ***************/
+
+/*
+ * mynick_add(myuser_t *mu, const char *name)
+ *
+ * Creates a nick registration for the given account and adds it to the
+ * nicks DTree.
+ *
+ * Inputs:
+ *      - an account pointer
+ *      - a nickname
+ *
+ * Outputs:
+ *      - on success, a new mynick_t object
+ *      - on failure, NULL.
+ *
+ * Side Effects:
+ *      - the created nick is added to the nick DTree and to the
+ *        account's list.
+ */
+mynick_t *mynick_add(myuser_t *mu, const char *name)
+{
+	mynick_t *mn;
+
+	mn = mynick_find(name);
+	if (mn)
+	{
+		slog(LG_DEBUG, "mynick_add(): mynick already exists: %s", name);
+		return mn;
+	}
+
+	slog(LG_DEBUG, "mynick_add(): %s -> %s", name, mu->name);
+
+	mn = BlockHeapAlloc(mynick_heap);
+
+	strlcpy(mn->nick, name, NICKLEN);
+	mn->owner = mu;
+	mn->registered = CURRTIME;
+
+	dictionary_add(nicklist, mn->nick, mn);
+	node_add(mn, &mn->node, &mu->nicks);
+
+	cnt.mynick++;
+
+	return mn;
+}
+
+/*
+ * mynick_delete(mynick_t *mn)
+ *
+ * Destroys and removes a nick from the nicks DTree and the account.
+ *
+ * Inputs:
+ *      - nick to destroy
+ *
+ * Outputs:
+ *      - nothing
+ *
+ * Side Effects:
+ *      - a nick is destroyed and removed from the nicks DTree and the account.
+ */
+void mynick_delete(mynick_t *mn)
+{
+	if (!mn)
+	{
+		slog(LG_DEBUG, "mynick_delete(): called for NULL myuser");
+		return;
+	}
+
+	slog(LG_DEBUG, "mynick_delete(): %s", mn->nick);
+
+	dictionary_delete(nicklist, mn->nick);
+	node_del(&mn->node, &mn->owner->nicks);
+
+	BlockHeapFree(mynick_heap, mn);
+
+	cnt.mynick--;
+}
+
+/*
+ * mynick_find(const char *name)
+ *
+ * Retrieves a nick from the nicks DTree.
+ *
+ * Inputs:
+ *      - nickname to retrieve
+ *
+ * Outputs:
+ *      - nick wanted or NULL if it's not in the DTree.
+ *
+ * Side Effects:
+ *      - none
+ */
+mynick_t *mynick_find(const char *name)
+{
+	return dictionary_retrieve(nicklist, name);
 }
 
 /***************
@@ -511,6 +649,7 @@ void mychan_delete(char *name)
 {
 	mychan_t *mc = mychan_find(name);
 	chanacs_t *ca;
+	metadata_t *md;
 	node_t *n, *tn;
 
 	if (!mc)
@@ -530,6 +669,13 @@ void mychan_delete(char *name)
 			chanacs_delete(ca->mychan, ca->myuser, ca->level);
 		else
 			chanacs_delete_host(ca->mychan, ca->host, ca->level);
+	}
+
+	/* delete the metadata */
+	LIST_FOREACH_SAFE(n, tn, mc->metadata.head)
+	{
+		md = (metadata_t *) n->data;
+		metadata_delete(mc, METADATA_CHANNEL, md->name);
 	}
 
 	dictionary_delete(mclist, mc->name);
@@ -568,12 +714,10 @@ boolean_t mychan_isused(mychan_t *mc)
 /* Find a user fulfilling the conditions who can take another channel */
 myuser_t *mychan_pick_candidate(mychan_t *mc, uint32_t minlevel, int maxtime)
 {
-	int j, tcnt;
+	int tcnt;
 	node_t *n, *n2;
-	chanacs_t *ca;
-	mychan_t *tmc;
+	chanacs_t *ca, *ca2;
 	myuser_t *mu;
-	dictionary_iteration_state_t state;
 
 	LIST_FOREACH(n, mc->chanacs.head)
 	{
@@ -588,12 +732,13 @@ myuser_t *mychan_pick_candidate(mychan_t *mc, uint32_t minlevel, int maxtime)
 			if (has_priv_myuser(mu, PRIV_REG_NOLIMIT))
 				return mu;
 			tcnt = 0;
-			DICTIONARY_FOREACH(tmc, &state, mclist)
+			LIST_FOREACH(n2, mu->chanacs.head)
 			{
-				if (is_founder(tmc, mu))
+				ca2 = n2->data;
+				if (is_founder(ca2->mychan, mu))
 					tcnt++;
 			}
-		
+
 			if (tcnt < me.maxchans)
 				return mu;
 		}
@@ -718,7 +863,8 @@ chanacs_t *chanacs_add_host(mychan_t *mychan, char *host, uint32_t level)
 void chanacs_delete(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 {
 	chanacs_t *ca;
-	node_t *n, *tn, *n2;
+	node_t *n, *tn, *n2, *tn2;
+	metadata_t *md;
 
 	if (!mychan || !myuser)
 	{
@@ -740,6 +886,14 @@ void chanacs_delete(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 			node_del(n2, &myuser->chanacs);
 			node_free(n2);
 
+			LIST_FOREACH_SAFE(n2, tn2, ca->metadata.head)
+			{
+				md = n2->data;
+				metadata_delete(ca, METADATA_CHANACS, md->name);
+			}
+
+			BlockHeapFree(chanacs_heap, ca);
+
 			cnt.chanacs--;
 
 			return;
@@ -750,7 +904,8 @@ void chanacs_delete(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 void chanacs_delete_host(mychan_t *mychan, char *host, uint32_t level)
 {
 	chanacs_t *ca;
-	node_t *n, *tn;
+	node_t *n, *tn, *n2, *tn2;
+	metadata_t *md;
 
 	if (!mychan || !host)
 	{
@@ -768,6 +923,12 @@ void chanacs_delete_host(mychan_t *mychan, char *host, uint32_t level)
 
 			node_del(n, &mychan->chanacs);
 			node_free(n);
+
+			LIST_FOREACH_SAFE(n2, tn2, ca->metadata.head)
+			{
+				md = n2->data;
+				metadata_delete(ca, METADATA_CHANACS, md->name);
+			}
 
 			BlockHeapFree(chanacs_heap, ca);
 
@@ -1259,10 +1420,10 @@ static int expire_myuser_cb(dictionary_elem_t *delem, void *unused)
 
 	if (((CURRTIME - mu->lastlogin) >= config_options.expire) || ((mu->flags & MU_WAITAUTH) && (CURRTIME - mu->registered >= 86400)))
 	{
-		/* Don't expire accounts with privs on them,
+		/* Don't expire accounts with privs on them in atheme.conf,
 		 * otherwise someone can reregister
 		 * them and take the privs -- jilles */
-		if (is_soper(mu))
+		if (is_conf_soper(mu))
 			return 0;
 
 		snoop("EXPIRE: \2%s\2 from \2%s\2 ", mu->name, mu->email);
@@ -1274,8 +1435,9 @@ static int expire_myuser_cb(dictionary_elem_t *delem, void *unused)
 
 void expire_check(void *arg)
 {
-	uint32_t i;
+	mynick_t *mn;
 	mychan_t *mc;
+	user_t *u;
 	dictionary_iteration_state_t state;
 
 	/* Let them know about this and the likely subsequent db_save()
@@ -1286,6 +1448,31 @@ void expire_check(void *arg)
 		return;
 
 	dictionary_foreach(mulist, expire_myuser_cb, NULL);
+
+	DICTIONARY_FOREACH(mn, &state, nicklist)
+	{
+		if ((CURRTIME - mn->lastseen) >= config_options.expire)
+		{
+			if (MU_HOLD & mn->owner->flags)
+				continue;
+
+			/* do not drop main nick like this */
+			if (!irccasecmp(mn->nick, mn->owner->name))
+				continue;
+
+			u = user_find_named(mn->nick);
+			if (u != NULL && u->myuser == mn->owner)
+			{
+				/* still logged in, bleh */
+				mn->lastseen = CURRTIME;
+				mn->owner->lastlogin = CURRTIME;
+				continue;
+			}
+
+			snoop("EXPIRE: \2%s\2 from \2%s\2", mn->nick, mn->owner->name);
+			mynick_delete(mn);
+		}
+	}
 
 	DICTIONARY_FOREACH(mc, &state, mclist)
 	{
@@ -1325,6 +1512,7 @@ void expire_check(void *arg)
 static int check_myuser_cb(dictionary_elem_t *delem, void *unused)
 {
 	myuser_t *mu = (myuser_t *) delem->node.data;
+	mynick_t *mn;
 
 	if (MU_OLD_ALIAS & mu->flags)
 	{
@@ -1333,12 +1521,31 @@ static int check_myuser_cb(dictionary_elem_t *delem, void *unused)
 		metadata_delete(mu, METADATA_USER, "private:alias:parent");
 	}
 
+	if (!nicksvs.no_nick_ownership)
+	{
+		mn = mynick_find(mu->name);
+		if (mn == NULL)
+		{
+			slog(LG_DEBUG, "db_check(): adding missing nick %s", mu->name);
+			mn = mynick_add(mu, mu->name);
+			mn->registered = mu->registered;
+			mn->lastseen = mu->lastlogin;
+		}
+		else if (mn->owner != mu)
+		{
+			slog(LG_INFO, "db_check(): replacing nick %s owned by %s with %s", mn->nick, mn->owner->name, mu->name);
+			mynick_delete(mn);
+			mn = mynick_add(mu, mu->name);
+			mn->registered = mu->registered;
+			mn->lastseen = mu->lastlogin;
+		}
+	}
+
 	return 0;
 }
 
 void db_check()
 {
-	uint32_t i;
 	mychan_t *mc;
 	dictionary_iteration_state_t state;
 

@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005-2006 Atheme Development Group.
+ * Copyright (c) 2005-2007 Atheme Development Group.
  * Rights to this code are documented in doc/LICENSE.
  *
  * This file contains the main() routine.
  *
- * $Id: atheme.c 6807 2006-10-21 19:43:43Z jilles $
+ * $Id: atheme.c 7589 2007-02-07 23:24:26Z jilles $
  */
 
 #include "atheme.h"
@@ -32,7 +32,7 @@ extern char **environ;
 /* *INDENT-OFF* */
 static void print_help(void)
 {
-	printf("usage: atheme [-dhnv] [-c config] [-p pidfile]\n\n"
+	printf("usage: atheme [-dhnv] [-c conf] [-l logfile] [-p pidfile]\n\n"
 	       "-c <file>    Specify the config file\n"
 	       "-d           Start in debugging mode\n"
 	       "-h           Print this message and exit\n"
@@ -46,7 +46,7 @@ static void print_version(void)
 {
 	printf("Atheme IRC Services (atheme-%s)\n"
 	       "Compiled %s, build-id %s, build %s\n\n"
-	       "Copyright (c) 2005-2006 Atheme Development Group\n"
+	       "Copyright (c) 2005-2007 Atheme Development Group\n"
 	       "Rights to this code are documented in doc/LICENSE.\n",
 	       version, creation, revision, generation);
 }
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	char buf[32];
 	int i, pid, r;
 	FILE *pid_file;
-	char *pidfilename = "var/atheme.pid";
+	char *pidfilename = RUNDIR "/atheme.pid";
 #ifndef _WIN32
 	struct rlimit rlim;
 #endif
@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 			  have_conf = TRUE;
 			  break;
 		  case 'd':
-			  me.loglevel |= LG_DEBUG;
+			  log_force = TRUE;
 			  break;
 		  case 'h':
 			  print_help();
@@ -121,10 +121,10 @@ int main(int argc, char *argv[])
 	}
 
 	if (have_conf == FALSE)
-		config_file = sstrdup("etc/atheme.conf");
+		config_file = sstrdup(SYSCONFDIR "/atheme.conf");
 
 	if (have_log == FALSE)
-		log_path = sstrdup("var/atheme.log");
+		log_path = sstrdup(LOGDIR "/atheme.log");
 
 	cold_start = TRUE;
 
@@ -323,8 +323,8 @@ int main(int argc, char *argv[])
 	/* check authcookie expires every ten minutes */
 	event_add("authcookie_expire", authcookie_expire, NULL, 600);
 
-	uplink_connect();
 	me.connected = FALSE;
+	uplink_connect();
 
 	/* main loop */
 	io_loop();

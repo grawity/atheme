@@ -4,7 +4,7 @@
  *
  * This file contains protocol support for spanning tree stable branch inspircd.
  *
- * $Id: inspircd10.c 7137 2006-11-12 17:13:08Z jilles $
+ * $Id: inspircd10.c 7299 2006-11-27 10:30:15Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 #include "pmodule.h"
 #include "protocol/inspircd.h"
 
-DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd10.c 7137 2006-11-12 17:13:08Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
+DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd10.c 7299 2006-11-27 10:30:15Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
 
 /* *INDENT-OFF* */
 
@@ -153,12 +153,13 @@ static uint8_t inspircd_server_login(void)
 	me.bursting = TRUE;
 	sts("BURST");
 	/* XXX: Being able to get this data as a char* would be nice - Brain */
-        sts(":%s VERSION :atheme-%s. %s %s%s%s%s%s%s%s%s%s",me.name, version, me.name, (match_mapping) ? "A" : "",
-								                      (me.loglevel & LG_DEBUG) ? "d" : "",
+        sts(":%s VERSION :atheme-%s. %s %s%s%s%s%s%s%s%s%s%s",me.name, version, me.name, (match_mapping) ? "A" : "",
+								                      (log_force || me.loglevel & (LG_DEBUG | LG_RAWDATA)) ? "d" : "",
 							                              (me.auth) ? "e" : "",
 										      (config_options.flood_msgs) ? "F" : "",
 										      (config_options.leave_chans) ? "l" : "",
 										      (config_options.join_chans) ? "j" : "",
+										      (chansvs.changets) ? "t" : "",
 										      (!match_mapping) ? "R" : "",
 										      (config_options.raw) ? "r" : "",
 										      (runflags & RF_LIVE) ? "n" : "");
@@ -572,8 +573,6 @@ static void m_nick(sourceinfo_t *si, int parc, char *parv[])
 	/* if it's only 1 then it's a nickname change */
 	else if (parc == 1)
 	{
-		node_t *n;
-
                 if (!si->su)
                 {       
                         slog(LG_DEBUG, "m_nick(): server trying to change nick: %s", si->s != NULL ? si->s->name : "<none>");
@@ -790,7 +789,12 @@ static void m_metadata(sourceinfo_t *si, int parc, char *parv[])
 
 static void m_capab(sourceinfo_t *si, int parc, char *parv[])
 {
-	if (!strstr(parv[0], "m_services_account.so"))
+	if (!strcasecmp(parv[0], "START"))
+	{
+		fprintf(stderr, "atheme: server seems to be inspircd 1.1, please use inspircd11.so instead of inspircd10.so. exiting.\n");
+		exit(EXIT_FAILURE);		
+	}
+	else if (!strstr(parv[0], "m_services_account.so"))
 	{
 		fprintf(stderr, "atheme: you didn't load m_services_account into inspircd. atheme support requires this module. exiting.\n");
 		exit(EXIT_FAILURE);		

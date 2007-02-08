@@ -4,7 +4,7 @@
  *
  * This file contains protocol support for spanning tree 1.1 branch inspircd.
  *
- * $Id: inspircd11.c 7137 2006-11-12 17:13:08Z jilles $
+ * $Id: inspircd11.c 7299 2006-11-27 10:30:15Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 #include "pmodule.h"
 #include "protocol/inspircd.h"
 
-DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd11.c 7137 2006-11-12 17:13:08Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
+DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd11.c 7299 2006-11-27 10:30:15Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
 
 /* *INDENT-OFF* */
 
@@ -96,7 +96,9 @@ struct cmode_ inspircd_prefix_mode_list[] = {
 static boolean_t has_servicesmod = false;
 static boolean_t has_globopsmod = false;
 static boolean_t has_svshold = false;
+static int has_protocol = 0;
 
+#define PROTOCOL_SNONOTICE 1102
 
 /* *INDENT-ON* */
 
@@ -158,12 +160,13 @@ static uint8_t inspircd_server_login(void)
 	me.bursting = TRUE;
 	sts("BURST");
 	/* XXX: Being able to get this data as a char* would be nice - Brain */
-        sts(":%s VERSION :atheme-%s. %s %s%s%s%s%s%s%s%s%s",me.name, version, me.name, (match_mapping) ? "A" : "",
-								                      (me.loglevel & LG_DEBUG) ? "d" : "",
+        sts(":%s VERSION :atheme-%s. %s %s%s%s%s%s%s%s%s%s%s",me.name, version, me.name, (match_mapping) ? "A" : "",
+								                      (log_force || me.loglevel & (LG_DEBUG | LG_RAWDATA)) ? "d" : "",
 							                              (me.auth) ? "e" : "",
 										      (config_options.flood_msgs) ? "F" : "",
 										      (config_options.leave_chans) ? "l" : "",
 										      (config_options.join_chans) ? "j" : "",
+										      (chansvs.changets) ? "t" : "",
 										      (!match_mapping) ? "R" : "",
 										      (config_options.raw) ? "r" : "",
 										      (runflags & RF_LIVE) ? "n" : "");
@@ -193,6 +196,16 @@ static void inspircd_wallops_sts(const char *text)
 	char *sendernick = NULL;
 	user_t *u;
 	node_t *n;
+
+	if (has_protocol >= PROTOCOL_SNONOTICE)
+	{
+		/* XXX */
+		if (has_globopsmod)
+			sts(":%s SNONOTICE g :%s", me.name, text);
+		else
+			sts(":%s OPERNOTICE :%s", me.name, text);
+		return;
+	}
 
 	if (me.me == NULL)
 		return;
@@ -534,7 +547,6 @@ static void m_fjoin(sourceinfo_t *si, int parc, char *parv[])
 	char *userv[256];
 	char prefixandnick[51];
 	time_t ts;
-	char *bounce;
 
 	c = channel_find(parv[0]);
 	ts = atol(parv[1]);
@@ -690,8 +702,6 @@ static void m_nick(sourceinfo_t *si, int parc, char *parv[])
 	/* if it's only 1 then it's a nickname change */
 	else if (parc == 1)
 	{
-		node_t *n;
-
                 if (!si->su)
                 {       
                         slog(LG_DEBUG, "m_nick(): server trying to change nick: %s", si->s != NULL ? si->s->name : "<none>");
@@ -749,6 +759,7 @@ static void m_fmode(sourceinfo_t *si, int parc, char *parv[])
 		if (c == NULL)
 		{
 			slog(LG_DEBUG, "m_fmode(): nonexistant channel: %s", parv[0]);
+			return;
 		}
 		ts = atoi(parv[1]);
 		if (ts == c->ts)
@@ -969,18 +980,28 @@ static void m_metadata(sourceinfo_t *si, int parc, char *parv[])
 
 static void m_capab(sourceinfo_t *si, int parc, char *parv[])
 {
+	int i, varc;
+	char *varv[256];
+
 	if (strcasecmp(parv[0], "START") == 0)
 	{
 		/* reset all our previously recieved CAPAB stuff */
 		has_servicesmod = false;
 		has_globopsmod = false;
 		has_svshold = false;
+		has_protocol = 0;
 	}
-	else if (strcasecmp(parv[0], "CAPABILITIES") == 0)
+	else if (strcasecmp(parv[0], "CAPABILITIES") == 0 && parc > 1)
 	{
-		/* check for ident length, etc */
+		varc = sjtoken(parv[1], ' ', varv);
+		for (i = 0; i < varc; i++)
+		{
+			if (!strncmp(varv[i], "PROTOCOL=", 9))
+				has_protocol = atoi(varv[i] + 9);
+			/* XXX check/store HALFOP/CHANMAX/IDENTMAX */
+		}
 	}
-	else if (strcasecmp(parv[0], "MODULES") == 0)
+	else if (strcasecmp(parv[0], "MODULES") == 0 && parc > 1)
 	{
 		if (strstr(parv[1], "m_services_account.so"))
 		{
@@ -997,7 +1018,7 @@ static void m_capab(sourceinfo_t *si, int parc, char *parv[])
 	}
 	else if (strcasecmp(parv[0], "END") == 0)
 	{
-		if (has_globopsmod == false)
+		if (has_globopsmod == false && has_protocol < PROTOCOL_SNONOTICE)
 		{
 			fprintf(stderr, "atheme: you didn't load m_globops into inspircd. atheme support requires this module. exiting.\n");
 			exit(EXIT_FAILURE);

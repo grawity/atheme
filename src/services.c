@@ -4,7 +4,7 @@
  *
  * This file contains client interaction routines.
  *
- * $Id: services.c 6931 2006-10-24 16:53:07Z jilles $
+ * $Id: services.c 7377 2006-12-16 15:59:44Z jilles $
  */
 
 #include "atheme.h"
@@ -228,7 +228,7 @@ void verbose(mychan_t *mychan, char *fmt, ...)
 	vsnprintf(buf, BUFSIZE, fmt, ap);
 	va_end(ap);
 
-	if (MC_VERBOSE & mychan->flags)
+	if ((MC_VERBOSE | MC_FORCEVERBOSE) & mychan->flags)
 		notice(chansvs.nick, mychan->name, "%s", buf);
 	else if (MC_VERBOSE_OPS & mychan->flags)
 		wallchops(chansvs.me->me, mychan->chan, buf);
@@ -258,13 +258,14 @@ void snoop(char *fmt, ...)
 /* protocol wrapper for nickchange/nick burst */
 void handle_nickchange(user_t *u)
 {
-	myuser_t *mu;
+	mynick_t *mn;
 	node_t *n;
 
 	if (u == NULL)
 		return;
 
-	if (me.loglevel & LG_DEBUG && runflags & RF_LIVE)
+	if ((log_force || (me.loglevel & (LG_DEBUG | LG_RAWDATA))) &&
+			runflags & RF_LIVE)
 		notice(globsvs.nick, u->nick, "Services are presently running in debug mode, attached to a console. You should take extra caution when utilizing your services passwords.");
 
 	/* Only do the following checks if nicks are considered owned -- jilles */
@@ -279,7 +280,7 @@ void handle_nickchange(user_t *u)
 	if (!(u->server->flags & SF_EOB))
 		u->flags |= UF_SEENINFO;
 
-	if (!(mu = myuser_find(u->nick)))
+	if (!(mn = mynick_find(u->nick)))
 	{
 		if (!nicksvs.spam)
 			return;
@@ -296,12 +297,18 @@ void handle_nickchange(user_t *u)
 		return;
 	}
 
-	if (u->myuser == mu)
+	if (u->myuser == mn->owner)
+	{
+		mn->lastseen = CURRTIME;
 		return;
+	}
 
 	/* OpenServices: is user on access list? -nenolod */
-	if (myuser_access_verify(u, mu))
+	if (myuser_access_verify(u, mn->owner))
+	{
+		mn->lastseen = CURRTIME;
 		return;
+	}
 
 	notice(nicksvs.nick, u->nick, "This nickname is registered. Please choose a different nickname, or identify via \2/%s%s identify <password>\2.",
 	       (ircd->uses_rcommand == FALSE) ? "msg " : "", nicksvs.disp);
@@ -323,6 +330,7 @@ void handle_burstlogin(user_t *u, char *login)
 	myuser_t *mu;
 	node_t *n;
 
+	/* don't allow alias nicks here -- jilles */
 	mu = myuser_find(login);
 	if (mu == NULL)
 	{
@@ -489,12 +497,14 @@ const char *get_source_name(sourceinfo_t *si)
 
 	if (si->su != NULL)
 	{
-		if (si->smu && !irccmp(si->su->nick, si->smu->name))
+		if (si->smu && !irccasecmp(si->su->nick, si->smu->name))
 			snprintf(result, sizeof result, "%s", si->su->nick);
 		else
 			snprintf(result, sizeof result, "%s(%s)", si->su->nick,
 					si->smu ? si->smu->name : "");
 	}
+	else if (si->s != NULL)
+		snprintf(result, sizeof result, "%s", si->s->name);
 	else
 	{
 		snprintf(result, sizeof result, "<%s>%s", si->v->description,
@@ -512,6 +522,8 @@ const char *get_source_mask(sourceinfo_t *si)
 		snprintf(result, sizeof result, "%s!%s@%s", si->su->nick,
 				si->su->user, si->su->vhost);
 	}
+	else if (si->s != NULL)
+		snprintf(result, sizeof result, "%s", si->s->name);
 	else
 	{
 		snprintf(result, sizeof result, "<%s>%s", si->v->description,
@@ -530,12 +542,14 @@ const char *get_oper_name(sourceinfo_t *si)
 			snprintf(result, sizeof result, "%s!%s@%s{%s}", si->su->nick,
 					si->su->user, si->su->vhost,
 					si->su->server->name);
-		else if (!irccmp(si->su->nick, si->smu->name))
+		else if (!irccasecmp(si->su->nick, si->smu->name))
 			snprintf(result, sizeof result, "%s", si->su->nick);
 		else
 			snprintf(result, sizeof result, "%s(%s)", si->su->nick,
 					si->smu ? si->smu->name : "");
 	}
+	else if (si->s != NULL)
+		snprintf(result, sizeof result, "%s", si->s->name);
 	else
 	{
 		snprintf(result, sizeof result, "<%s>%s", si->v->description,

@@ -1,4 +1,86 @@
-$Id: RELEASE 7057 2006-11-03 16:49:04Z jilles $
+$Id: RELEASE 7601 2007-02-08 20:49:01Z jilles $
+
+Atheme 2.1 Release Notes
+========================
+ircd protocol
+- The inspircd11 protocol module now sends wallops as server notices
+  and no longer needs m_globops.so (but still uses it if loaded).
+- When sending a notice to a channel as a server notice (because the
+  service is not on channel and the ircd would not allow the notice),
+  prepend it with "[<service>:<channel>] " instead of "<service>: "
+- Clean up handling of services deopped on channels.
+nickserv
+- Add nickname grouping, this allows users to register multiple nicks
+  to one account. The GROUP and UNGROUP commands add and remove additional
+  nicks. Additional nicks expire separately from the main account. Admins
+  can use FUNGROUP to remove additional nicks from any account.
+- The ACCESS ADD command now converts masks like 1.2.3.* to CIDR masks
+  instead of rejecting them.
+- Add LISTVHOST command.
+- Make the gen_vhostonreg contrib module also generate a valid (although
+  ugly) vhost for account names which contain characters not valid in
+  hostnames.
+- Add user_info hook, allows modules to add things to /ns info.
+- Show ENFORCE status in /ns info (to all users).
+- Snoop notices for registrations now show the source name explicitly
+  if appropriate.
+- Add user_can_register hook, allows modules to abort account
+  registrations before they go through.
+memoserv
+- Allow sending a memo to oneself.
+- Remove rate limiting for users with general:flood privilege.
+chanserv
+- The TEMPLATE command now allows updating all channel access entries
+  matching the template with a template change, by prefixing a flag
+  change with an '!'.
+- Add SYNC command to contrib, makes channel status agree with flags.
+- Add FFLAGS command, allows opers to force a flags change on any channel.
+- On newly registered channels, only mlock -l if no limit is set
+  and only mlock -k if no key is set.
+- Show channel email address in INFO.
+- Add chanserv::trigger option, allows changing the '!' in fantasy commands
+  to something else. The special case for '.flags' has been removed.
+- Add SET GUARD, allows toggling whether ChanServ joins the channel on a
+  per-channel basis. The general::join_chans option determines whether
+  SET GUARD can be used.
+- Make the WHY command show all flags.
+- Allow using the xOP commands via non-IRC.
+- Allow using SET as a fantasy command.
+- Move help for /cs halfop to a separate help file.
+- Make channel access entry metadata work. This allows modules to associate
+  name/value pairs with channel access entries. There is currently no
+  facility to read/write channel access entry metadata directly like there
+  is for user and channel metadata.
+oper
+- Add /os soper, allows adding services operators at run time.
+- Add operclass::needoper option, denies giving any privilege to IRC users
+  matching this operclass who are not IRCops.
+- Add some more log levels and generally clean up logging, for example
+  allow disabling logging of all commands. Note that loglevel error logs
+  much less now, use loglevel info for moderate logging.
+- Add os_logonnews contrib module to send text to all connecting users.
+code
+- Remove irccmp() and ircncmp(). These functions were equivalent to strcmp()
+  and strncmp(). IRC-style case-insensitive comparisons are irccasecmp() and
+  ircncasecmp().
+- Make clog unavailable outside libatheme/ and rename it. Other code should
+  use slog(), logcommand(), etc. to log things.
+documentation
+- Add some missing help files.
+- Clarify some things in the installation documentation.
+- Add documentation for the SASL client protocol.
+other
+- chanserv::changets is now shown as 't' in version replies
+- Make --enable-fhs-paths also affect the location of the log file, data
+  files and pid file. Note that for data files to work with
+  --enable-fhs-paths, they need to use DATADIR instead of "etc".
+- Add motd replacement &mynicks&.
+- Fix various memory leaks.
+- Add support for converting services operators, nickname access lists
+  and nickname grouping in anope_convert.c.
+- Using the postgresql backend is now officially discouraged; it will be
+  removed in 2.2.x and newer.
+- Remove socklen_t check from configure.
 
 Atheme 2.0 Release Notes
 ========================

@@ -4,7 +4,7 @@
  *
  * This file contains code for the Memoserv SEND function
  *
- * $Id: send.c 6627 2006-10-02 09:36:29Z jilles $
+ * $Id: send.c 7505 2007-01-19 19:44:08Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/send", FALSE, _modinit, _moddeinit,
-	"$Id: send.c 6627 2006-10-02 09:36:29Z jilles $",
+	"$Id: send.c 7505 2007-01-19 19:44:08Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -85,13 +85,6 @@ static void ms_cmd_send(sourceinfo_t *si, int parc, char *parv[])
 		return;
 	}
 	
-	/* Make sure target is not sender */
-	if (tmu == si->smu)
-	{
-		command_fail(si, fault_noprivs, "You cannot send yourself a memo.");
-		return;
-	}
-
 	/* Does the user allow memos? --pfish */
 	if (tmu->flags & MU_NOMEMO)
 	{
@@ -127,7 +120,7 @@ static void ms_cmd_send(sourceinfo_t *si, int parc, char *parv[])
 	/* rate limit it -- jilles */
 	if (CURRTIME - si->smu->memo_ratelimit_time > MEMO_MAX_TIME)
 		si->smu->memo_ratelimit_num = 0;
-	if (si->smu->memo_ratelimit_num > MEMO_MAX_NUM)
+	if (si->smu->memo_ratelimit_num > MEMO_MAX_NUM && !has_priv(si, PRIV_FLOOD))
 	{
 		command_fail(si, fault_toomany, "Too many memos; please wait a while and try again");
 		return;
@@ -178,7 +171,7 @@ static void ms_cmd_send(sourceinfo_t *si, int parc, char *parv[])
 	{
 		command_success_nodata(si, "%s is currently online, and you may talk directly, by sending a private message.", target);
 	}
-	if (si->su == NULL || !irccmp(si->su->nick, si->smu->name))
+	if (si->su == NULL || !irccasecmp(si->su->nick, si->smu->name))
 		myuser_notice(memosvs.nick, tmu, "You have a new memo from %s.", si->smu->name);
 	else
 		myuser_notice(memosvs.nick, tmu, "You have a new memo from %s (nick: %s).", si->smu->name, si->su->nick);

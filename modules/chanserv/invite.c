@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService INVITE functions.
  *
- * $Id: invite.c 7099 2006-11-06 10:23:01Z jilles $
+ * $Id: invite.c 7075 2006-11-04 23:55:32Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/invite", FALSE, _modinit, _moddeinit,
-	"$Id: invite.c 7099 2006-11-06 10:23:01Z jilles $",
+	"$Id: invite.c 7075 2006-11-04 23:55:32Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 

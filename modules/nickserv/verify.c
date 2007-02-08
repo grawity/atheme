@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ VERIFY function.
  *
- * $Id: verify.c 7069 2006-11-04 23:17:11Z jilles $
+ * $Id: verify.c 7063 2006-11-04 19:26:52Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/verify", FALSE, _modinit, _moddeinit,
-	"$Id: verify.c 7069 2006-11-04 23:17:11Z jilles $",
+	"$Id: verify.c 7063 2006-11-04 19:26:52Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 

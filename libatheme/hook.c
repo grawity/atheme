@@ -4,10 +4,11 @@
  *
  * A hook system. Idea taken from hybrid.
  *
- * $Id: hook.c 6929 2006-10-24 15:30:53Z jilles $
+ * $Id: hook.c 7273 2006-11-25 00:25:20Z jilles $
  */
 
 #include <org.atheme.claro.base>
+#include "claro_internal.h"
 
 list_t hooks;
 static BlockHeap *hook_heap;
@@ -19,7 +20,7 @@ void hooks_init()
 
 	if (!hook_heap)
 	{
-		clog(LG_INFO, "hooks_init(): block allocator failed.");
+		claro_log(LG_INFO, "hooks_init(): block allocator failed.");
 		exit(EXIT_SUCCESS);
 	}
 }

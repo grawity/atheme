@@ -5,7 +5,7 @@
  *
  * This file contains protocol support for Ultimate3 ircd.
  *
- * $Id: ultimate3.c 6861 2006-10-22 14:08:20Z jilles $
+ * $Id: ultimate3.c 7281 2006-11-25 02:01:13Z jilles $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 #include "pmodule.h"
 #include "protocol/ultimate3.h"
 
-DECLARE_MODULE_V1("protocol/ultimate3", TRUE, _modinit, NULL, "$Id: ultimate3.c 6861 2006-10-22 14:08:20Z jilles $", "Atheme Development Group <http://www.atheme.org>");
+DECLARE_MODULE_V1("protocol/ultimate3", TRUE, _modinit, NULL, "$Id: ultimate3.c 7281 2006-11-25 02:01:13Z jilles $", "Atheme Development Group <http://www.atheme.org>");
 
 /* *INDENT-OFF* */
 
@@ -445,7 +445,7 @@ static void m_sjoin(sourceinfo_t *si, int parc, char *parv[])
 					cu->modes = 0;
 			}
 
-			slog(LG_INFO, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
+			slog(LG_DEBUG, "m_sjoin(): TS changed for %s (%ld -> %ld)", c->name, c->ts, ts);
 
 			c->ts = ts;
 			hook_call_event("channel_tschange", c);
@@ -555,8 +555,6 @@ static void m_nick(sourceinfo_t *si, int parc, char *parv[])
 	/* if it's only 2 then it's a nickname change */
 	else if (parc == 2)
 	{
-		node_t *n;
-
 		if (!si->su)
 		{
 			slog(LG_DEBUG, "m_nick(): server trying to change nick: %s", si->s != NULL ? si->s->name : "<none>");

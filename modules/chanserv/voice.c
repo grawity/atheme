@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService VOICE functions.
  *
- * $Id: voice.c 7047 2006-11-02 23:54:45Z jilles $
+ * $Id: voice.c 7035 2006-11-02 20:13:35Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/voice", FALSE, _modinit, _moddeinit,
-	"$Id: voice.c 7047 2006-11-02 23:54:45Z jilles $",
+	"$Id: voice.c 7035 2006-11-02 20:13:35Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 

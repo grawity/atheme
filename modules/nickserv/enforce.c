@@ -23,7 +23,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/enforce",FALSE, _modinit, _moddeinit,
-	"$Id: enforce.c 7017 2006-11-01 01:43:20Z jilles $",
+	"$Id: enforce.c 7351 2006-12-09 20:54:13Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -31,6 +31,7 @@ static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[]);
 static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[]);
 static void reg_check(void *arg);
 static void remove_idcheck(void *vuser);
+static void show_enforce(void *vdata);
 
 command_t ns_set_enforce = { "ENFORCE", "Enables or disables automatic protection of a nickname.", AC_NONE, 1, ns_cmd_set_enforce }; 
 command_t ns_release = { "RELEASE", "Releases a services enforcer.", AC_NONE, 2, ns_cmd_release };
@@ -98,7 +99,7 @@ static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[])
 
 	if (strcasecmp(setting, "ON") == 0)
 	{
-		if (md = metadata_find(si->smu, METADATA_USER, "private:doenforce"))
+		if ((md = metadata_find(si->smu, METADATA_USER, "private:doenforce")) != NULL)
 		{
 			command_fail(si, fault_nochange, "ENFORCE is already enabled.");
 		}
@@ -110,7 +111,7 @@ static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[])
 	}
 	else if (strcasecmp(setting, "OFF") == 0)
 	{
-		if (md = metadata_find(si->smu, METADATA_USER, "private:doenforce"))
+		if ((md = metadata_find(si->smu, METADATA_USER, "private:doenforce")) != NULL)
 		{
 			metadata_delete(si->smu, METADATA_USER, "private:doenforce");
 			command_success_nodata(si, "ENFORCE is now disabled.");
@@ -128,10 +129,8 @@ static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[])
 
 static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[])
 {
-	myuser_t *mu;
-	node_t *n, *tn;
+	mynick_t *mn;
 	metadata_t *md;
-	service_t *svs;
 	char *target = parv[0];
 	char *password = parv[1];
 	char *gnick;
@@ -157,9 +156,9 @@ static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[])
 	}
 
 	u = user_find_named(target);
-	mu = myuser_find(target);
+	mn = mynick_find(target);
 	
-	if (!mu)
+	if (!mn)
 	{
 		command_fail(si, fault_nosuch_target, "\2%s\2 is not a registered nickname.", target);
 		return;
@@ -170,21 +169,21 @@ static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[])
 		command_fail(si, fault_noprivs, "You cannot RELEASE yourself.");
 		return;
 	}
-	if ((si->smu == mu) || verify_password(mu, password))
+	if ((si->smu == mn->owner) || verify_password(mn->owner, password))
 	{
 		if (u == NULL || is_internal_client(u))
 		{
-			if (md = metadata_find(mu, METADATA_USER, "private:enforcer"))
-				metadata_delete(mu, METADATA_USER, "private:enforcer");
+			if ((md = metadata_find(mn->owner, METADATA_USER, "private:enforcer")) != NULL)
+				metadata_delete(mn->owner, METADATA_USER, "private:enforcer");
 			logcommand(si, CMDLOG_DO, "RELEASE %s", target);
-			holdnick_sts(si->service->me, 0, target, mu);
+			holdnick_sts(si->service->me, 0, target, mn->owner);
 			command_success_nodata(si, "\2%s\2 has been released.", target);
 			/*hook_call_event("user_identify", u);*/
 		}
 		else
 		{
-			if (md = metadata_find(mu, METADATA_USER, "private:enforcer"))
-				metadata_delete(mu, METADATA_USER, "private:enforcer");
+			if ((md = metadata_find(mn->owner, METADATA_USER, "private:enforcer")) != NULL)
+				metadata_delete(mn->owner, METADATA_USER, "private:enforcer");
 			
 			notice(nicksvs.nick, target, "%s has released your nickname.", get_source_mask(si));
 			i = 0;
@@ -218,13 +217,10 @@ static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[])
 void reg_check(void *arg)
 {
 	user_t *u;
-	node_t *n, *tn;
+	mynick_t *mn;
 	myuser_t *mu;
-	metadata_t *md;
-	time_t ts = CURRTIME;
-	service_t *svs;
-	char *uid, *gnick;
-	int i = 0, x = 0;
+	char *gnick;
+	int x = 0;
 	char ign[BUFSIZE];
 	dictionary_iteration_state_t state;
 
@@ -238,8 +234,9 @@ void reg_check(void *arg)
 		/* nick is a service, ignore it */
 		if (is_internal_client(u))
 			continue;
-		if ((mu = myuser_find(u->nick)))
+		if ((mn = mynick_find(u->nick)))
 		{
+			mu = mn->owner;
 			if (u->myuser == mu)
 				continue;
 			if (!metadata_find(mu, METADATA_USER, "private:doenforce"))
@@ -287,12 +284,20 @@ static void remove_idcheck(void *vuser)
 	u->flags &= ~UF_NICK_WARNED;
 }
 
+static void show_enforce(void *vdata)
+{
+	hook_user_req_t *hdata = vdata;
+
+	if (metadata_find(hdata->mu, METADATA_USER, "private:doenforce"))
+		command_success_nodata(hdata->si, "%s has enabled nick protection", hdata->mu->name);
+}
+
 static int idcheck_foreach_cb(dictionary_elem_t *delem, void *privdata)
 {
 	metadata_t *md;
 	myuser_t *mu = (myuser_t *) delem->node.data;
 
-	if (md = metadata_find(mu, METADATA_USER, "private:idcheck"))
+	if ((md = metadata_find(mu, METADATA_USER, "private:idcheck")))
 		metadata_delete(mu, METADATA_USER, "private:idcheck");
 
 	return 0;
@@ -300,11 +305,6 @@ static int idcheck_foreach_cb(dictionary_elem_t *delem, void *privdata)
 
 void _modinit(module_t *m)
 {
-	node_t *n, *tn;
-	myuser_t *mu;
-	metadata_t *md;
-	int i = 0;
-	
 	MODULE_USE_SYMBOL(ns_cmdtree, "nickserv/main", "ns_cmdtree");
 	MODULE_USE_SYMBOL(ns_helptree, "nickserv/main", "ns_helptree");
 	MODULE_USE_SYMBOL(ns_set_cmdtree, "nickserv/set", "ns_set_cmdtree");
@@ -322,15 +322,12 @@ void _modinit(module_t *m)
 	help_addentry(ns_helptree, "SET ENFORCE", "help/nickserv/set_enforce", NULL);
 	hook_add_event("user_identify");
 	hook_add_hook("user_identify", remove_idcheck);
+	hook_add_event("user_info");
+	hook_add_hook("user_info", show_enforce);
 }
 
 void _moddeinit()
 {
-	node_t *n, *tn;
-	myuser_t *mu;
-	metadata_t *md;
-	int i = 0;
-	
 	event_delete(reg_check, NULL);
 	/*event_delete(manage_bots, NULL);*/
 	command_delete(&ns_release, ns_cmdtree);
@@ -338,4 +335,5 @@ void _moddeinit()
 	help_delentry(ns_helptree, "RELEASE");
 	help_delentry(ns_helptree, "SET ENFORCE");
 	hook_del_hook("user_identify", remove_idcheck);
+	hook_del_hook("user_info", show_enforce);
 }

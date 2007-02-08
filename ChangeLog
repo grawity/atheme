@@ -1,411 +1,2120 @@
-jilles      2006/11/15 14:00:45 UTC	(20061115-7157)
-  Log:
-  Merged revisions 7155 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
-  
-  ........
-    r7155 | jilles | 2006-11-15 14:56:23 +0100 (Wed, 15 Nov 2006) | 2 lines
-    
-    www.atheme.org -> www.atheme.net in documentation
-  ........
-  
-
-  Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +1 -1		branches/release-2.0/INSTALL (File Modified) 
-  +1 -1		branches/release-2.0/README (File Modified) 
-  +1 -1		branches/release-2.0/src/version.sh (File Modified) 
-
-
-jilles      2006/11/15 13:36:43 UTC	(20061115-7153)
+jilles      2007/02/08 21:31:15 UTC	(20070208-7605)
   Log:
   Rerun autoconf.
   
 
   Changes:	Modified:
-  +11 -11	branches/release-2.0/configure (File Modified) 
+  +11 -11	branches/release-2.1/configure (File Modified) 
 
 
-jilles      2006/11/15 13:36:17 UTC	(20061115-7151)
+jilles      2007/02/08 21:30:17 UTC	(20070208-7603)
   Log:
-  Version bump on 2.0 branch: 2.0.0rc2 -> 2.0.0.
+  Version bump on 2.1 branch to 2.1.0.
   
 
   Changes:	Modified:
-  +1 -1		branches/release-2.0/configure.ac (File Modified) 
+  +1 -1		branches/release-2.1/configure.ac (File Modified) 
 
 
-nenolod     2006/11/15 11:50:23 UTC	(20061115-7149)
+jilles      2007/02/08 20:49:01 UTC	(20070208-7601)
   Log:
-  Merged revisions 7147 via svnmerge from 
+  Update release notes.
+  
+
+  Changes:	Modified:
+  +3 -1		branches/release-2.1/doc/RELEASE (File Modified) 
+
+
+jilles      2007/02/07 23:43:06 UTC	(20070207-7597)
+  Log:
+  Merged revisions 7587 via svnmerge from 
   http://svn.atheme.org/atheme/trunk
   
   ........
-    r7147 | nenolod | 2006-11-15 05:46:36 -0600 (Wed, 15 Nov 2006) | 2 lines
+    r7587 | jilles | 2007-02-07 18:05:23 +0100 (Wed, 07 Feb 2007) | 2 lines
     
-    - avoid an unnecessary integer overflow in flags display
+    Add more information about serverinfo::name.
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +1 -1		branches/release-2.0/modules/chanserv/flags.c (File Modified) 
+  + -		branches/release-2.1/  (Property Modified)
+  +3 -1		branches/release-2.1/dist/example.conf (File Modified) 
 
 
-jilles      2006/11/12 17:13:08 UTC	(20061112-7137)
+jilles      2007/02/07 23:41:06 UTC	(20070207-7595)
   Log:
-  Merged revisions 7127,7133,7135 via svnmerge from 
+  Rerun autoconf and autoheader.
+  
+
+  Changes:	Modified:
+  +2 -68	branches/release-2.1/configure (File Modified) 
+  +0 -3		branches/release-2.1/include/sysconf.h.in (File Modified) 
+
+
+jilles      2007/02/07 23:33:56 UTC	(20070207-7593)
+  Log:
+  Merged revisions 7575 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7575 | jilles | 2007-02-06 13:01:19 +0100 (Tue, 06 Feb 2007) | 4 lines
+    
+    Remove socklen_t check from configure, it does not properly
+    detect socklen_t on macos x, and systems without socklen_t
+    are obsolete anyway.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +2 -1		branches/release-2.1/configure.ac (File Modified) 
+
+
+jilles      2007/02/07 23:24:26 UTC	(20070207-7589)
+  Log:
+  Merged revisions 7581 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7581 | jilles | 2007-02-06 16:45:39 +0100 (Tue, 06 Feb 2007) | 2 lines
+    
+    Make a usage message more consistent.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -1		branches/release-2.1/src/atheme.c (File Modified) 
+
+
+jilles      2007/02/05 23:46:15 UTC	(20070205-7571)
+  Log:
+  Merged revisions 7563 via svnmerge from 
   svn+ssh://svn.atheme.org/svnroot/atheme/trunk
   
   ........
-    r7127 | jilles | 2006-11-11 16:23:55 +0100 (Sat, 11 Nov 2006) | 2 lines
+    r7563 | jilles | 2007-02-06 00:26:59 +0100 (Tue, 06 Feb 2007) | 2 lines
     
-    inspircd11: fix SAMODE handling
-  ........
-    r7133 | jilles | 2006-11-11 22:32:12 +0100 (Sat, 11 Nov 2006) | 4 lines
-    
-    inspircd
-    - port samode fix from inspircd10 to inspircd11
-    - don't crash if target of sajoin/sapart/sanick does not exist
-  ........
-    r7135 | jilles | 2006-11-12 18:10:53 +0100 (Sun, 12 Nov 2006) | 2 lines
-    
-    Missed pcommand_add() change for SAMODE in inspircd10.
+    Change loglevel from error to info in example.conf.
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +14 -8	branches/release-2.0/protocol/inspircd10.c (File Modified) 
-  +10 -4	branches/release-2.0/protocol/inspircd11.c (File Modified) 
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -1		branches/release-2.1/dist/example.conf (File Modified) 
 
 
-jilles      2006/11/11 14:39:18 UTC	(20061111-7125)
+jilles      2007/02/05 23:43:40 UTC	(20070205-7569)
   Log:
-  Merged revisions 7123 via svnmerge from 
+  Merged revisions 7567 via svnmerge from 
   svn+ssh://svn.atheme.org/svnroot/atheme/trunk
   
   ........
-    r7123 | jilles | 2006-11-11 00:19:18 +0100 (Sat, 11 Nov 2006) | 4 lines
+    r7567 | jilles | 2007-02-06 00:40:44 +0100 (Tue, 06 Feb 2007) | 2 lines
     
-    - add chanserv set entrymsg help file
-    - don't mention a real email address in chanserv set email
-      help file, make the formatting a little nicer
+    Update atheme -v copyright year.
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +13 -2	branches/release-2.0/help/cservice/set_email (File Modified) 
-  + -		branches/release-2.0/help/cservice/set_entrymsg (File Added) 
+  + -		branches/release-2.1/  (Property Modified)
+  +2 -2		branches/release-2.1/src/atheme.c (File Modified) 
 
 
-jilles      2006/11/08 23:25:18 UTC	(20061108-7121)
+jilles      2007/02/05 15:05:35 UTC	(20070205-7559)
   Log:
-  Merged revisions 7117 via svnmerge from 
-  svn+ssh://svn.atheme.org/svnroot/atheme/trunk
+  Update release notes.
+  
+
+  Changes:	Modified:
+  +4 -1		branches/release-2.1/doc/RELEASE (File Modified) 
+
+
+jilles      2007/02/02 17:03:20 UTC	(20070202-7541)
+  Log:
+  Merged revisions 7539 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
   
   ........
-    r7117 | jilles | 2006-11-08 16:56:08 +0100 (Wed, 08 Nov 2006) | 2 lines
+    r7539 | jilles | 2007-01-31 18:15:36 +0100 (Wed, 31 Jan 2007) | 4 lines
     
-    Add chanserv taxonomy help file.
+    Add /ns fungroup, allows admins with user:admin privilege
+    to ungroup a nick registered to any account. It is in
+    modules/nickserv/group.
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  + -		branches/release-2.0/help/cservice/taxonomy (File Added) 
+  + -		branches/release-2.1/  (Property Modified)
+  + -		branches/release-2.1/help/nickserv/fungroup (File Added) 
+  +40 -0	branches/release-2.1/modules/nickserv/group.c (File Modified) 
 
 
-jilles      2006/11/08 15:31:22 UTC	(20061108-7113)
+jilles      2007/01/28 21:36:40 UTC	(20070128-7527)
+  Log:
+  example.conf: mark postgresql backend as not recommended, incomplete
+  
+
+  Changes:	Modified:
+  +1 -1		branches/release-2.1/dist/example.conf (File Modified) 
+
+
+jilles      2007/01/28 01:01:56 UTC	(20070128-7519)
   Log:
   Rerun autoconf.
   
 
   Changes:	Modified:
-  +11 -11	branches/release-2.0/configure (File Modified) 
+  +11 -11	branches/release-2.1/configure (File Modified) 
 
 
-jilles      2006/11/08 15:30:59 UTC	(20061108-7111)
+jilles      2007/01/28 01:01:35 UTC	(20070128-7517)
   Log:
-  Version bump on release-2.0 to 2.0.0rc2.
+  Version bump on 2.1 branch to 2.1.0rc1.
   
 
   Changes:	Modified:
-  +1 -1		branches/release-2.0/configure.ac (File Modified) 
+  +1 -1		branches/release-2.1/configure.ac (File Modified) 
 
 
-jilles      2006/11/06 11:41:36 UTC	(20061106-7107)
+jilles      2007/01/23 16:41:44 UTC	(20070123-7515)
   Log:
-  Merged revisions 7103 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
-  
-  ........
-    r7103 | jilles | 2006-11-06 12:22:38 +0100 (Mon, 06 Nov 2006) | 4 lines
-    
-    chanserv akick del: do not check if the hostmask is valid
-    (i.e., allow removal of bogus hostmasks that somehow
-    ended up on the akick list)
-  ........
+  Update release notes.
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +0 -6		branches/release-2.0/modules/chanserv/akick.c (File Modified) 
+  +5 -0		branches/release-2.1/doc/RELEASE (File Modified) 
 
 
-jilles      2006/11/06 11:40:20 UTC	(20061106-7105)
+jilles      2007/01/23 16:37:40 UTC	(20070123-7513)
   Log:
-  Merged revisions 7101 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
-  
-  ........
-    r7101 | jilles | 2006-11-06 12:21:32 +0100 (Mon, 06 Nov 2006) | 3 lines
-    
-    validhostmask(): do not accept hostmasks containing
-    spaces, or starting with ,-#@!
-  ........
-  
-
-  Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +6 -0		branches/release-2.0/src/function.c (File Modified) 
-
-
-jilles      2006/11/06 10:23:01 UTC	(20061106-7099)
-  Log:
-  Merged revisions 7075 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
-  
-  ........
-    r7075 | jilles | 2006-11-05 00:55:32 +0100 (Sun, 05 Nov 2006) | 2 lines
-    
-    Only allow chanserv invite via IRC, it would cause a crash via non-IRC.
-  ........
-  
-
-  Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +6 -0		branches/release-2.0/modules/chanserv/invite.c (File Modified) 
-
-
-jilles      2006/11/04 23:21:21 UTC	(20061104-7073)
-  Log:
-  Merged revisions 7067 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
-  
-  ........
-    r7067 | jilles | 2006-11-04 21:14:57 +0100 (Sat, 04 Nov 2006) | 4 lines
-    
-    nickserv register/return/sendpass/set email:
-    make sending emails work if the command came from non-IRC
-    unfortunately this loses information who requested the email
-  ........
-  
-
-  Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +1 -1		branches/release-2.0/modules/nickserv/register.c (File Modified) 
-  +1 -1		branches/release-2.0/modules/nickserv/return.c (File Modified) 
-  +1 -1		branches/release-2.0/modules/nickserv/sendpass.c (File Modified) 
-  +1 -1		branches/release-2.0/modules/nickserv/set.c (File Modified) 
-
-
-jilles      2006/11/04 23:18:50 UTC	(20061104-7071)
-  Log:
-  Merged revisions 7065 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
-  
-  ........
-    r7065 | jilles | 2006-11-04 20:29:11 +0100 (Sat, 04 Nov 2006) | 3 lines
-    
-    Use "Account Registration" instead of "Nickname Registration"
-    in the Subject field if nickname ownership is disabled.
-  ........
-  
-
-  Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +3 -3		branches/release-2.0/src/function.c (File Modified) 
-
-
-jilles      2006/11/04 23:17:11 UTC	(20061104-7069)
-  Log:
-  Merged revisions 7063 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
-  
-  ........
-    r7063 | jilles | 2006-11-04 20:26:52 +0100 (Sat, 04 Nov 2006) | 7 lines
-    
-    nickserv verify:
-    grant ircd registered status to all IRC users logged in
-    to the nick, not to the source of the command
-    - fixes crashes with xmlrpc verify with some protocol modules
-    - grants all required registered status if the user is
-      logged in multiple times
-  ........
-  
-
-  Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +6 -1		branches/release-2.0/modules/nickserv/verify.c (File Modified) 
-
-
-jilles      2006/11/03 23:02:41 UTC	(20061103-7061)
-  Log:
-  Merged revisions 7059 via svnmerge from 
+  Merged revisions 7511 via svnmerge from 
   svn+ssh://svn.atheme.org/svnroot/atheme/trunk
   
   ........
-    r7059 | jilles | 2006-11-03 20:26:47 +0100 (Fri, 03 Nov 2006) | 2 lines
+    r7511 | jilles | 2007-01-23 17:35:31 +0100 (Tue, 23 Jan 2007) | 2 lines
     
-    Clarify the limited usefulness of the SQL backends.
+    Make PRIV_FLOOD exempt from memo rate limiting in /ms forward also.
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +10 -0	branches/release-2.0/doc/SQL (File Modified) 
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -1		branches/release-2.1/modules/memoserv/forward.c (File Modified) 
 
 
-jilles      2006/11/03 16:49:04 UTC	(20061103-7057)
+jilles      2007/01/19 19:44:08 UTC	(20070119-7505)
   Log:
-  Merged revisions 7031 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
+  Merged revisions 7433 via svnmerge from 
+  svn+ssh://svn.atheme.org/svnroot/atheme/trunk
   
   ........
-    r7031 | jilles | 2006-11-02 18:22:21 +0100 (Thu, 02 Nov 2006) | 2 lines
+    r7433 | w00t | 2007-01-10 17:58:00 +0100 (Wed, 10 Jan 2007) | 1 line
     
-    2.0 release notes: clarify a little what changed to fantasy commands
+    Remove restriction on self memoing, remove flood restriction for users with general:flood
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +3 -1		branches/release-2.0/doc/RELEASE (File Modified) 
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -8		branches/release-2.1/modules/memoserv/send.c (File Modified) 
 
 
-jilles      2006/11/03 16:47:29 UTC	(20061103-7055)
+jilles      2007/01/18 12:50:58 UTC	(20070118-7503)
   Log:
-  Merged revisions 7053 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
+  Merged revisions 7429,7431,7501 via svnmerge from 
+  svn+ssh://svn.atheme.org/svnroot/atheme/trunk
   
   ........
-    r7053 | jilles | 2006-11-03 17:28:49 +0100 (Fri, 03 Nov 2006) | 3 lines
+    r7429 | w00t | 2007-01-10 14:30:08 +0100 (Wed, 10 Jan 2007) | 1 line
     
-    Make syntax descriptions in help files more consistent:
-    ON|OFF instead of <ON|OFF> or <on/off>
+    Add nenolod/jilles' os_logonnews to contrib/
+  ........
+    r7431 | jilles | 2007-01-10 16:03:01 +0100 (Wed, 10 Jan 2007) | 2 lines
+    
+    Set Id and Revision keywords on os_logonnews.c.
+  ........
+    r7501 | nenolod | 2007-01-14 11:38:55 +0100 (Sun, 14 Jan 2007) | 2 lines
+    
+    - fix contrib/os_logonnews.c's stupidity regarding to when atheme starts up
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +1 -1		branches/release-2.0/help/cservice/close (File Modified) 
-  +1 -1		branches/release-2.0/help/cservice/set_fantasy (File Modified) 
-  +1 -1		branches/release-2.0/help/cservice/set_keeptopic (File Modified) 
-  +1 -1		branches/release-2.0/help/cservice/set_topiclock (File Modified) 
+  + -		branches/release-2.1/  (Property Modified)
+  +273 -1	branches/release-2.1/contrib/Makefile.in (File Modified) 
+  + -		branches/release-2.1/contrib/os_logonnews.c (File Added) 
 
 
-jilles      2006/11/03 15:59:35 UTC	(20061103-7051)
+jilles      2007/01/06 14:26:34 UTC	(20070106-7427)
   Log:
-  Merged revisions 7039,7041,7043 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
+  Merged revisions 7419 via svnmerge from 
+  svn+ssh://svn.atheme.org/svnroot/atheme/trunk
   
   ........
-    r7039 | jilles | 2006-11-03 00:20:29 +0100 (Fri, 03 Nov 2006) | 4 lines
+    r7419 | jilles | 2007-01-01 15:09:36 +0100 (Mon, 01 Jan 2007) | 2 lines
     
-    operserv clones:
-    - add some #defines
-    - allow adding exempts for at least 4 instead of at least 6 allowed clones
-  ........
-    r7041 | jilles | 2006-11-03 00:36:06 +0100 (Fri, 03 Nov 2006) | 6 lines
-    
-    Change what the "allowed number of clones" field in
-    an exempt does:
-    - at or above allowed number, send warnings
-    - at or above allowed number plus 10, kline
-    discussed with w00t
-  ........
-    r7043 | jilles | 2006-11-03 00:45:35 +0100 (Fri, 03 Nov 2006) | 2 lines
-    
-    Update operserv clones help file.
+    Extend some copyrights to 2007.
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +3 -2		branches/release-2.0/help/oservice/clones (File Modified) 
-  +11 -5	branches/release-2.0/modules/operserv/clones.c (File Modified) 
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -1		branches/release-2.1/COPYING (File Modified) 
+  +1 -1		branches/release-2.1/doc/LICENSE (File Modified) 
+  +2 -2		branches/release-2.1/src/version.sh (File Modified) 
 
 
-jilles      2006/11/02 23:54:45 UTC	(20061102-7047)
+jilles      2007/01/06 14:23:29 UTC	(20070106-7425)
   Log:
-  Merged revisions 7035 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
+  Merged revisions 7421,7423 via svnmerge from 
+  svn+ssh://svn.atheme.org/svnroot/atheme/trunk
   
   ........
-    r7035 | jilles | 2006-11-02 21:13:35 +0100 (Thu, 02 Nov 2006) | 6 lines
+    r7421 | jilles | 2007-01-02 21:40:03 +0100 (Tue, 02 Jan 2007) | 2 lines
     
-    chanserv op/halfop/voice:
-    don't explicitly tell the target by whom they have been
-    opped/deopped/etc if it is a fantasy command (they can
-    see in the channel).
-    This agrees with atheme 1.x behaviour.
+    When upgrading custom modules need to be recompiled as well.
   ........
-  
-
-  Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +2 -2		branches/release-2.0/modules/chanserv/halfop.c (File Modified) 
-  +2 -2		branches/release-2.0/modules/chanserv/op.c (File Modified) 
-  +2 -2		branches/release-2.0/modules/chanserv/voice.c (File Modified) 
-
-
-jilles      2006/11/02 23:52:33 UTC	(20061102-7045)
-  Log:
-  Merged revisions 7033 via svnmerge from 
-  http://svn.atheme.org/atheme/trunk
-  
-  ........
-    r7033 | jilles | 2006-11-02 21:05:23 +0100 (Thu, 02 Nov 2006) | 2 lines
+    r7423 | jilles | 2007-01-06 01:26:17 +0100 (Sat, 06 Jan 2007) | 2 lines
     
-    Don't allow access list entries like someuser@*.3.4.
+    Add documentation for SASL client protocol.
   ........
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
-  +6 -0		branches/release-2.0/modules/nickserv/access.c (File Modified) 
+  + -		branches/release-2.1/  (Property Modified)
+  +3 -0		branches/release-2.1/INSTALL (File Modified) 
+  +113 -1	branches/release-2.1/doc/SASL (File Modified) 
 
 
-jilles      2006/11/02 16:49:46 UTC	(20061102-7029)
+jilles      2006/12/31 18:08:31 UTC	(20061231-7417)
   Log:
-  Generate a log message if the obsolete no longer
-  documented general::sras is used. It still works,
-  however. This directive will be removed in 2.1.
+  Merged revisions 7411 via svnmerge from 
+  svn+ssh://svn.atheme.org/svnroot/atheme/trunk
+  
+  ........
+    r7411 | jilles | 2006-12-30 01:28:22 +0100 (Sat, 30 Dec 2006) | 3 lines
+    
+    gen_vhostonreg contrib module: prevent negative counter
+    values which would cause "--" in vhosts
+  ........
   
 
   Changes:	Modified:
-  +1 -0		branches/release-2.0/src/conf.c (File Modified) 
+  + -		branches/release-2.1/  (Property Modified)
+  +2 -0		branches/release-2.1/contrib/gen_vhostonreg.c (File Modified) 
 
 
-jilles      2006/11/01 22:37:51 UTC	(20061101-7023)
+jilles      2006/12/26 17:41:13 UTC	(20061226-7407)
   Log:
-  Initialized merge tracking via "svnmerge" with revisions "1-7020" from 
+  Initialized merge tracking via "svnmerge" with revisions "1-7400" from 
   svn+ssh://svn.atheme.org/svnroot/atheme/trunk
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/  (Property Modified)
+  + -		branches/release-2.1/  (Property Modified)
 
 
-jilles      2006/11/01 22:35:34 UTC	(20061101-7021)
+jilles      2006/12/26 17:35:21 UTC	(20061226-7401)
   Log:
-  Branch atheme 2.0.
+  Create 2.1 release branch.
   
 
   Changes:	Modified:
-  + -		branches/release-2.0/ (File Added) 
+  + -		branches/release-2.1/ (File Added) 
+
+
+jilles      2006/12/26 17:31:14 UTC	(20061226-7399)
+  Log:
+  Update release notes.
+  
+
+  Changes:	Modified:
+  +14 -0	trunk/doc/RELEASE (File Modified) 
+
+
+jilles      2006/12/26 11:58:18 UTC	(20061226-7397)
+  Log:
+  Fix reading chanacs metadata for channels containing ':'
+  from flatfile. Access entries cannot contain ':'.
+  
+
+  Changes:	Modified:
+  +9 -5		trunk/backend/flatfile.c (File Modified) 
+
+
+jilles      2006/12/25 16:32:51 UTC	(20061225-7395)
+  Log:
+  Fix deleting chanacs metadata when removing chanacs.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/25 12:26:27 UTC	(20061225-7393)
+  Log:
+  Free chanacs struct when removing account access entries.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/25 12:25:15 UTC	(20061225-7391)
+  Log:
+  Free chanacs metadata when removing chanacs.
+  
+
+  Changes:	Modified:
+  +16 -2	trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/25 11:47:41 UTC	(20061225-7389)
+  Log:
+  Fix flatfile storage of chanacs metadata on account access entries.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/backend/flatfile.c (File Modified) 
+
+
+jilles      2006/12/24 17:48:16 UTC	(20061224-7387)
+  Log:
+  Move help for /cs halfop to a separate helpfile
+  so it doesn't clutter up the help for ircds that
+  don't support halfops.
+  
+
+  Changes:	Modified:
+  +14 -0	trunk/help/cservice/halfop (File Added) 
+  +1 -4		trunk/help/cservice/op_voice (File Modified) 
+  +2 -2		trunk/modules/chanserv/halfop.c (File Modified) 
+
+
+jilles      2006/12/24 17:47:33 UTC	(20061224-7385)
+  Log:
+  Mention hub_mask or similar for ircd configuration.
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/INSTALL (File Modified) 
+
+
+jilles      2006/12/23 22:54:17 UTC	(20061223-7383)
+  Log:
+  Add an example usage for the user_can_register hook.
+  
+
+  Changes:	Modified:
+  +53 -0	trunk/contrib/gen_regcheckemail.c (File Added) 
+
+
+jilles      2006/12/23 22:53:28 UTC	(20061223-7381)
+  Log:
+  Add user_can_register hook, allows modules to abort
+  account registrations before they go through.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/doc/HOOKS (File Modified) 
+  +7 -0		trunk/include/account.h (File Modified) 
+  +9 -0		trunk/modules/nickserv/register.c (File Modified) 
+
+
+jilles      2006/12/17 23:03:52 UTC	(20061217-7379)
+  Log:
+  Change what happens when a service is deopped:
+  - if a service has already been deopped in this mode change,
+    skip it if it is the same service, otherwise reop from that service
+  - otherwise, if the service is alone in the channel, reop it from
+    another service (the protocol module will arrange for this to work,
+    e.g. by sending from the server if necessary)
+  - otherwise, part and join as before
+  
+  Note that this has nothing to do with deops implicit
+  in lowerTS BURST/FJOIN/JOIN/SJOIN.
+  
+
+  Changes:	Modified:
+  +30 -8	trunk/src/cmode.c (File Modified) 
+
+
+jilles      2006/12/16 15:59:44 UTC	(20061216-7377)
+  Log:
+  Add MC_FORCEVERBOSE mychan flag so SET can be used as a fantasy command.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/account.h (File Modified) 
+  +4 -8		trunk/modules/chanserv/main.c (File Modified) 
+  +1 -1		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/12/14 18:54:38 UTC	(20061214-7375)
+  Log:
+  Add a ruby example for atheme xmlrpc.
+  
+
+  Changes:	Modified:
+  +22 -0	trunk/contrib/rubyxmlrpc.rb (File Added) 
+
+
+jilles      2006/12/13 19:39:27 UTC	(20061213-7373)
+  Log:
+  INSTALL:
+  - add note about packages
+  - stronger recommendation against installing as root
+  - recommend keeping the source directory
+  
+
+  Changes:	Modified:
+  +8 -2		trunk/INSTALL (File Modified) 
+
+
+jilles      2006/12/13 18:30:11 UTC	(20061213-7371)
+  Log:
+  Rerun autoconf.
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/configure (File Modified) 
+
+
+jilles      2006/12/13 18:29:51 UTC	(20061213-7369)
+  Log:
+  Clarify that --enable-fhs-paths is only meant for packagers.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/configure.ac (File Modified) 
+
+
+jilles      2006/12/13 01:47:57 UTC	(20061213-7367)
+  Log:
+  Helpfile consistency fixes.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/help/nickserv/release (File Modified) 
+  +1 -1		trunk/help/nickserv/set_nomemo (File Modified) 
+
+
+jilles      2006/12/13 01:22:38 UTC	(20061213-7365)
+  Log:
+  Clarify maxlogins (per username, not nickname).
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/dist/example.conf (File Modified) 
+
+
+jilles      2006/12/13 00:49:59 UTC	(20061213-7363)
+  Log:
+  Add serverinfo::maxnicks, determines the maximum number
+  of nicknames that can be grouped to an account.
+  This commit inserts something in the middle of struct me
+  so recompile everything.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/dist/example.conf (File Modified) 
+  +1 -0		trunk/include/global.h (File Modified) 
+  +1 -2		trunk/modules/nickserv/group.c (File Modified) 
+  +21 -1	trunk/src/conf.c (File Modified) 
+
+
+jilles      2006/12/10 22:15:34 UTC	(20061210-7357)
+  Log:
+  P10: remove colons on prefixes (channel, global notices)
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/protocol/asuka.c (File Modified) 
+  +3 -3		trunk/protocol/bircd.c (File Modified) 
+  +3 -3		trunk/protocol/nefarious.c (File Modified) 
+  +3 -3		trunk/protocol/undernet.c (File Modified) 
+
+
+jilles      2006/12/10 00:02:49 UTC	(20061210-7355)
+  Log:
+  nickserv register: show who registered the nick/account
+  if nickname registration is disabled or the command did
+  not come from IRC.
+  
+
+  Changes:	Modified:
+  +5 -1		trunk/modules/nickserv/register.c (File Modified) 
+
+
+jilles      2006/12/09 23:28:18 UTC	(20061209-7353)
+  Log:
+  When checking whether a user has too many channels
+  registered, iterate over their channel access instead
+  of over all registered channels (happens when an
+  account is dropped and a new founder has to be sought
+  for their channels, when a channel is registered and
+  when foundership is transferred with /cs set founder).
+  Legacy xmlrpc code unchanged.
+  
+
+  Changes:	Modified:
+  +6 -4		trunk/modules/chanserv/register.c (File Modified) 
+  +5 -4		trunk/modules/chanserv/set.c (File Modified) 
+  +6 -7		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/09 20:54:13 UTC	(20061209-7351)
+  Log:
+  Show an extra line in /ns info (to all users)
+  if ENFORCE is enabled for the account.
+  
+
+  Changes:	Modified:
+  +12 -0	trunk/modules/nickserv/enforce.c (File Modified) 
+
+
+jilles      2006/12/08 21:14:05 UTC	(20061208-7349)
+  Log:
+  Mention channel_can_change_topic hook.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/doc/HOOKS (File Modified) 
+
+
+jilles      2006/12/08 19:46:02 UTC	(20061208-7347)
+  Log:
+  Add user_info hook, allows modules to add things to /ns info.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/doc/HOOKS (File Modified) 
+  +6 -0		trunk/include/account.h (File Modified) 
+  +7 -1		trunk/modules/nickserv/info.c (File Modified) 
+
+
+jilles      2006/12/08 14:07:52 UTC	(20061208-7345)
+  Log:
+  Update release notes.
+  
+
+  Changes:	Modified:
+  +8 -0		trunk/doc/RELEASE (File Modified) 
+
+
+jilles      2006/12/08 13:58:23 UTC	(20061208-7343)
+  Log:
+  gen_vhostonreg: if the account name contains invalid
+  characters or would cause a too long vhost, strip
+  the invalid characters or truncate it, and add a
+  five-digit number to make it unique. Warn the user
+  about this.
+  
+
+  Changes:	Modified:
+  +44 -3	trunk/contrib/gen_vhostonreg.c (File Modified) 
+
+
+jilles      2006/12/08 00:01:54 UTC	(20061208-7341)
+  Log:
+  Update comments for channel_delete().
+  
+
+  Changes:	Modified:
+  +1 -3		trunk/src/channels.c (File Modified) 
+
+
+jilles      2006/12/07 20:02:49 UTC	(20061207-7339)
+  Log:
+  myuser_delete(): also log out users from the account if
+  no authentication service is loaded, just don't call
+  ircd_on_logout().
+  
+
+  Changes:	Modified:
+  +6 -9		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/07 19:36:28 UTC	(20061207-7337)
+  Log:
+  Free bans and the topic when destroying a channel.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/src/channels.c (File Modified) 
+
+
+jilles      2006/12/07 00:27:57 UTC	(20061207-7335)
+  Log:
+  Add sourceinfo pointer to hook_channel_req_t (channel_info hook).
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/account.h (File Modified) 
+  +1 -0		trunk/modules/chanserv/info.c (File Modified) 
+
+
+jilles      2006/12/06 22:43:21 UTC	(20061206-7333)
+  Log:
+  anope->atheme conversion tool:
+  - support new anope nick "autoop" flag (set atheme NOOP if it is not set)
+  - convert services roots/admins/opers
+  - convert nickname access lists
+  - support nickname grouping
+  
+
+  Changes:	Modified:
+  +63 -25	trunk/contrib/anope_convert.c (File Modified) 
+
+
+jilles      2006/12/06 15:32:15 UTC	(20061206-7331)
+  Log:
+  Free memos when deleting an account.
+  
+
+  Changes:	Modified:
+  +11 -0	trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/05 12:00:28 UTC	(20061205-7325)
+  Log:
+  2.0 is the current stable branch.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/SVN-Access (File Modified) 
+
+
+jilles      2006/12/05 01:08:00 UTC	(20061205-7323)
+  Log:
+  mychan_delete(): free the metadata
+  
+
+  Changes:	Modified:
+  +8 -0		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/05 00:41:51 UTC	(20061205-7321)
+  Log:
+  myuser_add(): don't create a node that will not be used and leaks
+  
+
+  Changes:	Modified:
+  +0 -2		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/05 00:20:01 UTC	(20061205-7319)
+  Log:
+  Fix node leak in myuser_access_delete().
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/12/05 00:14:26 UTC	(20061205-7317)
+  Log:
+  Show total number of nickname access entries in /stats t.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/include/global.h (File Modified) 
+  +4 -0		trunk/src/account.c (File Modified) 
+  +1 -0		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/12/05 00:12:47 UTC	(20061205-7315)
+  Log:
+  Delete access list when deleting an account.
+  
+
+  Changes:	Modified:
+  +4 -0		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/11/30 01:35:29 UTC	(20061130-7313)
+  Log:
+  operserv uptime: show both account and nick count and label
+  them properly; if nickname ownership is disabled, nick
+  count is not shown
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/modules/operserv/uptime.c (File Modified) 
+
+
+jilles      2006/11/30 01:26:09 UTC	(20061130-7311)
+  Log:
+  New motd replacement &mynicks&, number of registered
+  nicknames. Always zero if nickname ownership is disabled.
+  
+
+  Changes:	Modified:
+  +6 -3		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/29 17:43:12 UTC	(20061129-7309)
+  Log:
+  nickserv group: don't allow registering a UID
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/modules/nickserv/group.c (File Modified) 
+
+
+jilles      2006/11/29 00:47:32 UTC	(20061129-7307)
+  Log:
+  ircnet: fix SAVE processing
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/ircnet.c (File Modified) 
+
+
+jilles      2006/11/27 23:56:16 UTC	(20061127-7305)
+  Log:
+  Convert xop commands to sourceinfo more fully.
+  
+
+  Changes:	Modified:
+  +45 -45	trunk/modules/chanserv/xop.c (File Modified) 
+
+
+jilles      2006/11/27 10:53:46 UTC	(20061127-7301)
+  Log:
+  Update release notes.
+  
+
+  Changes:	Modified:
+  +12 -0	trunk/doc/RELEASE (File Modified) 
+
+
+jilles      2006/11/27 10:30:15 UTC	(20061127-7299)
+  Log:
+  Add 't' version letter for chansvs::changets.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/doc/VERSION_LETTERS (File Modified) 
+  +2 -1		trunk/protocol/inspircd10.c (File Modified) 
+  +2 -1		trunk/protocol/inspircd11.c (File Modified) 
+  +2 -1		trunk/src/ctcp-common.c (File Modified) 
+  +2 -1		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/27 10:27:15 UTC	(20061127-7297)
+  Log:
+  Fix 'd' version letter for log system changes.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/inspircd10.c (File Modified) 
+  +1 -1		trunk/protocol/inspircd11.c (File Modified) 
+  +1 -1		trunk/src/ctcp-common.c (File Modified) 
+  +1 -1		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/26 17:53:12 UTC	(20061126-7295)
+  Log:
+  Add /ns listvhost command.
+  
+
+  Changes:	Modified:
+  +11 -0	trunk/help/nickserv/listvhost (File Added) 
+  +11 -0	trunk/help/userserv/listvhost (File Added) 
+  +36 -0	trunk/modules/nickserv/vhost.c (File Modified) 
+
+
+jilles      2006/11/25 22:13:28 UTC	(20061125-7293)
+  Log:
+  Add localstatedir to all the other Makefile.in's.
+  This fixes those pathnames for --enable-fhs-paths.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/backend/Makefile.in (File Modified) 
+  +1 -0		trunk/contrib/Makefile.in (File Modified) 
+  +1 -0		trunk/crypto/Makefile.in (File Modified) 
+  +1 -0		trunk/libatheme/Makefile.in (File Modified) 
+  +1 -0		trunk/modules/Makefile.in (File Modified) 
+  +1 -0		trunk/modules/chanserv/Makefile.in (File Modified) 
+  +1 -0		trunk/modules/global/Makefile.in (File Modified) 
+  +1 -0		trunk/modules/memoserv/Makefile.in (File Modified) 
+  +1 -0		trunk/modules/nickserv/Makefile.in (File Modified) 
+  +1 -0		trunk/modules/operserv/Makefile.in (File Modified) 
+  +1 -0		trunk/modules/saslserv/Makefile.in (File Modified) 
+  +1 -0		trunk/modules/xmlrpc/Makefile.in (File Modified) 
+  +1 -0		trunk/protocol/Makefile.in (File Modified) 
+
+
+jilles      2006/11/25 21:25:35 UTC	(20061125-7291)
+  Log:
+  If join_chans is disabled, disable /cs set guard
+  via command_t.access using a config_ready hook,
+  so it does not appear if a user does /cs help set.
+  
+
+  Changes:	Modified:
+  +15 -6	trunk/modules/chanserv/set.c (File Modified) 
+
+
+jilles      2006/11/25 19:18:57 UTC	(20061125-7289)
+  Log:
+  Make /ns list list nicknames, not just accounts.
+  
+
+  Changes:	Modified:
+  +50 -39	trunk/modules/nickserv/list.c (File Modified) 
+
+
+jilles      2006/11/25 14:27:41 UTC	(20061125-7285)
+  Log:
+  Rerun autoconf.
+  
+
+  Changes:	Modified:
+  +20 -4	trunk/configure (File Modified) 
+
+
+jilles      2006/11/25 14:27:10 UTC	(20061125-7283)
+  Log:
+  Have --enable-fhs-paths affect the location of the
+  log file, data files and pid file also.
+  Note that for data files to work with --enable-fhs-paths,
+  they need to use DATADIR instead of "etc".
+  Submitted by darix.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/Makefile.in (File Modified) 
+  +4 -4		trunk/backend/flatfile.c (File Modified) 
+  +14 -1	trunk/configure.ac (File Modified) 
+  +3 -3		trunk/modules/operserv/clones.c (File Modified) 
+  +3 -3		trunk/modules/operserv/rwatch.c (File Modified) 
+  +15 -8	trunk/src/Makefile.in (File Modified) 
+  +3 -3		trunk/src/atheme.c (File Modified) 
+  +1 -1		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/25 02:01:13 UTC	(20061125-7281)
+  Log:
+  Remove more unused variables.
+  
+
+  Changes:	Modified:
+  +0 -2		trunk/protocol/asuka.c (File Modified) 
+  +0 -2		trunk/protocol/bahamut.c (File Modified) 
+  +0 -2		trunk/protocol/bircd.c (File Modified) 
+  +0 -2		trunk/protocol/charybdis.c (File Modified) 
+  +0 -2		trunk/protocol/dreamforge.c (File Modified) 
+  +0 -2		trunk/protocol/hybrid.c (File Modified) 
+  +0 -2		trunk/protocol/hyperion.c (File Modified) 
+  +0 -2		trunk/protocol/inspircd10.c (File Modified) 
+  +0 -3		trunk/protocol/inspircd11.c (File Modified) 
+  +0 -3		trunk/protocol/ircnet.c (File Modified) 
+  +0 -2		trunk/protocol/nefarious.c (File Modified) 
+  +0 -2		trunk/protocol/plexus.c (File Modified) 
+  +0 -2		trunk/protocol/ptlink.c (File Modified) 
+  +0 -2		trunk/protocol/ratbox.c (File Modified) 
+  +0 -2		trunk/protocol/shadowircd.c (File Modified) 
+  +0 -2		trunk/protocol/solidircd.c (File Modified) 
+  +0 -2		trunk/protocol/sorcery.c (File Modified) 
+  +0 -2		trunk/protocol/ultimate3.c (File Modified) 
+  +0 -2		trunk/protocol/undernet.c (File Modified) 
+  +0 -2		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/11/25 01:52:02 UTC	(20061125-7279)
+  Log:
+  warning fixes for enforce (unused variables, parentheses
+  around assignment in if)
+  
+
+  Changes:	Modified:
+  +7 -23	trunk/modules/nickserv/enforce.c (File Modified) 
+
+
+jilles      2006/11/25 01:41:18 UTC	(20061125-7277)
+  Log:
+  Remove various unused variables and an unused static function.
+  
+
+  Changes:	Modified:
+  +0 -3		trunk/backend/flatfile.c (File Modified) 
+  +0 -1		trunk/modules/chanserv/main.c (File Modified) 
+  +1 -2		trunk/modules/chanserv/register.c (File Modified) 
+  +0 -1		trunk/modules/chanserv/set.c (File Modified) 
+  +0 -1		trunk/modules/global/main.c (File Modified) 
+  +0 -1		trunk/modules/operserv/rakill.c (File Modified) 
+  +0 -1		trunk/modules/operserv/rmatch.c (File Modified) 
+  +0 -1		trunk/modules/xmlrpc/channel.c (File Modified) 
+  +0 -10	trunk/modules/xmlrpc/main.c (File Modified) 
+  +2 -4		trunk/src/account.c (File Modified) 
+  +0 -3		trunk/src/culture.c (File Modified) 
+  +0 -3		trunk/src/users.c (File Modified) 
+
+
+jilles      2006/11/25 01:39:42 UTC	(20061125-7275)
+  Log:
+  dump_buffer(): add a return value here, even though
+  its caller will never use it.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/modules/xmlrpc/main.c (File Modified) 
+
+
+jilles      2006/11/25 00:25:20 UTC	(20061125-7273)
+  Log:
+  Rename clog to claro_log, as clog is a function specified
+  by SUSv3 (complex logarithm).
+  
+
+  Changes:	Modified:
+  +6 -6		trunk/libatheme/balloc.c (File Modified) 
+  +4 -4		trunk/libatheme/claro.c (File Modified) 
+  +1 -1		trunk/libatheme/claro_internal.h (File Modified) 
+  +16 -16	trunk/libatheme/connection.c (File Modified) 
+  +7 -7		trunk/libatheme/datastream.c (File Modified) 
+  +2 -2		trunk/libatheme/dlink.c (File Modified) 
+  +5 -5		trunk/libatheme/event.c (File Modified) 
+  +1 -1		trunk/libatheme/hook.c (File Modified) 
+
+
+jilles      2006/11/25 00:08:57 UTC	(20061125-7271)
+  Log:
+  Move some stuff only used by libatheme/*.c to libatheme/claro_internal.h.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/libatheme/balloc.c (File Modified) 
+  +1 -0		trunk/libatheme/claro.c (File Modified) 
+  +18 -0	trunk/libatheme/claro_internal.h (File Added) 
+  +1 -0		trunk/libatheme/connection.c (File Modified) 
+  +0 -1		trunk/libatheme/connection.h (File Modified) 
+  +2 -0		trunk/libatheme/datastream.c (File Modified) 
+  +1 -0		trunk/libatheme/dlink.c (File Modified) 
+  +1 -0		trunk/libatheme/event.c (File Modified) 
+  +0 -1		trunk/libatheme/event.h (File Modified) 
+  +1 -0		trunk/libatheme/hook.c (File Modified) 
+  +0 -1		trunk/libatheme/hook.h (File Modified) 
+  +1 -0		trunk/libatheme/linker.c (File Modified) 
+  +1 -0		trunk/libatheme/memory.c (File Modified) 
+  +0 -3		trunk/libatheme/org.atheme.claro.base (File Modified) 
+  +1 -0		trunk/libatheme/poll.c (File Modified) 
+  +1 -0		trunk/libatheme/select.c (File Modified) 
+  +1 -0		trunk/libatheme/sockio.c (File Modified) 
+  +1 -0		trunk/libatheme/string.c (File Modified) 
+  +1 -0		trunk/libatheme/win32.c (File Modified) 
+
+
+jilles      2006/11/24 23:03:31 UTC	(20061124-7267)
+  Log:
+  Swap me.connected assignment and initial uplink_connect() call.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/atheme.c (File Modified) 
+
+
+jilles      2006/11/24 22:56:04 UTC	(20061124-7265)
+  Log:
+  Remove irccmp() and ircncmp().
+  They were basically equivalent to strcmp() and strncmp()
+  in complicated ways.
+  
+
+  Changes:	Modified:
+  +0 -2		trunk/include/match.h (File Modified) 
+  +0 -42	trunk/src/match.c (File Modified) 
+
+
+jilles      2006/11/24 22:55:12 UTC	(20061124-7263)
+  Log:
+  Replace irccmp() uses with irccasecmp().
+  irccmp() is going away and whenever it was used it
+  should have been irccasecmp().
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/chanserv/flags.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/main.c (File Modified) 
+  +1 -1		trunk/modules/chanserv/set.c (File Modified) 
+  +1 -1		trunk/modules/memoserv/forward.c (File Modified) 
+  +1 -1		trunk/modules/memoserv/send.c (File Modified) 
+  +1 -1		trunk/modules/nickserv/group.c (File Modified) 
+  +1 -1		trunk/protocol/plexus.c (File Modified) 
+  +1 -1		trunk/src/account.c (File Modified) 
+  +1 -1		trunk/src/channels.c (File Modified) 
+  +2 -2		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/11/24 14:02:47 UTC	(20061124-7261)
+  Log:
+  Correct buffer length passed to snprintf().
+  Pointed out by darix. Found with gcc -D_FORTFIY_SOURCE=2.
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/11/23 17:06:47 UTC	(20061123-7259)
+  Log:
+  Move sendq_flush() write error log message back to LG_DEBUG,
+  this will kill the connection anyway and give another log
+  message later.
+  
+
+  Changes:	Modified:
+  +1 -2		trunk/libatheme/datastream.c (File Modified) 
+
+
+jilles      2006/11/23 17:04:28 UTC	(20061123-7257)
+  Log:
+  Fail connection_open_tcp() if connect(2) detects an error locally.
+  This gives cleaner error messages.
+  
+
+  Changes:	Modified:
+  +7 -1		trunk/libatheme/connection.c (File Modified) 
+
+
+jilles      2006/11/23 16:47:36 UTC	(20061123-7255)
+  Log:
+  Move some error messages about connections from
+  LG_DEBUG/LG_IOERROR to LG_ERROR or LG_INFO.
+  
+
+  Changes:	Modified:
+  +11 -13	trunk/libatheme/connection.c (File Modified) 
+  +2 -1		trunk/libatheme/datastream.c (File Modified) 
+
+
+jilles      2006/11/23 16:40:10 UTC	(20061123-7253)
+  Log:
+  If connection_open_tcp() detects an error, don't
+  segfault and schedule another connection attempt.
+  Reported by Rprp.
+  
+
+  Changes:	Modified:
+  +4 -1		trunk/src/uplink.c (File Modified) 
+
+
+jilles      2006/11/21 15:54:04 UTC	(20061121-7249)
+  Log:
+  inspircd11: don't crash if FMODE target channel does not exist
+  (it checked for this condition, but continued anyway).
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/protocol/inspircd11.c (File Modified) 
+
+
+jilles      2006/11/20 01:08:16 UTC	(20061120-7247)
+  Log:
+  Show usercounts in LG_NETWORK notices.
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/src/ptasks.c (File Modified) 
+  +3 -1		trunk/src/servers.c (File Modified) 
+
+
+jilles      2006/11/19 21:09:03 UTC	(20061119-7245)
+  Log:
+  Do not part the snoop channel when disabling GUARD on it.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/chanserv/set.c (File Modified) 
+
+
+jilles      2006/11/19 21:03:52 UTC	(20061119-7243)
+  Log:
+  Add release notes for 2.1 upto now.
+  
+
+  Changes:	Modified:
+  +38 -0	trunk/doc/RELEASE (File Modified) 
+
+
+jilles      2006/11/19 20:25:04 UTC	(20061119-7241)
+  Log:
+  Const warning fix.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/19 20:22:27 UTC	(20061119-7239)
+  Log:
+  handle_kill(): use get_oper_name()
+  
+
+  Changes:	Modified:
+  +1 -4		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/19 20:21:25 UTC	(20061119-7237)
+  Log:
+  Allow server sourceinfo_t's in get_source_name(),
+  get_source_mask() and get_oper_name(). The result
+  is the server name.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/11/19 20:02:08 UTC	(20061119-7235)
+  Log:
+  Implement LG_NETWORK, shows notices about servers
+  joining, leaving and confirming end of burst.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/include/tools.h (File Modified) 
+  +1 -1		trunk/src/ptasks.c (File Modified) 
+  +5 -2		trunk/src/servers.c (File Modified) 
+
+
+jilles      2006/11/19 19:25:53 UTC	(20061119-7233)
+  Log:
+  Change the logging system (requires recompiling all
+  modules, but no source changes).
+  Treat the original LG_DEBUG, LG_INFO and LG_ERROR and
+  CMDLOG_* as categories, and add some more: LG_RAWDATA,
+  LG_NETWORK (future: netsplit/join), LG_WALLOPS (future).
+  The loglevel directive in atheme.conf now accepts some
+  more values, and only DEBUG and TRACE log all commands.
+  Each value selects a certain subset of categories.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/dist/example.conf (File Modified) 
+  +1 -1		trunk/include/global.h (File Modified) 
+  +24 -7	trunk/include/tools.h (File Modified) 
+  +1 -1		trunk/src/atheme.c (File Modified) 
+  +10 -10	trunk/src/conf.c (File Modified) 
+  +6 -3		trunk/src/function.c (File Modified) 
+  +2 -2		trunk/src/parse.c (File Modified) 
+  +1 -1		trunk/src/send.c (File Modified) 
+  +2 -1		trunk/src/services.c (File Modified) 
+
+
+jilles      2006/11/19 19:02:41 UTC	(20061119-7231)
+  Log:
+  Change /os mode from CMDLOG_SET to CMDLOG_ADMIN.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/operserv/mode.c (File Modified) 
+
+
+jilles      2006/11/19 17:14:33 UTC	(20061119-7229)
+  Log:
+  Move TS changed log message from LG_INFO to LG_DEBUG.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/asuka.c (File Modified) 
+  +1 -1		trunk/protocol/bahamut.c (File Modified) 
+  +1 -1		trunk/protocol/bircd.c (File Modified) 
+  +2 -2		trunk/protocol/charybdis.c (File Modified) 
+  +2 -2		trunk/protocol/hybrid.c (File Modified) 
+  +1 -1		trunk/protocol/hyperion.c (File Modified) 
+  +1 -1		trunk/protocol/nefarious.c (File Modified) 
+  +1 -1		trunk/protocol/plexus.c (File Modified) 
+  +1 -1		trunk/protocol/ptlink.c (File Modified) 
+  +2 -2		trunk/protocol/ratbox.c (File Modified) 
+  +1 -1		trunk/protocol/shadowircd.c (File Modified) 
+  +1 -1		trunk/protocol/solidircd.c (File Modified) 
+  +1 -1		trunk/protocol/ultimate3.c (File Modified) 
+  +1 -1		trunk/protocol/undernet.c (File Modified) 
+  +3 -3		trunk/protocol/unreal.c (File Modified) 
+
+
+jilles      2006/11/19 16:04:38 UTC	(20061119-7227)
+  Log:
+  Make /os jupe CMDLOG_ADMIN instead of CMDLOG_SET.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/operserv/jupe.c (File Modified) 
+
+
+jilles      2006/11/19 15:44:42 UTC	(20061119-7225)
+  Log:
+  Add operclass::needoper, denies giving any privilege
+  to IRC users matching this operclass who are not IRCops.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/dist/example.conf (File Modified) 
+  +4 -3		trunk/doc/PRIVILEGES (File Modified) 
+  +3 -0		trunk/include/privs.h (File Modified) 
+  +2 -1		trunk/modules/operserv/soper.c (File Modified) 
+  +7 -1		trunk/src/conf.c (File Modified) 
+  +2 -0		trunk/src/privs.c (File Modified) 
+  +11 -3	trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/18 16:43:46 UTC	(20061118-7215)
+  Log:
+  Add chanserv why help file.
+  
+
+  Changes:	Modified:
+  +9 -0		trunk/help/cservice/why (File Added) 
+  +5 -0		trunk/modules/chanserv/why.c (File Modified) 
+
+
+jilles      2006/11/18 14:21:58 UTC	(20061118-7213)
+  Log:
+  chanserv::trigger setting:
+  - if not given, use the default, even if another value was previously used
+  - give an error message if more than one character is given
+  
+
+  Changes:	Modified:
+  +2 -5		trunk/src/conf.c (File Modified) 
+
+
+jilles      2006/11/18 14:19:13 UTC	(20061118-7211)
+  Log:
+  Show /cs set fantasy status in /cs info.
+  
+
+  Changes:	Modified:
+  +3 -0		trunk/modules/chanserv/info.c (File Modified) 
+
+
+jilles      2006/11/18 14:16:40 UTC	(20061118-7209)
+  Log:
+  Add help file for /cs set guard.
+  
+
+  Changes:	Modified:
+  +9 -0		trunk/help/cservice/set_guard (File Added) 
+
+
+jilles      2006/11/18 14:03:53 UTC	(20061118-7207)
+  Log:
+  Allow other values for chanserv::trigger than '!', '@' or '.',
+  by removing the check for those in command processing.
+  That check is no longer needed as chanserv now checks the
+  first character before engaging in lengthy processing.
+  
+
+  Changes:	Modified:
+  +0 -6		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/18 14:02:11 UTC	(20061118-7205)
+  Log:
+  Mention fantasy commands in /cs help.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/modules/chanserv/help.c (File Modified) 
+
+
+jilles      2006/11/18 13:48:55 UTC	(20061118-7203)
+  Log:
+  Change /cs why to work in a more sane way with flags.
+  
+
+  Changes:	Modified:
+  +20 -30	trunk/modules/chanserv/why.c (File Modified) 
+
+
+nenolod     2006/11/18 05:27:38 UTC	(20061118-7201)
+  Log:
+  - show GUARD in /cs info if enabled
+  
+
+  Changes:	Modified:
+  +8 -0		trunk/modules/chanserv/info.c (File Modified) 
+
+
+nenolod     2006/11/18 05:10:57 UTC	(20061118-7199)
+  Log:
+  Make ChanServ inhabitation optional:
+  - Adds a new CFLAG, "guard", which determines whether ChanServ
+    occupies the channel.
+  - Changes the symantics of options::join_chans (now only enables
+    SET GUARD)
+  - Add guard to default CFLAGS.
+  - Bump database revision so that the old rules are converted.
+  - Chase updates in module-land, so that nothing gets too broken by
+    this change.
+  
+
+  Changes:	Modified:
+  +5 -2		trunk/backend/flatfile.c (File Modified) 
+  +2 -2		trunk/contrib/cs_sync.c (File Modified) 
+  +13 -7	trunk/dist/example.conf (File Modified) 
+  +1 -0		trunk/include/account.h (File Modified) 
+  +1 -1		trunk/modules/chanserv/clear_users.c (File Modified) 
+  +14 -11	trunk/modules/chanserv/main.c (File Modified) 
+  +74 -0	trunk/modules/chanserv/set.c (File Modified) 
+  +2 -2		trunk/modules/nickserv/identify.c (File Modified) 
+  +1 -0		trunk/src/conf.c (File Modified) 
+
+
+nenolod     2006/11/18 04:03:22 UTC	(20061118-7197)
+  Log:
+  - make the prefix used for in-channel commands customizable (closes #623).
+  
+
+  Changes:	Modified:
+  +9 -0		trunk/dist/example.conf (File Modified) 
+  +2 -0		trunk/include/services.h (File Modified) 
+  +1 -1		trunk/modules/chanserv/main.c (File Modified) 
+  +15 -0	trunk/src/conf.c (File Modified) 
+
+
+jilles      2006/11/18 02:19:54 UTC	(20061118-7195)
+  Log:
+  Don't allow =<uid>.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/src/account.c (File Modified) 
+
+
+jilles      2006/11/18 02:16:26 UTC	(20061118-7193)
+  Log:
+  Expire grouped nicks (but not the account name) separately.
+  
+
+  Changes:	Modified:
+  +27 -0	trunk/src/account.c (File Modified) 
+
+
+jilles      2006/11/18 00:09:00 UTC	(20061118-7191)
+  Log:
+  If nickname ownership is enabled and the UNGROUP command exists:
+  - give a clearer error message when trying to drop a grouped
+    nick (which is not an account)
+  - do not allow normal users to drop accounts with other nicks
+    grouped to them
+  
+
+  Changes:	Modified:
+  +19 -0	trunk/modules/nickserv/drop.c (File Modified) 
+
+
+jilles      2006/11/17 23:05:39 UTC	(20061117-7189)
+  Log:
+  chanserv hold help file: mention that HOLD will not stop
+  a channel without eligible successors from expiring
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/help/cservice/hold (File Modified) 
+
+
+jilles      2006/11/17 21:09:58 UTC	(20061117-7187)
+  Log:
+  List GROUP and UNGROUP verbosely in /ns help.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/nickserv/help.c (File Modified) 
+
+
+jilles      2006/11/17 21:02:46 UTC	(20061117-7185)
+  Log:
+  nickserv drop/freeze/hold:
+  Convert various strings to say an "account" is being
+  affected instead of a "nickname" if the action affects
+  the entire account, not a single nickname.
+  This removes some strings from the no_nick_ownership
+  translation table.
+  
+
+  Changes:	Modified:
+  +5 -5		trunk/modules/nickserv/drop.c (File Modified) 
+  +6 -6		trunk/modules/nickserv/freeze.c (File Modified) 
+  +5 -5		trunk/modules/nickserv/hold.c (File Modified) 
+  +0 -12	trunk/modules/nickserv/main.c (File Modified) 
+
+
+jilles      2006/11/17 20:38:15 UTC	(20061117-7183)
+  Log:
+  Helpfile updates for grouping.
+  nickserv/userserv mark: this is for accounts only, not channels
+  
+
+  Changes:	Modified:
+  +8 -8		trunk/help/nickserv/drop (File Modified) 
+  +4 -4		trunk/help/nickserv/freeze (File Modified) 
+  +2 -2		trunk/help/nickserv/ghost (File Modified) 
+  +2 -0		trunk/help/nickserv/group (File Modified) 
+  +3 -3		trunk/help/nickserv/hold (File Modified) 
+  +3 -1		trunk/help/nickserv/info (File Modified) 
+  +1 -1		trunk/help/nickserv/logout (File Modified) 
+  +4 -4		trunk/help/nickserv/mark (File Modified) 
+  +1 -1		trunk/help/nickserv/resetpass (File Modified) 
+  +1 -1		trunk/help/nickserv/return (File Modified) 
+  +1 -1		trunk/help/nickserv/set_email (File Modified) 
+  +1 -1		trunk/help/nickserv/set_emailmemos (File Modified) 
+  +2 -2		trunk/help/nickserv/set_enforce (File Modified) 
+  +1 -1		trunk/help/nickserv/set_hidemail (File Modified) 
+  +1 -1		trunk/help/nickserv/set_password (File Modified) 
+  +1 -1		trunk/help/nickserv/set_property (File Modified) 
+  +1 -1		trunk/help/nickserv/verify (File Modified) 
+  +1 -1		trunk/help/nickserv/vhost (File Modified) 
+  +4 -4		trunk/help/userserv/mark (File Modified) 
+
+
+jilles      2006/11/17 20:21:46 UTC	(20061117-7181)
+  Log:
+  typo fix
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/help/userserv/freeze (File Modified) 
+
+
+jilles      2006/11/17 19:58:40 UTC	(20061117-7179)
+  Log:
+  Add nickname grouping. Nickname grouping allows users to
+  register multiple nicks to one account. Each nick has
+  its own registered and last seen times but all other
+  data is shared (accounts also have their own registered
+  and last seen times).
+  Nickname grouping works together with ACCESS, ENFORCE,
+  GHOST.
+  The DROP command drops entire accounts; the UNGROUP
+  command must be used to drop single nicks.
+  Some missing bits: administrator UNGROUP, expiry of single nicks
+  
+
+  Changes:	Modified:
+  +30 -0	trunk/backend/flatfile.c (File Modified) 
+  +2 -0		trunk/dist/example.conf (File Modified) 
+  +16 -0	trunk/help/nickserv/group (File Added) 
+  +15 -0	trunk/help/nickserv/ungroup (File Added) 
+  +21 -1	trunk/include/account.h (File Modified) 
+  +1 -0		trunk/include/common.h (File Modified) 
+  +1 -0		trunk/include/global.h (File Modified) 
+  +6 -5		trunk/modules/chanserv/status.c (File Modified) 
+  +1 -0		trunk/modules/nickserv/Makefile.in (File Modified) 
+  +12 -10	trunk/modules/nickserv/enforce.c (File Modified) 
+  +11 -3	trunk/modules/nickserv/ghost.c (File Modified) 
+  +132 -0	trunk/modules/nickserv/group.c (File Added) 
+  +11 -1	trunk/modules/nickserv/identify.c (File Modified) 
+  +41 -1	trunk/modules/nickserv/info.c (File Modified) 
+  +9 -3		trunk/modules/nickserv/register.c (File Modified) 
+  +9 -6		trunk/modules/nickserv/status.c (File Modified) 
+  +149 -5	trunk/src/account.c (File Modified) 
+  +1 -0		trunk/src/ptasks.c (File Modified) 
+  +11 -4	trunk/src/services.c (File Modified) 
+  +8 -0		trunk/src/users.c (File Modified) 
+
+
+jilles      2006/11/17 19:45:40 UTC	(20061117-7177)
+  Log:
+  nickserv register help file: better description of what
+  registration does, don't mention sharing passwords
+  
+
+  Changes:	Modified:
+  +8 -5		trunk/help/nickserv/register (File Modified) 
+
+
+jilles      2006/11/16 18:15:27 UTC	(20061116-7175)
+  Log:
+  chanserv ftransfer: Show account name of new founder
+  instead of the passed string (which could be =<nick>)
+  
+
+  Changes:	Modified:
+  +6 -6		trunk/modules/chanserv/ftransfer.c (File Modified) 
+
+
+jilles      2006/11/15 19:27:49 UTC	(20061115-7171)
+  Log:
+  Add /cs fflags, allows chan:admin services opers to force
+  a flags change on any channel. A wallops and snoops is done,
+  and the VERBOSE flag applies like in regular flags changes.
+  Currently the NEVEROP flag on a user is not overridden.
+  A separate privilege for fflags and ftransfer could be
+  added later.
+  fflags is not enabled by default in example.conf.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/dist/example.conf (File Modified) 
+  +12 -0	trunk/help/cservice/fflags (File Added) 
+  +1 -0		trunk/modules/chanserv/Makefile.in (File Modified) 
+  +150 -0	trunk/modules/chanserv/fflags.c (File Added) 
+
+
+jilles      2006/11/15 17:56:41 UTC	(20061115-7169)
+  Log:
+  Remove obsolete comment.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/include/privs.h (File Modified) 
+
+
+jilles      2006/11/15 17:54:46 UTC	(20061115-7167)
+  Log:
+  Show operserv:grant privilege in /os specs.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/modules/operserv/specs.c (File Modified) 
+
+
+jilles      2006/11/15 17:39:43 UTC	(20061115-7165)
+  Log:
+  P10/TS6/ircnet:
+  When sending a notice to a channel as a server notice,
+  prepend it with "[<service>:<channel>] " instead of
+  "<service>: " because many clients do not show the
+  destination channel for such a server notice.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/asuka.c (File Modified) 
+  +1 -1		trunk/protocol/bircd.c (File Modified) 
+  +1 -1		trunk/protocol/charybdis.c (File Modified) 
+  +1 -1		trunk/protocol/hybrid.c (File Modified) 
+  +1 -1		trunk/protocol/ircnet.c (File Modified) 
+  +1 -1		trunk/protocol/nefarious.c (File Modified) 
+  +1 -1		trunk/protocol/ratbox.c (File Modified) 
+  +1 -1		trunk/protocol/undernet.c (File Modified) 
+
+
+jilles      2006/11/15 17:02:05 UTC	(20061115-7163)
+  Log:
+  Don't show channel name in /cs flags verbose notice.
+  The other verbose notices don't show it either.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/chanserv/flags.c (File Modified) 
+
+
+jilles      2006/11/15 16:46:25 UTC	(20061115-7161)
+  Log:
+  Update bugtracker urls.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/README (File Modified) 
+  +1 -1		trunk/TODO (File Modified) 
+
+
+jilles      2006/11/15 16:19:24 UTC	(20061115-7159)
+  Log:
+  Show channel email address in /cs info, and mention
+  this fact in /cs help set email. The channel email
+  address was already publicly visible via /cs taxonomy.
+  I have my doubts on the use of /cs set email, but
+  this makes it a bit more consistent.
+  Pointed out by: ken/wilson/whateverhisnickisnow
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/help/cservice/set_email (File Modified) 
+  +3 -0		trunk/modules/chanserv/info.c (File Modified) 
+
+
+jilles      2006/11/15 13:56:23 UTC	(20061115-7155)
+  Log:
+  www.atheme.org -> www.atheme.net in documentation
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/INSTALL (File Modified) 
+  +1 -1		trunk/README (File Modified) 
+  +1 -1		trunk/src/version.sh (File Modified) 
+
+
+nenolod     2006/11/15 11:46:36 UTC	(20061115-7147)
+  Log:
+  - avoid an unnecessary integer overflow in flags display
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/chanserv/flags.c (File Modified) 
+
+
+jilles      2006/11/14 23:29:46 UTC	(20061114-7145)
+  Log:
+  inspircd description: typo fix and swapping around two paragraphs
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/doc/IRCD (File Modified) 
+
+
+jilles      2006/11/14 23:21:53 UTC	(20061114-7143)
+  Log:
+  Update inspircd description somewhat.
+  
+
+  Changes:	Modified:
+  +4 -6		trunk/doc/IRCD (File Modified) 
+
+
+jilles      2006/11/14 23:19:37 UTC	(20061114-7141)
+  Log:
+  inspircd11:
+  - add support for new SNONOTICE/OPERNOTICE stuff, wallops
+    will appear to come from atheme's server name now and
+    are sent to snomask +g (if m_globops.so is loaded, as
+    before) or all +s opers (otherwise)
+  - no longer require m_globops.so if SNONOTICE/OPERNOTICE
+    is supported
+  - don't crash when a required second parameter is missing
+    in CAPAB
+  
+
+  Changes:	Modified:
+  +2 -1		trunk/doc/IRCD (File Modified) 
+  +26 -4	trunk/protocol/inspircd11.c (File Modified) 
+
+
+jilles      2006/11/13 13:35:46 UTC	(20061113-7139)
+  Log:
+  chanserv status: don't say the user is banned if they
+  have both +b and +r (+r exempts).
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/chanserv/status.c (File Modified) 
+
+
+jilles      2006/11/12 17:10:53 UTC	(20061112-7135)
+  Log:
+  Missed pcommand_add() change for SAMODE in inspircd10.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/protocol/inspircd10.c (File Modified) 
+
+
+jilles      2006/11/11 21:32:12 UTC	(20061111-7133)
+  Log:
+  inspircd
+  - port samode fix from inspircd10 to inspircd11
+  - don't crash if target of sajoin/sapart/sanick does not exist
+  
+
+  Changes:	Modified:
+  +13 -7	trunk/protocol/inspircd10.c (File Modified) 
+  +6 -0		trunk/protocol/inspircd11.c (File Modified) 
+
+
+jilles      2006/11/11 19:48:21 UTC	(20061111-7131)
+  Log:
+  On newly registered channels, only mlock -l if no limit is set
+  and only mlock -k if no key is set.
+  
+
+  Changes:	Modified:
+  +4 -1		trunk/modules/chanserv/register.c (File Modified) 
+
+
+jilles      2006/11/11 15:25:32 UTC	(20061111-7129)
+  Log:
+  Add /cs sync to contrib, makes channel status agree with flags.
+  Ugly bits:
+  - can cause flooding if used repeatedly with flags changes
+  - duplicates cs_join() code but not exactly the same
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/contrib/Makefile.in (File Modified) 
+  +184 -0	trunk/contrib/cs_sync.c (File Added) 
+
+
+jilles      2006/11/11 15:23:55 UTC	(20061111-7127)
+  Log:
+  inspircd11: fix SAMODE handling
+  
+
+  Changes:	Modified:
+  +4 -4		trunk/protocol/inspircd11.c (File Modified) 
+
+
+jilles      2006/11/10 23:19:18 UTC	(20061110-7123)
+  Log:
+  - add chanserv set entrymsg help file
+  - don't mention a real email address in chanserv set email
+    help file, make the formatting a little nicer
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/help/cservice/set_email (File Modified) 
+  +11 -0	trunk/help/cservice/set_entrymsg (File Added) 
+
+
+jilles      2006/11/08 23:19:35 UTC	(20061108-7119)
+  Log:
+  Make protocol/inspircd10 give a clearer error message
+  when it is used with inspircd 1.1.
+  
+
+  Changes:	Modified:
+  +6 -1		trunk/protocol/inspircd10.c (File Modified) 
+
+
+jilles      2006/11/08 15:56:08 UTC	(20061108-7117)
+  Log:
+  Add chanserv taxonomy help file.
+  
+
+  Changes:	Modified:
+  +7 -0		trunk/help/cservice/taxonomy (File Added) 
+
+
+jilles      2006/11/08 15:18:19 UTC	(20061108-7109)
+  Log:
+  chanserv template: Allow updating all channel access entries
+  matching the template with a template change with a command
+  like /cs template sometemplate !+O. This can also be used
+  to delete access entries in mass (!-*).
+  If we ever add notification to users that their channel
+  access has changed, this needs to be changed with that.
+  
+
+  Changes:	Modified:
+  +9 -5		trunk/help/cservice/template (File Modified) 
+  +45 -3	trunk/modules/chanserv/template.c (File Modified) 
+
+
+jilles      2006/11/06 11:22:38 UTC	(20061106-7103)
+  Log:
+  chanserv akick del: do not check if the hostmask is valid
+  (i.e., allow removal of bogus hostmasks that somehow
+  ended up on the akick list)
+  
+
+  Changes:	Modified:
+  +0 -6		trunk/modules/chanserv/akick.c (File Modified) 
+
+
+jilles      2006/11/06 11:21:32 UTC	(20061106-7101)
+  Log:
+  validhostmask(): do not accept hostmasks containing
+  spaces, or starting with ,-#@!
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/src/function.c (File Modified) 
+
+
+jilles      2006/11/05 23:32:20 UTC	(20061105-7097)
+  Log:
+  Remove is_sra compatibility macro, it is not nice with sourceinfo.
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/include/privs.h (File Modified) 
+
+
+jilles      2006/11/05 22:04:32 UTC	(20061105-7095)
+  Log:
+  Make operserv rakill work via non-IRC.
+  
+
+  Changes:	Modified:
+  +8 -6		trunk/modules/operserv/rakill.c (File Modified) 
+
+
+jilles      2006/11/05 17:20:21 UTC	(20061105-7093)
+  Log:
+  Mention explicitly that an account cannot have both conf
+  and DB soper privs, and that conf privs take precedence.
+  
+
+  Changes:	Modified:
+  +4 -0		trunk/doc/PRIVILEGES (File Modified) 
+
+
+jilles      2006/11/05 17:09:33 UTC	(20061105-7091)
+  Log:
+  Don't reuse the name "dup".
+  
+
+  Changes:	Modified:
+  +5 -5		trunk/src/privs.c (File Modified) 
+
+
+jilles      2006/11/05 17:06:22 UTC	(20061105-7089)
+  Log:
+  soper_add(): If there is a duplicate soper and one is from
+  atheme.conf and the other is not, remove/ignore the one that
+  is not from atheme.conf. In other cases, ignore the new one
+  as before.
+  
+
+  Changes:	Modified:
+  +17 -3	trunk/src/privs.c (File Modified) 
+
+
+jilles      2006/11/05 16:53:06 UTC	(20061105-7087)
+  Log:
+  Add missing comment line for operserv/soper.
+  
+
+  Changes:	Modified:
+  +1 -0		trunk/dist/example.conf (File Modified) 
+
+
+jilles      2006/11/05 16:51:58 UTC	(20061105-7085)
+  Log:
+  /os soper listclass now shows - for operclasses with more
+  privileges (may not grant), + for operclasses with less
+  or same privileges.
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/modules/operserv/soper.c (File Modified) 
+
+
+jilles      2006/11/05 16:44:35 UTC	(20061105-7083)
+  Log:
+  operserv soper: only allow adding/removing privs the source oper also has
+  
+
+  Changes:	Modified:
+  +18 -0	trunk/modules/operserv/soper.c (File Modified) 
+
+
+jilles      2006/11/05 16:43:27 UTC	(20061105-7081)
+  Log:
+  Add boolean_t has_all_operclass(sourceinfo_t *si, operclass_t *operclass),
+  returns whether the source has all the privileges in the operclass.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/include/privs.h (File Modified) 
+  +20 -0	trunk/src/privs.c (File Modified) 
+
+
+jilles      2006/11/05 16:13:00 UTC	(20061105-7079)
+  Log:
+  Add /os soper, allows editing of services operator
+  privileges without editing the configuration file.
+  
+
+  Changes:	Modified:
+  +2 -0		trunk/dist/example.conf (File Modified) 
+  +15 -5	trunk/doc/PRIVILEGES (File Modified) 
+  +30 -0	trunk/help/oservice/soper (File Added) 
+  +1 -0		trunk/modules/operserv/Makefile.in (File Modified) 
+  +215 -0	trunk/modules/operserv/soper.c (File Added) 
+
+
+jilles      2006/11/05 14:01:52 UTC	(20061105-7077)
+  Log:
+  Save and load non-conf SOPERs in atheme.db.
+  
+
+  Changes:	Modified:
+  +34 -0	trunk/backend/flatfile.c (File Modified) 
+
+
+jilles      2006/11/04 23:55:32 UTC	(20061104-7075)
+  Log:
+  Only allow chanserv invite via IRC, it would cause a crash via non-IRC.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/modules/chanserv/invite.c (File Modified) 
+
+
+jilles      2006/11/04 20:14:57 UTC	(20061104-7067)
+  Log:
+  nickserv register/return/sendpass/set email:
+  make sending emails work if the command came from non-IRC
+  unfortunately this loses information who requested the email
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/modules/nickserv/register.c (File Modified) 
+  +1 -1		trunk/modules/nickserv/return.c (File Modified) 
+  +1 -1		trunk/modules/nickserv/sendpass.c (File Modified) 
+  +1 -1		trunk/modules/nickserv/set.c (File Modified) 
+
+
+jilles      2006/11/04 19:29:11 UTC	(20061104-7065)
+  Log:
+  Use "Account Registration" instead of "Nickname Registration"
+  in the Subject field if nickname ownership is disabled.
+  
+
+  Changes:	Modified:
+  +3 -3		trunk/src/function.c (File Modified) 
+
+
+jilles      2006/11/04 19:26:52 UTC	(20061104-7063)
+  Log:
+  nickserv verify:
+  grant ircd registered status to all IRC users logged in
+  to the nick, not to the source of the command
+  - fixes crashes with xmlrpc verify with some protocol modules
+  - grants all required registered status if the user is
+    logged in multiple times
+  
+
+  Changes:	Modified:
+  +6 -1		trunk/modules/nickserv/verify.c (File Modified) 
+
+
+jilles      2006/11/03 19:26:47 UTC	(20061103-7059)
+  Log:
+  Clarify the limited usefulness of the SQL backends.
+  
+
+  Changes:	Modified:
+  +10 -0	trunk/doc/SQL (File Modified) 
+
+
+jilles      2006/11/03 16:28:49 UTC	(20061103-7053)
+  Log:
+  Make syntax descriptions in help files more consistent:
+  ON|OFF instead of <ON|OFF> or <on/off>
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/help/cservice/close (File Modified) 
+  +1 -1		trunk/help/cservice/set_fantasy (File Modified) 
+  +1 -1		trunk/help/cservice/set_keeptopic (File Modified) 
+  +1 -1		trunk/help/cservice/set_topiclock (File Modified) 
+
+
+jilles      2006/11/03 15:39:24 UTC	(20061103-7049)
+  Log:
+  nickserv access: convert masks like 1.2.*.*, 1.2.* and 1.2.3.* to cidr.
+  
+
+  Changes:	Modified:
+  +52 -0	trunk/modules/nickserv/access.c (File Modified) 
+
+
+jilles      2006/11/02 23:45:35 UTC	(20061102-7043)
+  Log:
+  Update operserv clones help file.
+  
+
+  Changes:	Modified:
+  +3 -2		trunk/help/oservice/clones (File Modified) 
+
+
+jilles      2006/11/02 23:36:06 UTC	(20061102-7041)
+  Log:
+  Change what the "allowed number of clones" field in
+  an exempt does:
+  - at or above allowed number, send warnings
+  - at or above allowed number plus 10, kline
+  discussed with w00t
+  
+
+  Changes:	Modified:
+  +6 -3		trunk/modules/operserv/clones.c (File Modified) 
+
+
+jilles      2006/11/02 23:20:29 UTC	(20061102-7039)
+  Log:
+  operserv clones:
+  - add some #defines
+  - allow adding exempts for at least 4 instead of at least 6 allowed clones
+  
+
+  Changes:	Modified:
+  +8 -5		trunk/modules/operserv/clones.c (File Modified) 
+
+
+jilles      2006/11/02 23:07:34 UTC	(20061102-7037)
+  Log:
+  - add a framework for allowing SOPERs in the DB as well as
+    in atheme.conf
+  - in /stats o, conf SOPERs have * in the password field,
+    DB SOPERs have D.
+  - move is_soper() from function.c/account.h to privs.c/privs.h
+  - add is_conf_soper(), returns true if the given account
+    has an operator{} block in atheme.conf
+  - remove general::sras
+  
+
+  Changes:	Modified:
+  +0 -1		trunk/include/account.h (File Modified) 
+  +7 -1		trunk/include/privs.h (File Modified) 
+  +2 -6		trunk/modules/chanserv/status.c (File Modified) 
+  +1 -1		trunk/modules/nickserv/info.c (File Modified) 
+  +2 -6		trunk/modules/nickserv/status.c (File Modified) 
+  +2 -2		trunk/src/account.c (File Modified) 
+  +1 -13	trunk/src/conf.c (File Modified) 
+  +0 -11	trunk/src/function.c (File Modified) 
+  +2 -1		trunk/src/node.c (File Modified) 
+  +47 -7	trunk/src/privs.c (File Modified) 
+  +3 -2		trunk/src/ptasks.c (File Modified) 
+
+
+jilles      2006/11/02 20:13:35 UTC	(20061102-7035)
+  Log:
+  chanserv op/halfop/voice:
+  don't explicitly tell the target by whom they have been
+  opped/deopped/etc if it is a fantasy command (they can
+  see in the channel).
+  This agrees with atheme 1.x behaviour.
+  
+
+  Changes:	Modified:
+  +2 -2		trunk/modules/chanserv/halfop.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/op.c (File Modified) 
+  +2 -2		trunk/modules/chanserv/voice.c (File Modified) 
+
+
+jilles      2006/11/02 20:05:23 UTC	(20061102-7033)
+  Log:
+  Don't allow access list entries like someuser@*.3.4.
+  
+
+  Changes:	Modified:
+  +6 -0		trunk/modules/nickserv/access.c (File Modified) 
+
+
+jilles      2006/11/02 17:22:21 UTC	(20061102-7031)
+  Log:
+  2.0 release notes: clarify a little what changed to fantasy commands
+  
+
+  Changes:	Modified:
+  +3 -1		trunk/doc/RELEASE (File Modified) 
+
+
+jilles      2006/11/01 22:44:10 UTC	(20061101-7027)
+  Log:
+  Rerun autoconf.
+  
+
+  Changes:	Modified:
+  +11 -11	trunk/configure (File Modified) 
+
+
+jilles      2006/11/01 22:43:33 UTC	(20061101-7025)
+  Log:
+  Bump trunk version to 2.1.
+  
+
+  Changes:	Modified:
+  +1 -1		trunk/configure.ac (File Modified) 
 
 
 jilles      2006/11/01 02:16:08 UTC	(20061101-7019)

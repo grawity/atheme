@@ -4,7 +4,7 @@
  *
  * This file contains the routines that deal with the configuration.
  *
- * $Id: conf.c 7029 2006-11-02 16:49:46Z jilles $
+ * $Id: conf.c 7363 2006-12-13 00:49:59Z jilles $
  */
 
 #include "atheme.h"
@@ -48,6 +48,7 @@ static int c_si_mta(CONFIGENTRY *);
 static int c_si_loglevel(CONFIGENTRY *);
 static int c_si_maxlogins(CONFIGENTRY *);
 static int c_si_maxusers(CONFIGENTRY *);
+static int c_si_maxnicks(CONFIGENTRY *);
 static int c_si_maxchans(CONFIGENTRY *);
 static int c_si_emaillimit(CONFIGENTRY *);
 static int c_si_emailtime(CONFIGENTRY *);
@@ -66,6 +67,7 @@ static int c_ci_hop(CONFIGENTRY *);
 static int c_ci_aop(CONFIGENTRY *);
 static int c_ci_sop(CONFIGENTRY *);
 static int c_ci_changets(CONFIGENTRY *);
+static int c_ci_trigger(CONFIGENTRY *);
 
 /* GService client information. */
 static int c_gl_nick(CONFIGENTRY *);
@@ -124,7 +126,6 @@ static int c_gi_flood_time(CONFIGENTRY *);
 static int c_gi_kline_time(CONFIGENTRY *);
 static int c_gi_commit_interval(CONFIGENTRY *);
 static int c_gi_expire(CONFIGENTRY *);
-static int c_gi_sras(CONFIGENTRY *);
 static int c_gi_secure(CONFIGENTRY *);
 
 static BlockHeap *conftable_heap;
@@ -147,6 +148,7 @@ static struct Token cflags[] = {
   { "KEEPTOPIC",   MC_KEEPTOPIC   },
   { "VERBOSE_OPS", MC_VERBOSE_OPS },
   { "TOPICLOCK",   MC_TOPICLOCK   },
+  { "GUARD",	   MC_GUARD	  },
   { "NONE",        0              },
   { NULL, 0 }
 };
@@ -241,7 +243,7 @@ void conf_init(void)
 	me.netname = me.hidehostsuffix = me.adminname = me.adminemail = me.mta = chansvs.nick = config_options.chan = 
 		config_options.global = config_options.languagefile = NULL;
 
-	me.recontime = me.restarttime = me.maxlogins = me.maxusers = me.maxchans = me.emaillimit = me.emailtime = 
+	me.recontime = me.restarttime = me.maxlogins = me.maxusers = me.maxnicks = me.maxchans = me.emaillimit = me.emailtime = 
 		config_options.flood_msgs = config_options.flood_time = config_options.kline_time = config_options.commit_interval =
 		config_options.expire = 0;
 
@@ -262,6 +264,7 @@ void conf_init(void)
 	chansvs.ca_aop = CA_AOP_DEF;
 	chansvs.ca_sop = CA_SOP_DEF;
 	chansvs.changets = FALSE;
+	chansvs.trigger = '!';
 
 	if (!(runflags & RF_REHASHING))
 	{
@@ -486,6 +489,7 @@ void init_newconf(void)
 	add_conf_item("LOGLEVEL", &conf_si_table, c_si_loglevel);
 	add_conf_item("MAXLOGINS", &conf_si_table, c_si_maxlogins);
 	add_conf_item("MAXUSERS", &conf_si_table, c_si_maxusers);
+	add_conf_item("MAXNICKS", &conf_si_table, c_si_maxnicks);
 	add_conf_item("MAXCHANS", &conf_si_table, c_si_maxchans);
 	add_conf_item("EMAILLIMIT", &conf_si_table, c_si_emaillimit);
 	add_conf_item("EMAILTIME", &conf_si_table, c_si_emailtime);
@@ -509,7 +513,6 @@ void init_newconf(void)
 	add_conf_item("KLINE_TIME", &conf_gi_table, c_gi_kline_time);
 	add_conf_item("COMMIT_INTERVAL", &conf_gi_table, c_gi_commit_interval);
 	add_conf_item("EXPIRE", &conf_gi_table, c_gi_expire);
-	add_conf_item("SRAS", &conf_gi_table, c_gi_sras);
 
 	/* chanserv{} block */
 	add_conf_item("NICK", &conf_ci_table, c_ci_nick);
@@ -522,6 +525,7 @@ void init_newconf(void)
 	add_conf_item("AOP", &conf_ci_table, c_ci_aop);
 	add_conf_item("SOP", &conf_ci_table, c_ci_sop);
 	add_conf_item("CHANGETS", &conf_ci_table, c_ci_changets);
+	add_conf_item("TRIGGER", &conf_ci_table, c_ci_trigger);
 
 	/* global{} block */
 	add_conf_item("NICK", &conf_gl_table, c_gl_nick);
@@ -695,8 +699,10 @@ static int c_uplink(CONFIGENTRY *ce)
 
 static int c_operclass(CONFIGENTRY *ce)
 {
+	operclass_t *operclass;
 	char *name;
 	char *privs = NULL, *newprivs;
+	int flags = 0;
 
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -754,6 +760,8 @@ static int c_operclass(CONFIGENTRY *ce)
 				}
 			}
 		}
+		else if (!strcasecmp("NEEDOPER", ce->ce_varname))
+			flags |= OPERCLASS_NEEDOPER;
 		else
 		{
 			slog(LG_ERROR, "%s:%d: Invalid configuration option operclass::%s", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_varname);
@@ -761,7 +769,9 @@ static int c_operclass(CONFIGENTRY *ce)
 		}
 	}
 
-	operclass_add(name, privs ? privs : "");
+	operclass = operclass_add(name, privs ? privs : "");
+	if (operclass != NULL)
+		operclass->flags |= flags;
 	free(privs);
 	return 0;
 }
@@ -798,7 +808,7 @@ static int c_operator(CONFIGENTRY *ce)
 	}
 
 	if (operclass != NULL)
-		soper_add(name, operclass);
+		soper_add(name, operclass->name, SOPER_CONF);
 	else
 		slog(LG_ERROR, "%s:%d: skipping operator %s because of bad/missing parameters",
 						topce->ce_fileptr->cf_filename, topce->ce_varlinenum, name);
@@ -1030,19 +1040,19 @@ static int c_si_loglevel(CONFIGENTRY *ce)
 		PARAM_ERROR(ce);
 
 	if (!strcasecmp("DEBUG", ce->ce_vardata))
-		me.loglevel |= LG_DEBUG;
-
-	else if (!strcasecmp("ERROR", ce->ce_vardata))
-		me.loglevel |= LG_ERROR;
-
+		me.loglevel = LG_ALL;
+	else if (!strcasecmp("TRACE", ce->ce_vardata))
+		me.loglevel = LG_INFO | LG_ERROR | LG_CMD_ALL | LG_NETWORK | LG_WALLOPS;
 	else if (!strcasecmp("INFO", ce->ce_vardata))
-		me.loglevel |= LG_INFO;
-
+		me.loglevel = LG_INFO | LG_ERROR | LG_CMD_ADMIN | LG_CMD_REGISTER | LG_CMD_SET | LG_NETWORK | LG_WALLOPS;
+	else if (!strcasecmp("NOTICE", ce->ce_vardata))
+		me.loglevel = LG_INFO | LG_ERROR | LG_CMD_ADMIN | LG_CMD_REGISTER | LG_NETWORK;
+	else if (!strcasecmp("ERROR", ce->ce_vardata))
+		me.loglevel = LG_ERROR | LG_CMD_ADMIN;
 	else if (!strcasecmp("NONE", ce->ce_vardata))
-		me.loglevel |= LG_NONE;
-
+		me.loglevel = 0;
 	else
-		me.loglevel |= LG_ERROR;
+		me.loglevel = LG_ERROR | LG_CMD_ADMIN;
 
 	return 0;
 }
@@ -1067,6 +1077,16 @@ static int c_si_maxusers(CONFIGENTRY *ce)
 
 	return 0;
 
+}
+
+static int c_si_maxnicks(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	me.maxnicks = ce->ce_vardatanum;
+
+	return 0;
 }
 
 static int c_si_maxchans(CONFIGENTRY *ce)
@@ -1220,6 +1240,16 @@ static int c_ci_sop(CONFIGENTRY *ce)
 static int c_ci_changets(CONFIGENTRY *ce)
 {
 	chansvs.changets = TRUE;
+	return 0;
+}
+
+static int c_ci_trigger(CONFIGENTRY *ce)
+{
+	if (ce->ce_vardata == NULL || strlen(ce->ce_vardata) != 1)
+		PARAM_ERROR(ce);
+
+	chansvs.trigger = *ce->ce_vardata;
+
 	return 0;
 }
 
@@ -1584,17 +1614,6 @@ static int c_gl_real(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gi_sras(CONFIGENTRY *ce)
-{
-	CONFIGENTRY *flce;
-
-	for (flce = ce->ce_entries; flce; flce = flce->ce_next)
-		soper_add(flce->ce_varname, NULL);
-	slog(LG_ERROR, "%s:%d: general::sras is obsolete, please use operclass and operator instead", ce->ce_fileptr->cf_filename, ce->ce_varlinenum);
-
-	return 0;
-}
-
 static int c_db_user(CONFIGENTRY *ce)
 {
 	if (ce->ce_vardata == NULL)
@@ -1657,6 +1676,7 @@ static void copy_me(struct me *src, struct me *dst)
 	dst->loglevel = src->loglevel;
 	dst->maxlogins = src->maxlogins;
 	dst->maxusers = src->maxusers;
+	dst->maxnicks = src->maxnicks;
 	dst->maxchans = src->maxchans;
 	dst->emaillimit = src->emaillimit;
 	dst->emailtime = src->emailtime;
@@ -1810,6 +1830,13 @@ boolean_t conf_check(void)
 		me.maxusers = 5;
 	}
 
+	if (!me.maxnicks)
+	{
+		if (!nicksvs.no_nick_ownership)
+			slog(LG_INFO, "conf_check(): no `maxnicks' set in %s; " "defaulting to 5", config_file);
+		me.maxnicks = 5;
+	}
+
 	if (!me.maxchans)
 	{
 		slog(LG_INFO, "conf_check(): no `maxchans' set in %s; " "defaulting to 5", config_file);
@@ -1863,7 +1890,6 @@ boolean_t conf_check(void)
 
 	if (config_options.flood_msgs && !config_options.flood_time)
 		config_options.flood_time = 10;
-
 
 	/* recall that commit_interval is in seconds */
 	if ((!config_options.commit_interval) || (config_options.commit_interval < 60) || (config_options.commit_interval > 3600))

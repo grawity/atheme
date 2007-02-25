@@ -4,7 +4,7 @@
  *
  * Channel stuff.
  *
- * $Id: channels.c 7341 2006-12-08 00:01:54Z jilles $
+ * $Id: channels.c 7705 2007-02-20 23:08:09Z jilles $
  */
 
 #include "atheme.h"
@@ -219,6 +219,18 @@ chanban_t *chanban_add(channel_t *chan, const char *mask, int type)
 {
 	chanban_t *c;
 	node_t *n;
+
+	if (mask == NULL)
+	{
+		slog(LG_ERROR, "chanban_add(): NULL +%c mask", type);
+		return NULL;
+	}
+	/* this would break protocol and/or cause crashes */
+	if (*mask == '\0' || *mask == ':' || strchr(mask, ' '))
+	{
+		slog(LG_ERROR, "chanban_add(): trying to add invalid +%c %s to channel %s", type, mask, chan->name);
+		return NULL;
+	}
 
 	c = chanban_find(chan, mask, type);
 

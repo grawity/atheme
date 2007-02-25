@@ -4,7 +4,7 @@
  *
  * This file contains misc routines.
  *
- * $Id: function.c 7233 2006-11-19 19:25:53Z jilles $
+ * $Id: function.c 7673 2007-02-15 17:27:48Z jilles $
  */
 
 #include "atheme.h"
@@ -26,8 +26,6 @@ char *gen_pw(int8_t sz)
 {
 	int8_t i;
 	char *buf = smalloc(sz + 1); /* padding */
-
-	srand(CURRTIME);
 
 	for (i = 0; i < sz; i++)
 	{
@@ -385,7 +383,7 @@ unsigned long makekey(void)
 {
 	unsigned long i, j, k;
 
-	i = rand() % (CURRTIME / cnt.user + 1);
+	i = rand() % (CURRTIME / (cnt.user + 1) + 1);
 	j = rand() % (me.start * cnt.chan + 1);
 
 	if (i > j)

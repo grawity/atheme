@@ -1,3 +1,246 @@
+jilles      2007/02/25 02:20:38 UTC	(20070225-7745)
+  Log:
+  Update release notes.
+  
+
+  Changes:	Modified:
+  +10 -0	branches/release-2.1/doc/RELEASE (File Modified) 
+
+
+jilles      2007/02/25 02:00:37 UTC	(20070225-7743)
+  Log:
+  Merged revisions 7737 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7737 | jilles | 2007-02-25 02:23:01 +0100 (Sun, 25 Feb 2007) | 3 lines
+    
+    inspircd11 SVSHOLD: add missing argument for duration
+    (previously the duration was stack garbage)
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -1		branches/release-2.1/protocol/inspircd11.c (File Modified) 
+
+
+jilles      2007/02/25 01:57:28 UTC	(20070225-7741)
+  Log:
+  Merged revisions 7717,7719-7722,7739 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7717 | jilles | 2007-02-22 15:41:58 +0100 (Thu, 22 Feb 2007) | 2 lines
+    
+    Make maximum parameter count for protocol commands a #define.
+  ........
+    r7739 | jilles | 2007-02-25 02:52:16 +0100 (Sun, 25 Feb 2007) | 2 lines
+    
+    Increase maxparc a little.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +2 -0		branches/release-2.1/include/pmodule.h (File Modified) 
+  +4 -4		branches/release-2.1/src/parse.c (File Modified) 
+  +2 -1		branches/release-2.1/src/tokenize.c (File Modified) 
+
+
+jilles      2007/02/22 23:34:11 UTC	(20070222-7721)
+  Log:
+  Merged revisions 7579 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7579 | jilles | 2007-02-06 15:39:51 +0100 (Tue, 06 Feb 2007) | 2 lines
+    
+    os_logonnews: use DATADIR
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +3 -3		branches/release-2.1/contrib/os_logonnews.c (File Modified) 
+
+
+jilles      2007/02/22 18:44:48 UTC	(20070222-7719)
+  Log:
+  Merged revisions 7507 via svnmerge from 
+  svn+ssh://svn.atheme.org/svnroot/atheme/trunk
+  
+  ........
+    r7507 | nenolod | 2007-01-20 04:25:41 +0100 (Sat, 20 Jan 2007) | 2 lines
+    
+    - remove copyright on this file, since it's a public-domain RFC.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +0 -13	branches/release-2.1/doc/RFC1459 (File Modified) 
+
+
+jilles      2007/02/21 23:23:56 UTC	(20070221-7715)
+  Log:
+  Merged revisions 7711,7713 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7711 | w00t | 2007-02-21 21:28:21 +0100 (Wed, 21 Feb 2007) | 1 line
+    
+    Add a (long overdue) handler for SAQUIT to stop us 'losing' people in the hash
+  ........
+    r7713 | w00t | 2007-02-21 22:40:55 +0100 (Wed, 21 Feb 2007) | 1 line
+    
+    Support RSQUIT so that jupes can be removed from the network
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +24 -0	branches/release-2.1/protocol/inspircd11.c (File Modified) 
+
+
+jilles      2007/02/20 23:26:08 UTC	(20070220-7709)
+  Log:
+  Merged revisions 7693,7697 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  - Small doc changes
+  
+  ........
+    r7693 | jilles | 2007-02-19 18:16:06 +0100 (Mon, 19 Feb 2007) | 2 lines
+    
+    Add a little information about ircd setup.
+  ........
+    r7697 | jilles | 2007-02-19 18:26:17 +0100 (Mon, 19 Feb 2007) | 2 lines
+    
+    doc/IRCD: unreal with missing U:lines can cause storms like dreamforge
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +9 -4		branches/release-2.1/INSTALL (File Modified) 
+  +2 -1		branches/release-2.1/doc/IRCD (File Modified) 
+
+
+jilles      2007/02/20 23:13:00 UTC	(20070220-7707)
+  Log:
+  Merged revisions 7701 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7701 | jilles | 2007-02-20 16:35:01 +0100 (Tue, 20 Feb 2007) | 2 lines
+    
+    inspircd11: don't pass a too high parc to channel_mode().
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -1		branches/release-2.1/protocol/inspircd11.c (File Modified) 
+
+
+jilles      2007/02/20 23:08:09 UTC	(20070220-7705)
+  Log:
+  Merged revisions 7685,7703 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7685 | jilles | 2007-02-17 17:44:25 +0100 (Sat, 17 Feb 2007) | 2 lines
+    
+    chanban_add(): check for NULL, empty and space-containing masks
+  ........
+    r7703 | jilles | 2007-02-21 00:02:05 +0100 (Wed, 21 Feb 2007) | 3 lines
+    
+    chanban_add(): don't add bans starting with a colon either
+    (would break the protocol)
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +12 -0	branches/release-2.1/src/channels.c (File Modified) 
+
+
+jilles      2007/02/15 17:56:41 UTC	(20070215-7677)
+  Log:
+  Rerun autoconf.
+  
+
+  Changes:	Modified:
+  +11 -11	branches/release-2.1/configure (File Modified) 
+
+
+jilles      2007/02/15 17:56:18 UTC	(20070215-7675)
+  Log:
+  Version bump on 2.1 branch to 2.1.1.
+  Update release notes.
+  
+
+  Changes:	Modified:
+  +1 -1		branches/release-2.1/configure.ac (File Modified) 
+  +6 -0		branches/release-2.1/doc/RELEASE (File Modified) 
+
+
+jilles      2007/02/15 17:27:48 UTC	(20070215-7673)
+  Log:
+  Merged revisions 7661 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7661 | jilles | 2007-02-15 11:39:35 +0100 (Thu, 15 Feb 2007) | 3 lines
+    
+    New srand() policy: seed once at startup and at uplink EOB,
+    remove all srand(CURRTIME) or similar.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +0 -1		branches/release-2.1/modules/saslserv/crypt.c (File Modified) 
+  +0 -1		branches/release-2.1/modules/saslserv/dh-blowfish.c (File Modified) 
+  +1 -0		branches/release-2.1/src/atheme.c (File Modified) 
+  +0 -2		branches/release-2.1/src/function.c (File Modified) 
+  +3 -0		branches/release-2.1/src/ptasks.c (File Modified) 
+
+
+jilles      2007/02/15 00:53:37 UTC	(20070215-7659)
+  Log:
+  Merged revisions 7649 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7649 | jilles | 2007-02-15 00:53:52 +0100 (Thu, 15 Feb 2007) | 2 lines
+    
+    makekey(): prevent potential division by zero
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -1		branches/release-2.1/src/function.c (File Modified) 
+
+
+jilles      2007/02/15 00:49:25 UTC	(20070215-7657)
+  Log:
+  Merged revisions 7651 via svnmerge from 
+  http://svn.atheme.org/atheme/trunk
+  
+  ........
+    r7651 | jilles | 2007-02-15 01:17:36 +0100 (Thu, 15 Feb 2007) | 2 lines
+    
+    Fix crash in /cs set mlock.
+  ........
+  
+
+  Changes:	Modified:
+  + -		branches/release-2.1/  (Property Modified)
+  +1 -1		branches/release-2.1/modules/chanserv/set.c (File Modified) 
+
+
 jilles      2007/02/08 21:31:15 UTC	(20070208-7605)
   Log:
   Rerun autoconf.

@@ -1,4 +1,20 @@
-$Id: RELEASE 7601 2007-02-08 20:49:01Z jilles $
+$Id: RELEASE 7745 2007-02-25 02:20:38Z jilles $
+
+Atheme 2.1.1 Release Notes
+==========================
+ircd protocol
+- Fix some potential crashes and desyncs with inspircd and channel bans.
+- Allow for SAQUIT in inspircd11.
+- Allow for RSQUIT in inspircd11 to allow /squit on jupes.
+- Increase maximum parameter count for protocol commands from 19 to 35.
+chanserv
+- Fix a crash in /cs set mlock.
+documentation
+- Update documentation a little.
+misc
+- Fix a potential division by zero.
+- Improve random seeding.
+- Use DATADIR in os_logonnews.
 
 Atheme 2.1 Release Notes
 ========================

@@ -4,7 +4,7 @@
  *
  * This file contains protocol support for spanning tree 1.1 branch inspircd.
  *
- * $Id: inspircd11.c 7299 2006-11-27 10:30:15Z jilles $
+ * $Id: inspircd11.c 7743 2007-02-25 02:00:37Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 #include "pmodule.h"
 #include "protocol/inspircd.h"
 
-DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd11.c 7299 2006-11-27 10:30:15Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
+DECLARE_MODULE_V1("protocol/inspircd", TRUE, _modinit, NULL, "$Id: inspircd11.c 7743 2007-02-25 02:00:37Z jilles $", "InspIRCd Core Team <http://www.inspircd.org/>");
 
 /* *INDENT-OFF* */
 
@@ -462,7 +462,7 @@ static void inspircd_holdnick_sts(user_t *source, int duration, const char *nick
 	}
 	else
 	{
-		sts(":%s SVSHOLD %s %ds :Registered nickname.", source->nick, nick);
+		sts(":%s SVSHOLD %s %ds :Registered nickname.", source->nick, nick, duration);
 	}
 }
 
@@ -737,6 +737,16 @@ static void m_quit(sourceinfo_t *si, int parc, char *parv[])
 	user_delete(si->su);
 }
 
+static void m_saquit(sourceinfo_t *si, int parc, char *parv[])
+{
+	user_t *u = user_find(parv[0]);
+
+	slog(LG_DEBUG, "m_saquit(): user leaving: %s", parv[0]);
+
+	/* user_delete() takes care of removing channels and so forth */
+	user_delete(u);
+}
+
 static void m_mode(sourceinfo_t *si, int parc, char *parv[])
 {
 	if (*parv[0] == '#')
@@ -791,7 +801,7 @@ static void m_fmode(sourceinfo_t *si, int parc, char *parv[])
 		}
 		else
 			slog(LG_DEBUG, "m_fmode(): %s %s: incoming TS %ld is older than our TS %ld, possible desync", parv[0], parv[2], ts, c->ts);
-		channel_mode(NULL, c, parc - 1, &parv[2]);
+		channel_mode(NULL, c, parc - 2, &parv[2]);
 	}
 	else
 		user_mode(user_find(parv[0]), parv[2]);
@@ -978,6 +988,18 @@ static void m_metadata(sourceinfo_t *si, int parc, char *parv[])
 	}
 }
 
+/*
+ * rsquit:
+ *  remote/request squit
+ *  when squitting a remote server, inspircd sends RSQUIT along the tree until it reaches the server that has
+ *  the server to be squit as a local connection, which should then close it's connection and send SQUIT back
+ *  to the rest of the network.
+ */
+static void m_rsquit(sourceinfo_t *si, int parc, char *parv[])
+{
+	sts(":%s SQUIT %s :Jupe removed by %s", me.name, parv[0], si->su->nick);
+}
+
 static void m_capab(sourceinfo_t *si, int parc, char *parv[])
 {
 	int i, varc;
@@ -1103,9 +1125,11 @@ void _modinit(module_t * m)
 	pcommand_add("SAJOIN", m_sajoin, 2, MSRC_USER);
 	pcommand_add("SAPART", m_sapart, 2, MSRC_USER);
 	pcommand_add("SANICK", m_sanick, 2, MSRC_USER);
+	pcommand_add("SAQUIT", m_saquit, 1, MSRC_USER);
 	pcommand_add("KICK", m_kick, 2, MSRC_USER | MSRC_SERVER);
 	pcommand_add("KILL", m_kill, 1, MSRC_USER | MSRC_SERVER);
 	pcommand_add("SQUIT", m_squit, 1, MSRC_USER | MSRC_SERVER);
+	pcommand_add("RSQUIT", m_rsquit, 1, MSRC_USER);
 	pcommand_add("SERVER", m_server, 4, MSRC_UNREG | MSRC_SERVER);
 	pcommand_add("STATS", m_stats, 2, MSRC_USER);
 	pcommand_add("MOTD", m_motd, 1, MSRC_USER);

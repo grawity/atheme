@@ -4,7 +4,7 @@
  *
  * Protocol tasks, such as handle_stats().
  *
- * $Id: ptasks.c 7317 2006-12-05 00:14:26Z jilles $
+ * $Id: ptasks.c 7673 2007-02-15 17:27:48Z jilles $
  */
 
 #include "atheme.h"
@@ -556,6 +556,9 @@ void handle_eob(server_t *s)
 		if (s2->flags & SF_EOB2)
 			handle_eob(s2);
 	}
+	/* Reseed RNG now we have a little more data to seed with */
+	if (s->uplink == me.me)
+		srand(rand() ^ ((CURRTIME << 20) + cnt.user + (cnt.chanuser << 12)) ^ (cnt.chan << 17) ^ ~cnt.bin);
 }
 
 /* Received a message from a user, check if they are flooding

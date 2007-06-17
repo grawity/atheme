@@ -4,7 +4,7 @@
  *
  * Cryptographic module support.
  *
- * $Id: crypto.h 3665 2005-11-08 03:09:32Z alambert $
+ * $Id: crypto.h 7779 2007-03-03 13:55:42Z pippijn $
  */
 
 #ifndef CRYPTO_H
@@ -17,3 +17,9 @@ E char *gen_salt(void);
 E boolean_t crypto_module_loaded;
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

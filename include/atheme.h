@@ -4,7 +4,7 @@
  *
  * Includes most headers usually needed.
  *
- * $Id: atheme.h 6977 2006-10-26 23:18:45Z jilles $
+ * $Id: atheme.h 8109 2007-04-05 16:28:02Z jilles $
  */
 
 #ifndef ATHEME_H
@@ -12,10 +12,25 @@
 
 /* *INDENT-OFF* */
 
-#include <org.atheme.claro.base>
+#define E extern
+#define DLE
 
+#include "sysconf.h"
+#include "stdinc.h"
+#include "i18n.h"
 #include "common.h"
+#include "dlink.h"
+#include "object.h"
+#include "event.h"
+#include "balloc.h"
+#include "connection.h"
+#include "hook.h"
+#include "linker.h"
+#include "atheme_string.h"
+#include "atheme_memory.h"
+#include "datastream.h"
 #include "dictionary.h"
+#include "table.h"
 #include "servers.h"
 #include "channels.h"
 #include "module.h"
@@ -42,14 +57,10 @@
 #include "authcookie.h"
 #include "privs.h"
 
-#ifdef _WIN32
-
-/* Windows + Module -> needs these to be declared before using them */
-#ifdef I_AM_A_MODULE
-void _modinit(module_t *m);
-void _moddeinit(void);
-#endif
-
-#endif
-
 #endif /* ATHEME_H */
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

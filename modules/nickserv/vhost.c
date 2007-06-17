@@ -4,7 +4,7 @@
  *
  * Allows setting a vhost on an account
  *
- * $Id: vhost.c 7295 2006-11-26 17:53:12Z jilles $
+ * $Id: vhost.c 8195 2007-04-25 16:27:08Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/vhost", FALSE, _modinit, _moddeinit,
-	"$Id: vhost.c 7295 2006-11-26 17:53:12Z jilles $",
+	"$Id: vhost.c 8195 2007-04-25 16:27:08Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -22,8 +22,8 @@ static void vhost_on_identify(void *vptr);
 static void ns_cmd_vhost(sourceinfo_t *si, int parc, char *parv[]);
 static void ns_cmd_listvhost(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_vhost = { "VHOST", "Manages user virtualhosts.", PRIV_USER_VHOST, 2, ns_cmd_vhost };
-command_t ns_listvhost = { "LISTVHOST", "Lists user virtualhosts.", PRIV_USER_AUSPEX, 1, ns_cmd_listvhost };
+command_t ns_vhost = { "VHOST", N_("Manages user virtualhosts."), PRIV_USER_VHOST, 2, ns_cmd_vhost };
+command_t ns_listvhost = { "LISTVHOST", N_("Lists user virtualhosts."), PRIV_USER_AUSPEX, 1, ns_cmd_listvhost };
 
 void _modinit(module_t *m)
 {
@@ -60,8 +60,6 @@ static void do_sethost_all(myuser_t *mu, char *host)
 		if (!strcmp(u->vhost, host))
 			continue;
 		strlcpy(u->vhost, host, HOSTLEN);
-		notice(nicksvs.nick, u->nick, "Setting your host to \2%s\2.",
-			u->vhost);
 		sethost_sts(nicksvs.nick, u->nick, u->vhost);
 		strlcpy(luhost, u->user, BUFSIZE);
 		strlcat(luhost, "@", BUFSIZE);
@@ -77,8 +75,6 @@ static void do_sethost(user_t *u, char *host)
 	if (!strcmp(u->vhost, host))
 		return;
 	strlcpy(u->vhost, host, HOSTLEN);
-	notice(nicksvs.nick, u->nick, "Setting your host to \2%s\2.",
-		u->vhost);
 	sethost_sts(nicksvs.nick, u->nick, u->vhost);
 	strlcpy(luhost, u->user, BUFSIZE);
 	strlcat(luhost, "@", BUFSIZE);
@@ -99,8 +95,6 @@ static void do_restorehost_all(myuser_t *mu)
 		if (!strcmp(u->vhost, u->host))
 			continue;
 		strlcpy(u->vhost, u->host, HOSTLEN);
-		notice(nicksvs.nick, u->nick, "Setting your host to \2%s\2.",
-			u->host);
 		sethost_sts(nicksvs.nick, u->nick, u->host);
 		strlcpy(luhost, u->user, BUFSIZE);
 		strlcat(luhost, "@", BUFSIZE);
@@ -120,14 +114,14 @@ static void ns_cmd_vhost(sourceinfo_t *si, int parc, char *parv[])
 	if (!target)
 	{
 		command_fail(si, fault_needmoreparams, STR_INVALID_PARAMS, "VHOST");
-		command_fail(si, fault_needmoreparams, "Syntax: VHOST <nick> [vhost]");
+		command_fail(si, fault_needmoreparams, _("Syntax: VHOST <nick> [vhost]"));
 		return;
 	}
 
 	/* find the user... */
 	if (!(mu = myuser_find_ext(target)))
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", target);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), target);
 		return;
 	}
 
@@ -135,7 +129,7 @@ static void ns_cmd_vhost(sourceinfo_t *si, int parc, char *parv[])
 	if (!host)
 	{
 		metadata_delete(mu, METADATA_USER, "private:usercloak");
-		command_success_nodata(si, "Deleted vhost for \2%s\2.", mu->name);
+		command_success_nodata(si, _("Deleted vhost for \2%s\2."), mu->name);
 		snoop("VHOST:REMOVE: \2%s\2 by \2%s\2", mu->name, get_oper_name(si));
 		logcommand(si, CMDLOG_ADMIN, "VHOST REMOVE %s", mu->name);
 		do_restorehost_all(mu);
@@ -143,27 +137,29 @@ static void ns_cmd_vhost(sourceinfo_t *si, int parc, char *parv[])
 	}
 
 	/* Never ever allow @!?* as they have special meaning in all ircds */
+	/* Empty, space anywhere and colon at the start break the protocol */
 	if (strchr(host, '@') || strchr(host, '!') || strchr(host, '?') ||
-			strchr(host, '*'))
+			strchr(host, '*') || strchr(host, ' ') ||
+			*host == ':' || *host == '\0')
 	{
-		command_fail(si, fault_badparams, "The vhost provided contains invalid characters.");
+		command_fail(si, fault_badparams, _("The vhost provided contains invalid characters."));
 		return;
 	}
 	if (strlen(host) >= HOSTLEN)
 	{
-		command_fail(si, fault_badparams, "The vhost provided is too long.");
+		command_fail(si, fault_badparams, _("The vhost provided is too long."));
 		return;
 	}
 	p = strrchr(host, '/');
 	if (p != NULL && isdigit(p[1]))
 	{
-		command_fail(si, fault_badparams, "The vhost provided looks like a CIDR mask.");
+		command_fail(si, fault_badparams, _("The vhost provided looks like a CIDR mask."));
 		return;
 	}
 	/* XXX more checks here, perhaps as a configurable regexp? */
 
 	metadata_add(mu, METADATA_USER, "private:usercloak", host);
-	command_success_nodata(si, "Assigned vhost \2%s\2 to \2%s\2.",
+	command_success_nodata(si, _("Assigned vhost \2%s\2 to \2%s\2."),
 			host, mu->name);
 	snoop("VHOST:ASSIGN: \2%s\2 to \2%s\2 by \2%s\2", host, mu->name, get_oper_name(si));
 	logcommand(si, CMDLOG_ADMIN, "VHOST ASSIGN %s %s",
@@ -197,9 +193,10 @@ static void ns_cmd_listvhost(sourceinfo_t *si, int parc, char *parv[])
 
 	logcommand(si, CMDLOG_ADMIN, "LISTVHOST %s (%d matches)", pattern, matches);
 	if (matches == 0)
-		command_success_nodata(si, "No vhosts matched pattern \2%s\2", pattern);
+		command_success_nodata(si, _("No vhosts matched pattern \2%s\2"), pattern);
 	else
-		command_success_nodata(si, "\2%d\2 match%s for pattern \2%s\2", matches, matches != 1 ? "es" : "", pattern);
+		command_success_nodata(si, ngettext(N_("\2%d\2 match for pattern \2%s\2"),
+						    N_("\2%d\2 matches for pattern \2%s\2"), matches), matches, pattern);
 }
 
 static void vhost_on_identify(void *vptr)
@@ -214,3 +211,9 @@ static void vhost_on_identify(void *vptr)
 
 	do_sethost(u, md->value);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

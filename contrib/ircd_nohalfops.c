@@ -9,7 +9,7 @@
  * Note: this module does not work with the halfops autodetection
  * in the charybdis protocol module.
  *
- * $Id: ircd_nohalfops.c 5776 2006-07-08 16:51:24Z jilles $
+ * $Id: ircd_nohalfops.c 7785 2007-03-03 15:54:32Z pippijn $
  */
 
 #include "atheme.h"
@@ -17,7 +17,7 @@
 DECLARE_MODULE_V1
 (
 	"ircd_nohalfops", FALSE, _modinit, _moddeinit,
-	"$Id: ircd_nohalfops.c 5776 2006-07-08 16:51:24Z jilles $",
+	"$Id: ircd_nohalfops.c 7785 2007-03-03 15:54:32Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -34,10 +34,18 @@ void _modinit(module_t *m)
 	}
 	oldflag = ircd->uses_halfops;
 	ircd->uses_halfops = FALSE;
+	update_chanacs_flags();
 }
 
 void _moddeinit()
 {
 
 	ircd->uses_halfops = oldflag;
+	update_chanacs_flags();
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

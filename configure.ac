@@ -3,16 +3,16 @@ dnl Rights to this code are documented in doc/LICENSE.
 dnl
 dnl This file is the autoconf stub.
 dnl
-dnl $Id: configure.ac 7603 2007-02-08 21:30:17Z jilles $
+dnl $Id: configure.ac 8437 2007-06-17 20:51:50Z jilles $
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.57)
+AC_PREREQ(2.59)
 
-AC_INIT(atheme, 2.1.0, bugs@atheme.org)
+AC_INIT(atheme, 2.2.0, bugs@atheme.org)
 
 dnl Sneaky way to get an id into the configure script.
-AC_COPYRIGHT([$Id: configure.ac 7603 2007-02-08 21:30:17Z jilles $])
+AC_COPYRIGHT([$Id: configure.ac 8437 2007-06-17 20:51:50Z jilles $])
 
 AC_CONFIG_AUX_DIR(autoconf)
 
@@ -20,6 +20,19 @@ AC_CONFIG_HEADER(include/sysconf.h)
 AC_PREFIX_DEFAULT(~/atheme)
 
 AC_GNU_SOURCE
+
+dnl Automake compatibility. --nenolod
+AC_SUBST([PACKAGE], [AC_PACKAGE_TARNAME])
+AC_SUBST([VERSION], [AC_PACKAGE_VERSION])
+
+AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE", [Name of package])
+AC_DEFINE_UNQUOTED(VERSION, "$VERSION", [Version number of package])
+
+dnl GNU gettext
+
+dnl Uncomment this if we choose to provide our own libintl.
+AM_GNU_GETTEXT([external])
+AM_GNU_GETTEXT_VERSION([0.16.1])
 
 if test "$prefix" = "NONE"; then
 	prefix="${ac_default_prefix}"
@@ -36,6 +49,8 @@ AC_EXEEXT
 AC_PATH_PROG(RM, rm)
 AC_PATH_PROG(MV, mv)
 AC_PATH_PROG(CP, cp)
+AC_PATH_PROG(LN, ln)
+AC_PATH_PROG(TAR, tar)
 AC_PATH_PROG(AR, ar)
 AC_PATH_PROG(RANLIB, ranlib)
 AC_C_INLINE
@@ -74,7 +89,7 @@ echo " "
 dnl Checks for library functions.
 AC_TYPE_SIGNAL
 AC_FUNC_STRFTIME
-AC_CHECK_FUNCS(strdup strlcpy strlcat inet_pton inet_ntop gettimeofday umask mmap)
+AC_CHECK_FUNCS([strdup strlcpy strlcat inet_pton inet_ntop gettimeofday umask mmap arc4random getrlimit fork getpid getenv execve])
 AC_CHECK_FUNC(socket,, AC_CHECK_LIB(socket, socket))
 AC_CHECK_FUNC(gethostbyname,, AC_CHECK_LIB(nsl, gethostbyname))
 AC_CHECK_FUNC(select, SOCKET_ENGINE="select",)
@@ -91,67 +106,15 @@ AC_SUBST(SOCKET_ENGINE)
 AC_SUBST(POSIX_CRYPTC)
 
 echo " "
-echo "Type workarounds"
-echo " "
-
-AC_CHECK_SIZEOF(char)
-AC_CHECK_SIZEOF(short)
-AC_CHECK_SIZEOF(int)
-AC_CHECK_SIZEOF(long)
-AC_CHECK_SIZEOF(void *)
-AC_CHECK_SIZEOF(int64_t)
-AC_CHECK_SIZEOF(long long)
-
-dnl These are pretty straight forward.
-AC_CHECK_TYPE(int8_t, char)
-AC_CHECK_TYPE(uint8_t, unsigned char)
-
-if test "$ac_cv_sizeof_int" = 2 ; then
-  AC_CHECK_TYPE(int16_t, int)
-  AC_CHECK_TYPE(uint16_t, unsigned int)
-elif test "$ac_cv_sizeof_short" = 2 ; then
-  AC_CHECK_TYPE(int16_t, short)
-  AC_CHECK_TYPE(uint16_t, unsigned short)
-else
-  AC_MSG_ERROR([Cannot find a type with size of 16 bits])
-fi
-
-if test "$ac_cv_sizeof_int" = 4 ; then
-  AC_CHECK_TYPE(int32_t, int)
-  AC_CHECK_TYPE(uint32_t, unsigned int)
-elif test "$ac_cv_sizeof_short" = 4 ; then
-  AC_CHECK_TYPE(int32_t, short)
-  AC_CHECK_TYPE(uint32_t, unsigned short)
-elif test "$ac_cv_sizeof_long" = 4 ; then
-  AC_CHECK_TYPE(int32_t, long)
-  AC_CHECK_TYPE(uint32_t, unsigned long)
-else
-  AC_MSG_ERROR([Cannot find a type with size of 32 bits])
-fi
-
-if test "$ac_cv_sizeof_int64_t" = 8 ; then
-  AC_CHECK_TYPE(int64_t)
-  AC_CHECK_TYPE(uint64_t)
-elif test "$ac_cv_sizeof_long_long" = 8 ; then
-  AC_CHECK_TYPE(int64_t, long long)
-  AC_CHECK_TYPE(uint64_t, unsigned long long)
-else
-  AC_MSG_ERROR([Cannot find a type with size of 64 bits])
-fi
-
-dnl socklen_t check removed, it does not properly detect socklen_t
-dnl on macos x, and systems without socklen_t are obsolete -- jilles
-
-echo " "
 echo "Tweaks"
 echo " "
 
 DOCDIR='${prefix}/doc'
 MODDIR='${exec_prefix}'
 SHAREDIR='${prefix}'
-LOGDIR="var"
-DATADIR="etc"
-RUNDIR="var"
+LOGDIR='${prefix}/var'
+DATADIR='${prefix}/etc'
+RUNDIR='${prefix}/var'
 
 FHSPATHS="no"
 AC_MSG_CHECKING(if you want FHS-like pathnames)
@@ -183,6 +146,10 @@ AC_SUBST(RUNDIR)
 dnl the following is wrong! -- jilles
 dnl AC_DEFINE_UNQUOTED([MODDIR], "${MODDIR}", [Module root directory.])
 
+dnl gettext
+LOCALEDIR='${datadir}/locale'
+AC_SUBST(LOCALEDIR)
+
 LARGENET="no"
 AC_MSG_CHECKING(if you want large network support)
 AC_ARG_ENABLE(large-net,
@@ -210,69 +177,6 @@ if test "$balloc" = no; then
         AC_DEFINE([NOBALLOC], 1, [Define to 1 if you wish to disable the block allocator.])
 fi
 AC_MSG_RESULT($balloc)
-
-echo " "
-echo "PostgreSQL support"
-echo " "
-
-POSTGRESQL="yes"
-
-AC_ARG_WITH(postgresql,
-AC_HELP_STRING([--with-postgresql],[ Enables PostgreSQL backend support.]),
-[
-       case "$withval" in
-               yes|no)
-                       POSTGRESQL="$withval"
-                       ;;
-               *)
-                       AC_MSG_ERROR([Invalid argument to --with-postgresql (expecting either 'yes' or 'no')])
-                       ;;
-       esac
-])
-
-if test "x$POSTGRESQL" = xyes; then
-       AC_MSG_CHECKING(for PostgreSQL include directory)
-       if test -d /usr/include/pgsql ; then
-               pg_inc_dir="/usr/include/pgsql"
-       elif test -f /usr/local/include/libpq-fe.h ; then
-               # kludge for freebsd ports, found on liveharmony boxes. --nenolod
-               pg_inc_dir="/usr/local/include"
-               LDFLAGS="-L/usr/local/lib"
-       elif test -d /usr/include/postgresql ; then
-               pg_inc_dir="/usr/include/postgresql"
-       elif test -d /usr/local/psql/include ; then
-               pg_inc_dir="/usr/local/psql/include"
-       elif test -d /usr/local/include/postgresql ; then
-               pg_inc_dir="/usr/local/include/postgresql"
-       elif test -d /usr/local/pgsql/include ; then
-               pg_inc_dir="/usr/local/pgsql/include"
-       elif test -d /usr/local/include/psql ; then
-               pg_inc_dir="/usr/local/include/psql"
-       elif test -d /opt/psql/include ; then
-               pg_inc_dir="/opt/psql/include"
-       else
-               pg_inc_dir="no"
-               PQLIB=""
-               POSTGRESQL="no"
-       fi
-       POSTGRESQL_C=""
-
-       AC_MSG_RESULT($pg_inc_dir)
-
-       if test "$pg_inc_dir" != "no"; then
-               AC_CHECK_HEADER($pg_inc_dir/libpq-fe.h, [
-                       PGINC="-I$pg_inc_dir"
-               AC_CHECK_LIB(pq, PQconnectdb, PQLIB="-lpq"
-                            POSTGRESQL_C="postgresql.c")
-               ])
-       else
-               POSTGRESQL="no"
-       fi
-fi
-
-AC_SUBST(POSTGRESQL_C)
-AC_SUBST(PGINC)
-AC_SUBST(PQLIB)
 
 echo " "
 echo "OpenSSL-based SASL support"
@@ -307,32 +211,18 @@ shared_modules="yes"
 dnl Second stage: check for functions and headers.
 if test "$shared_modules" = yes; then
 	AC_CHECK_HEADERS(dlfcn.h)
-	AC_SEARCH_LIBS(shl_load, dld, 
+        AC_SEARCH_LIBS(dlopen, [dl c_r],
 	[
-	  AC_DEFINE(HAVE_SHL_LOAD, 1, [Define if the shl_load function is available.])
-	  SUFFIX=".sl"
-	  MOD_TARGET=hpux_shared
-	  SEDOBJ="s/\.o/.sl/g"  
-	],
-	dnl !shl_load:
-	[
-          dnl standard dlopen
-          AC_SEARCH_LIBS(dlopen, [dl c_r],
-	  [
 	    AC_DEFINE(HAVE_DLOPEN, 1, [Define if the dlopen function is available.])
-	    SUFFIX=".so"
-	    MOD_TARGET=shared_modules
-	    SEDOBJ="s/\.o/.so/g"
 	    AC_CHECK_FUNC(dlsym, ,
 	    [
 	      AC_ERROR([shared modules unavailable, Atheme will not work on your system])
 	    ])
 	    AC_CHECK_FUNCS(dlfunc)
 	    AC_CHECK_FUNCS(dlinfo)
-	  ],
-	  [
+	],
+	[
 	    AC_ERROR([shared modules unavailable, Atheme will not work on your system])
-	  ])
 	])
 fi
 
@@ -474,7 +364,7 @@ int main(int argc, char *argv[[]]) {
 }
 void _modinit(void) { return; }
 EOF
-		$CC $CPPFLAGS $IRC_CFLAGS -o conftest conftest.c $nlist_lib >/dev/null 2>&1
+		$CC $CPPFLAGS $CFLAGS -o conftest conftest.c $nlist_lib >/dev/null 2>&1
 		symbol_underscores=`./conftest conftest`
 		AC_MSG_RESULT($symbol_underscores)
 		$RM -f conftest conftest.c
@@ -551,29 +441,44 @@ ac_save_LDFLAGS="${LDFLAGS} -pg"
 LDFLAGS=${ac_save_LDFLAGS}
 ])
 
-ac_save_CFLAGS="${CFLAGS} ${orig_CFLAGS} ${CWARNS} -DPREFIX=\\\"\${prefix}\\\" -DMODDIR=\\\"\${MODDIR}\\\" -DSHAREDIR=\\\"${SHAREDIR}\\\" -DSYSCONFDIR=\\\"${sysconfdir}\\\" -DLOGDIR=\\\"${LOGDIR}\\\" -DRUNDIR=\\\"${RUNDIR}\\\" -DDATADIR=\\\"${DATADIR}\\\""
+ac_save_CFLAGS="${CFLAGS} ${orig_CFLAGS} ${CWARNS} -DPREFIX=\\\"\${prefix}\\\" -DLOCALEDIR=\\\"\${LOCALEDIR}\\\" -DMODDIR=\\\"\${MODDIR}\\\" -DSHAREDIR=\\\"${SHAREDIR}\\\" -DSYSCONFDIR=\\\"${sysconfdir}\\\" -DLOGDIR=\\\"${LOGDIR}\\\" -DRUNDIR=\\\"${RUNDIR}\\\" -DDATADIR=\\\"${DATADIR}\\\""
 CFLAGS=${ac_save_CFLAGS}
 dnl export CFLAGS
+
+dnl This is for Atheme 2.3.
+dnl disable_rpath="no"
+dnl AC_ARG_ENABLE(rpath,
+dnl AC_HELP_STRING([--disable-rpath],[Disable use of -Wl,-rpath= during linking.]),
+dnl [disable_rpath="no"], [disable_rpath="yes"])
+
+dnl RPATH=""
+dnl if test "x$disable_rpath" = "xno"; then
+dnl    RPATH="-Wl,-rpath,${libdir}"
+dnl fi
+
+dnl AC_SUBST(RPATH)
 
 echo " "
 echo "Makefile generation"
 echo " "
 
-AC_OUTPUT(Makefile \
-	libatheme/Makefile \
-	backend/Makefile \
-	contrib/Makefile \
-	crypto/Makefile \
-	modules/Makefile \
-	modules/chanserv/Makefile \
-	modules/global/Makefile \
-	modules/nickserv/Makefile \
-	modules/operserv/Makefile \
-	modules/xmlrpc/Makefile \
-	modules/memoserv/Makefile \
-	modules/saslserv/Makefile \
-	protocol/Makefile \
-	src/Makefile)
+AC_OUTPUT([ po/Makefile.in
+	Makefile
+	contrib/Makefile
+	modules/Makefile
+	modules/backend/Makefile
+	modules/crypto/Makefile
+	modules/chanserv/Makefile
+	modules/global/Makefile
+	modules/nickserv/Makefile
+	modules/operserv/Makefile
+	modules/xmlrpc/Makefile
+	modules/memoserv/Makefile
+	modules/saslserv/Makefile
+	modules/gameserv/Makefile
+	modules/protocol/Makefile
+	src/Makefile
+])
 
 d=`eval echo ${MODDIR}`
 d=`eval echo $d`
@@ -587,7 +492,6 @@ Configuration:
         Data directory       : ${DATADIR}
         PID directory        : ${RUNDIR}
         Large network support: ${LARGENET}
-        PostgreSQL support   : ${POSTGRESQL}
         OpenSSL SASL support : ${SSL}
         Socket Engine        : ${SOCKET_ENGINE}
         Block Allocator      : ${balloc}

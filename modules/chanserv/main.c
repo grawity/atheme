@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 7377 2006-12-16 15:59:44Z jilles $
+ * $Id: main.c 8323 2007-05-24 23:44:48Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 7377 2006-12-16 15:59:44Z jilles $",
+	"$Id: main.c 8323 2007-05-24 23:44:48Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -105,7 +105,7 @@ static void chanserv(sourceinfo_t *si, int parc, char *parv[])
 		return;
 	if (*cmd == '\001')
 	{
-		handle_ctcp_common(cmd, strtok(NULL, ""), si->su->nick, chansvs.nick);
+		handle_ctcp_common(si, cmd, strtok(NULL, ""));
 		return;
 	}
 
@@ -114,11 +114,11 @@ static void chanserv(sourceinfo_t *si, int parc, char *parv[])
 		command_exec_split(si->service, si, cmd, strtok(NULL, ""), &cs_cmdtree);
 	else
 	{
-		if (strlen(cmd) > 2 && cmd[0] == chansvs.trigger && isalpha(cmd[1]))
+		if (strlen(cmd) > 2 && (strchr(chansvs.trigger, *cmd) != NULL && isalpha(*++cmd)))
 		{
 			/* XXX not really nice to look up the command twice
 			 * -- jilles */
-			if (command_find(&cs_cmdtree, cmd + 1) == NULL)
+			if (command_find(&cs_cmdtree, cmd) == NULL)
 				return;
 			if (floodcheck(si->su, si->service->me))
 				return;
@@ -136,7 +136,34 @@ static void chanserv(sourceinfo_t *si, int parc, char *parv[])
 			 * (a little ugly but this way we can !set verbose)
 			 */
 			mc->flags |= MC_FORCEVERBOSE;
-			command_exec_split(si->service, si, cmd + 1, newargs, &cs_cmdtree);
+			command_exec_split(si->service, si, cmd, newargs, &cs_cmdtree);
+			mc->flags &= ~MC_FORCEVERBOSE;
+		}
+		else if (!strncasecmp(cmd, chansvs.nick, strlen(chansvs.nick)) && (cmd = strtok(NULL, "")) != NULL)
+		{
+			char *pcmd = cmd, *pptr;
+
+			strlcpy(newargs, parv[parc - 2], sizeof newargs);
+			if ((pptr = strchr(cmd, ' ')) != NULL)
+			{
+				*pptr = '\0';
+
+				strlcat(newargs, " ", sizeof newargs);
+				strlcat(newargs, ++pptr, sizeof newargs);
+			}
+
+			if (command_find(&cs_cmdtree, cmd) == NULL)
+				return;
+			if (floodcheck(si->su, si->service->me))
+				return;
+
+			si->c = mc->chan;
+
+			/* fantasy commands are always verbose
+			 * (a little ugly but this way we can !set verbose)
+			 */
+			mc->flags |= MC_FORCEVERBOSE;
+			command_exec_split(si->service, si, cmd, newargs, &cs_cmdtree);
 			mc->flags &= ~MC_FORCEVERBOSE;
 		}
 	}
@@ -219,11 +246,12 @@ static void cs_join(hook_channel_joinpart_t *hdata)
 	user_t *u;
 	channel_t *chan;
 	mychan_t *mc;
-	uint32_t flags;
+	unsigned int flags;
 	metadata_t *md;
 	boolean_t noop;
 	chanacs_t *ca2;
 	boolean_t secure = FALSE;
+	char akickreason[120] = "User is banned from this channel", *p;
 
 	if (cu == NULL || is_internal_client(cu->user))
 		return;
@@ -284,13 +312,37 @@ static void cs_join(hook_channel_joinpart_t *hdata)
 				chanban_add(chan, ca2->host, 'b');
 				snprintf(str, sizeof str, "+b %s", ca2->host);
 				/* ban immediately */
-				mode_sts(chansvs.nick, chan->name, str);
+				mode_sts(chansvs.nick, chan, str);
 			}
 		}
 		else
+		{
+			/* XXX this could be done more efficiently */
+			ca2 = chanacs_find(mc, u->myuser, CA_AKICK);
 			ban(chansvs.me->me, chan, u);
+		}
 		remove_ban_exceptions(chansvs.me->me, chan, u);
-		kick(chansvs.nick, chan->name, u->nick, "User is banned from this channel");
+		if (ca2 != NULL)
+		{
+			md = metadata_find(ca2, METADATA_CHANACS, "reason");
+			if (md != NULL && *md->value != '|')
+			{
+				snprintf(akickreason, sizeof akickreason,
+						"Banned: %s", md->value);
+				p = strchr(akickreason, '|');
+				if (p != NULL)
+					*p = '\0';
+				else
+					p = akickreason + strlen(akickreason);
+				/* strip trailing spaces, so as not to
+				 * disclose the existence of an oper reason */
+				p--;
+				while (p > akickreason && *p == ' ')
+					p--;
+				p[1] = '\0';
+			}
+		}
+		kick(chansvs.nick, chan->name, u->nick, akickreason);
 		hdata->cu = NULL;
 		return;
 	}
@@ -310,13 +362,13 @@ static void cs_join(hook_channel_joinpart_t *hdata)
 		{
 			if (flags & CA_AUTOOP && !(noop || cu->modes & ircd->owner_mode))
 			{
-				modestack_mode_param(chansvs.nick, chan->name, MTYPE_ADD, ircd->owner_mchar[1], CLIENT_NAME(u));
+				modestack_mode_param(chansvs.nick, chan, MTYPE_ADD, ircd->owner_mchar[1], CLIENT_NAME(u));
 				cu->modes |= ircd->owner_mode;
 			}
 		}
 		else if (secure && (cu->modes & ircd->owner_mode))
 		{
-			modestack_mode_param(chansvs.nick, chan->name, MTYPE_DEL, ircd->owner_mchar[1], CLIENT_NAME(u));
+			modestack_mode_param(chansvs.nick, chan, MTYPE_DEL, ircd->owner_mchar[1], CLIENT_NAME(u));
 			cu->modes &= ~ircd->owner_mode;
 		}
 	}
@@ -328,13 +380,13 @@ static void cs_join(hook_channel_joinpart_t *hdata)
 		{
 			if (flags & CA_AUTOOP && !(noop || cu->modes & ircd->protect_mode))
 			{
-				modestack_mode_param(chansvs.nick, chan->name, MTYPE_ADD, ircd->protect_mchar[1], CLIENT_NAME(u));
+				modestack_mode_param(chansvs.nick, chan, MTYPE_ADD, ircd->protect_mchar[1], CLIENT_NAME(u));
 				cu->modes |= ircd->protect_mode;
 			}
 		}
 		else if (secure && (cu->modes & ircd->protect_mode))
 		{
-			modestack_mode_param(chansvs.nick, chan->name, MTYPE_DEL, ircd->protect_mchar[1], CLIENT_NAME(u));
+			modestack_mode_param(chansvs.nick, chan, MTYPE_DEL, ircd->protect_mchar[1], CLIENT_NAME(u));
 			cu->modes &= ~ircd->protect_mode;
 		}
 	}
@@ -343,13 +395,13 @@ static void cs_join(hook_channel_joinpart_t *hdata)
 	{
 		if (!(noop || cu->modes & CMODE_OP))
 		{
-			modestack_mode_param(chansvs.nick, chan->name, MTYPE_ADD, 'o', CLIENT_NAME(u));
+			modestack_mode_param(chansvs.nick, chan, MTYPE_ADD, 'o', CLIENT_NAME(u));
 			cu->modes |= CMODE_OP;
 		}
 	}
 	else if (secure && (cu->modes & CMODE_OP) && !(flags & CA_OP))
 	{
-		modestack_mode_param(chansvs.nick, chan->name, MTYPE_DEL, 'o', CLIENT_NAME(u));
+		modestack_mode_param(chansvs.nick, chan, MTYPE_DEL, 'o', CLIENT_NAME(u));
 		cu->modes &= ~CMODE_OP;
 	}
 
@@ -359,13 +411,13 @@ static void cs_join(hook_channel_joinpart_t *hdata)
 		{
 			if (!(noop || cu->modes & (CMODE_OP | ircd->halfops_mode)))
 			{
-				modestack_mode_param(chansvs.nick, chan->name, MTYPE_ADD, 'h', CLIENT_NAME(u));
+				modestack_mode_param(chansvs.nick, chan, MTYPE_ADD, 'h', CLIENT_NAME(u));
 				cu->modes |= ircd->halfops_mode;
 			}
 		}
 		else if (secure && (cu->modes & ircd->halfops_mode) && !(flags & CA_HALFOP))
 		{
-			modestack_mode_param(chansvs.nick, chan->name, MTYPE_DEL, 'h', CLIENT_NAME(u));
+			modestack_mode_param(chansvs.nick, chan, MTYPE_DEL, 'h', CLIENT_NAME(u));
 			cu->modes &= ~ircd->halfops_mode;
 		}
 	}
@@ -374,7 +426,7 @@ static void cs_join(hook_channel_joinpart_t *hdata)
 	{
 		if (!(noop || cu->modes & (CMODE_OP | ircd->halfops_mode | CMODE_VOICE)))
 		{
-			modestack_mode_param(chansvs.nick, chan->name, MTYPE_ADD, 'v', CLIENT_NAME(u));
+			modestack_mode_param(chansvs.nick, chan, MTYPE_ADD, 'v', CLIENT_NAME(u));
 			cu->modes |= CMODE_VOICE;
 		}
 	}
@@ -385,9 +437,6 @@ static void cs_join(hook_channel_joinpart_t *hdata)
 	if (u->server->flags & SF_EOB && (md = metadata_find(mc, METADATA_CHANNEL, "url")))
 		numeric_sts(me.name, 328, cu->user->nick, "%s :%s", mc->name, md->value);
 
-	if (mc->flags & MC_MLOCK_CHECK)
-		check_modes(mc, TRUE);
-	
 	if (flags & CA_USEDUPDATE)
 		mc->used = CURRTIME;
 }
@@ -479,7 +528,7 @@ static void cs_keeptopic_topicset(channel_t *c)
 static void cs_topiccheck(hook_channel_topic_check_t *data)
 {
 	mychan_t *mc;
-	uint32_t accessfl = 0;
+	unsigned int accessfl = 0;
 
 	mc = mychan_find(data->c->name);
 	if (mc == NULL)
@@ -556,10 +605,12 @@ static void cs_newchan(channel_t *c)
 		snprintf(str, sizeof str, "%lu", (unsigned long)c->ts);
 		metadata_add(mc, METADATA_CHANNEL, "private:channelts", str);
 	}
-	else if (!(MC_TOPICLOCK & mc->flags))
+	else if (!(MC_TOPICLOCK & mc->flags) && LIST_LENGTH(&c->members) == 0)
 		/* Same channel, let's assume ircd has kept topic.
 		 * However, if topiclock is enabled, we must change it back
 		 * regardless.
+		 * Also, if there is someone in this channel already, it is
+		 * being created by a service and we must restore.
 		 * -- jilles */
 		return;
 
@@ -582,7 +633,7 @@ static void cs_newchan(channel_t *c)
 	topicts = atol(md->value);
 
 	handle_topic(c, setter, topicts, text);
-	topic_sts(c->name, setter, topicts, text);
+	topic_sts(c, setter, topicts, 0, text);
 }
 
 static void cs_tschange(channel_t *c)
@@ -625,3 +676,9 @@ static void cs_leave_empty(void *unused)
 		}
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

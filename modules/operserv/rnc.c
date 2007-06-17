@@ -4,7 +4,7 @@
  *
  * This file contains functionality implementing OperServ RNC.
  *
- * $Id: rnc.c 6849 2006-10-22 06:00:10Z nenolod $
+ * $Id: rnc.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/rnc", FALSE, _modinit, _moddeinit,
-	"$Id: rnc.c 6849 2006-10-22 06:00:10Z nenolod $",
+	"$Id: rnc.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Robin Burchell <surreal.w00t@gmail.com>"
 );
 
 static void os_cmd_rnc(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_rnc = { "RNC", "Shows the most frequent realnames on the network", PRIV_USER_AUSPEX, 1, os_cmd_rnc };
+command_t os_rnc = { "RNC", N_("Shows the most frequent realnames on the network"), PRIV_USER_AUSPEX, 1, os_cmd_rnc };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -105,7 +105,7 @@ static void os_cmd_rnc(sourceinfo_t *si, int parc, char *parv[])
 		if (biggest == NULL)
 			break;
 
-		command_success_nodata(si, "\2%d\2: \2%d\2 matches for realname \2%s\2", i, ((rnc_t *)(biggest->data))->count, ((rnc_t *)biggest->data)->gecos);
+		command_success_nodata(si, _("\2%d\2: \2%d\2 matches for realname \2%s\2"), i, ((rnc_t *)(biggest->data))->count, ((rnc_t *)biggest->data)->gecos);
 		free(biggest->data);
 		node_del(biggest, &realnames);
 		node_free(biggest);
@@ -128,3 +128,8 @@ static void os_cmd_rnc(sourceinfo_t *si, int parc, char *parv[])
 	snoop("RNC: by \2%s\2", get_oper_name(si));
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

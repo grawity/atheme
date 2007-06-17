@@ -4,7 +4,7 @@
  *
  * This file contains the routines that deal with the configuration.
  *
- * $Id: conf.c 7363 2006-12-13 00:49:59Z jilles $
+ * $Id: conf.c 8297 2007-05-20 08:56:59Z nenolod $
  */
 
 #include "atheme.h"
@@ -17,116 +17,123 @@
                           (ce)->ce_varlinenum, (ce)->ce_varname); \
   return 1; }
 
-static int c_serverinfo(CONFIGENTRY *);
-static int c_cservice(CONFIGENTRY *);
-static int c_gservice(CONFIGENTRY *);
-static int c_oservice(CONFIGENTRY *);
-static int c_general(CONFIGENTRY *);
-static int c_database(CONFIGENTRY *);
-static int c_uplink(CONFIGENTRY *);
-static int c_nickserv(CONFIGENTRY *);
-static int c_saslserv(CONFIGENTRY *);
-static int c_memoserv(CONFIGENTRY *);
-static int c_loadmodule(CONFIGENTRY *);
-static int c_operclass(CONFIGENTRY *);
-static int c_operator(CONFIGENTRY *);
-static int c_language(CONFIGENTRY *);
-static int c_string(CONFIGENTRY *);
+static int c_serverinfo(config_entry_t *);
+static int c_cservice(config_entry_t *);
+static int c_gservice(config_entry_t *);
+static int c_oservice(config_entry_t *);
+static int c_general(config_entry_t *);
+static int c_database(config_entry_t *);
+static int c_uplink(config_entry_t *);
+static int c_nickserv(config_entry_t *);
+static int c_saslserv(config_entry_t *);
+static int c_memoserv(config_entry_t *);
+static int c_gameserv(config_entry_t *);
+static int c_loadmodule(config_entry_t *);
+static int c_operclass(config_entry_t *);
+static int c_operator(config_entry_t *);
+static int c_language(config_entry_t *);
+static int c_string(config_entry_t *);
+static int c_logfile(config_entry_t *);
 
-static int c_si_name(CONFIGENTRY *);
-static int c_si_desc(CONFIGENTRY *);
-static int c_si_uplink(CONFIGENTRY *);
-static int c_si_numeric(CONFIGENTRY *);
-static int c_si_vhost(CONFIGENTRY *);
-static int c_si_recontime(CONFIGENTRY *);
-static int c_si_restarttime(CONFIGENTRY *);
-static int c_si_netname(CONFIGENTRY *);
-static int c_si_hidehostsuffix(CONFIGENTRY *);
-static int c_si_adminname(CONFIGENTRY *);
-static int c_si_adminemail(CONFIGENTRY *);
-static int c_si_mta(CONFIGENTRY *);
-static int c_si_loglevel(CONFIGENTRY *);
-static int c_si_maxlogins(CONFIGENTRY *);
-static int c_si_maxusers(CONFIGENTRY *);
-static int c_si_maxnicks(CONFIGENTRY *);
-static int c_si_maxchans(CONFIGENTRY *);
-static int c_si_emaillimit(CONFIGENTRY *);
-static int c_si_emailtime(CONFIGENTRY *);
-static int c_si_auth(CONFIGENTRY *);
-static int c_si_mdlimit(CONFIGENTRY *);
-static int c_si_casemapping(CONFIGENTRY *);
+static int c_si_name(config_entry_t *);
+static int c_si_desc(config_entry_t *);
+static int c_si_numeric(config_entry_t *);
+static int c_si_vhost(config_entry_t *);
+static int c_si_recontime(config_entry_t *);
+static int c_si_restarttime(config_entry_t *);
+static int c_si_netname(config_entry_t *);
+static int c_si_hidehostsuffix(config_entry_t *);
+static int c_si_adminname(config_entry_t *);
+static int c_si_adminemail(config_entry_t *);
+static int c_si_mta(config_entry_t *);
+static int c_si_loglevel(config_entry_t *);
+static int c_si_maxlogins(config_entry_t *);
+static int c_si_maxusers(config_entry_t *);
+static int c_si_maxnicks(config_entry_t *);
+static int c_si_maxchans(config_entry_t *);
+static int c_si_emaillimit(config_entry_t *);
+static int c_si_emailtime(config_entry_t *);
+static int c_si_auth(config_entry_t *);
+static int c_si_mdlimit(config_entry_t *);
+static int c_si_casemapping(config_entry_t *);
 
 /* CService client information. */
-static int c_ci_nick(CONFIGENTRY *);
-static int c_ci_user(CONFIGENTRY *);
-static int c_ci_host(CONFIGENTRY *);
-static int c_ci_real(CONFIGENTRY *);
-static int c_ci_fantasy(CONFIGENTRY *);
-static int c_ci_vop(CONFIGENTRY *);
-static int c_ci_hop(CONFIGENTRY *);
-static int c_ci_aop(CONFIGENTRY *);
-static int c_ci_sop(CONFIGENTRY *);
-static int c_ci_changets(CONFIGENTRY *);
-static int c_ci_trigger(CONFIGENTRY *);
+static int c_ci_nick(config_entry_t *);
+static int c_ci_user(config_entry_t *);
+static int c_ci_host(config_entry_t *);
+static int c_ci_real(config_entry_t *);
+static int c_ci_fantasy(config_entry_t *);
+static int c_ci_vop(config_entry_t *);
+static int c_ci_hop(config_entry_t *);
+static int c_ci_aop(config_entry_t *);
+static int c_ci_sop(config_entry_t *);
+static int c_ci_changets(config_entry_t *);
+static int c_ci_trigger(config_entry_t *);
 
 /* GService client information. */
-static int c_gl_nick(CONFIGENTRY *);
-static int c_gl_user(CONFIGENTRY *);
-static int c_gl_host(CONFIGENTRY *);
-static int c_gl_real(CONFIGENTRY *);
+static int c_gl_nick(config_entry_t *);
+static int c_gl_user(config_entry_t *);
+static int c_gl_host(config_entry_t *);
+static int c_gl_real(config_entry_t *);
 
 /* OService client information. */
-static int c_oi_nick(CONFIGENTRY *);
-static int c_oi_user(CONFIGENTRY *);
-static int c_oi_host(CONFIGENTRY *);
-static int c_oi_real(CONFIGENTRY *);
+static int c_oi_nick(config_entry_t *);
+static int c_oi_user(config_entry_t *);
+static int c_oi_host(config_entry_t *);
+static int c_oi_real(config_entry_t *);
 
 /* NickServ client information. */
-static int c_ni_nick(CONFIGENTRY *);
-static int c_ni_user(CONFIGENTRY *);
-static int c_ni_host(CONFIGENTRY *);
-static int c_ni_real(CONFIGENTRY *);
-static int c_ni_spam(CONFIGENTRY *);
-static int c_ni_no_nick_ownership(CONFIGENTRY *);
+static int c_ni_nick(config_entry_t *);
+static int c_ni_user(config_entry_t *);
+static int c_ni_host(config_entry_t *);
+static int c_ni_real(config_entry_t *);
+static int c_ni_spam(config_entry_t *);
+static int c_ni_no_nick_ownership(config_entry_t *);
 
 /* SaslServ client information. */
-static int c_ss_nick(CONFIGENTRY *);
-static int c_ss_user(CONFIGENTRY *);
-static int c_ss_host(CONFIGENTRY *);
-static int c_ss_real(CONFIGENTRY *);
+static int c_ss_nick(config_entry_t *);
+static int c_ss_user(config_entry_t *);
+static int c_ss_host(config_entry_t *);
+static int c_ss_real(config_entry_t *);
 
 /* MemoServ client information. */
-static int c_ms_nick(CONFIGENTRY *);
-static int c_ms_user(CONFIGENTRY *);
-static int c_ms_host(CONFIGENTRY *);
-static int c_ms_real(CONFIGENTRY *);
+static int c_ms_nick(config_entry_t *);
+static int c_ms_user(config_entry_t *);
+static int c_ms_host(config_entry_t *);
+static int c_ms_real(config_entry_t *);
+
+/* GameServ client information. */
+static int c_gs_nick(config_entry_t *);
+static int c_gs_user(config_entry_t *);
+static int c_gs_host(config_entry_t *);
+static int c_gs_real(config_entry_t *);
 
 /* Database information. */
-static int c_db_user(CONFIGENTRY *);
-static int c_db_host(CONFIGENTRY *);
-static int c_db_password(CONFIGENTRY *);
-static int c_db_database(CONFIGENTRY *);
-static int c_db_port(CONFIGENTRY *);
+static int c_db_user(config_entry_t *);
+static int c_db_host(config_entry_t *);
+static int c_db_password(config_entry_t *);
+static int c_db_database(config_entry_t *);
+static int c_db_port(config_entry_t *);
 
 /* language:: stuff */
-static int c_la_name(CONFIGENTRY *);
-static int c_la_translator(CONFIGENTRY *);
+static int c_la_name(config_entry_t *);
+static int c_la_translator(config_entry_t *);
 
-static int c_gi_chan(CONFIGENTRY *);
-static int c_gi_silent(CONFIGENTRY *);
-static int c_gi_verbose_wallops(CONFIGENTRY *);
-static int c_gi_use_privmsg(CONFIGENTRY *);
-static int c_gi_join_chans(CONFIGENTRY *);
-static int c_gi_leave_chans(CONFIGENTRY *);
-static int c_gi_uflags(CONFIGENTRY *);
-static int c_gi_cflags(CONFIGENTRY *);
-static int c_gi_raw(CONFIGENTRY *);
-static int c_gi_flood_msgs(CONFIGENTRY *);
-static int c_gi_flood_time(CONFIGENTRY *);
-static int c_gi_kline_time(CONFIGENTRY *);
-static int c_gi_commit_interval(CONFIGENTRY *);
-static int c_gi_expire(CONFIGENTRY *);
-static int c_gi_secure(CONFIGENTRY *);
+static int c_gi_chan(config_entry_t *);
+static int c_gi_silent(config_entry_t *);
+static int c_gi_verbose_wallops(config_entry_t *);
+static int c_gi_use_privmsg(config_entry_t *);
+static int c_gi_join_chans(config_entry_t *);
+static int c_gi_leave_chans(config_entry_t *);
+static int c_gi_uflags(config_entry_t *);
+static int c_gi_cflags(config_entry_t *);
+static int c_gi_raw(config_entry_t *);
+static int c_gi_flood_msgs(config_entry_t *);
+static int c_gi_flood_time(config_entry_t *);
+static int c_gi_kline_time(config_entry_t *);
+static int c_gi_commit_interval(config_entry_t *);
+static int c_gi_expire(config_entry_t *);
+static int c_gi_secure(config_entry_t *);
 
 static BlockHeap *conftable_heap;
 
@@ -153,6 +160,24 @@ static struct Token cflags[] = {
   { NULL, 0 }
 };
 
+static struct Token logflags[] = {
+  { "DEBUG",       LG_ALL                                                                                     },
+  { "TRACE",       LG_INFO | LG_ERROR | LG_CMD_ALL | LG_NETWORK | LG_WALLOPS                                  },
+  { "MISC",        LG_INFO | LG_ERROR | LG_CMD_ADMIN | LG_CMD_REGISTER | LG_CMD_SET | LG_NETWORK | LG_WALLOPS },
+  { "NOTICE",      LG_INFO | LG_ERROR | LG_CMD_ADMIN | LG_CMD_REGISTER | LG_NETWORK                           },
+  { "ALL",         LG_ALL                                                                                     },
+  { "INFO",        LG_INFO                                                                                    },
+  { "ERROR",       LG_ERROR                                                                                   },
+  { "COMMANDS",    LG_CMD_ALL                                                                                 },
+  { "ADMIN",       LG_CMD_ADMIN                                                                               },
+  { "REGISTER",    LG_CMD_REGISTER                                                                            },
+  { "SET",         LG_CMD_SET                                                                                 },
+  { "NETWORK",     LG_NETWORK                                                                                 },
+  { "WALLOPS",     LG_WALLOPS                                                                                 },
+  { "RAWDATA",     LG_RAWDATA                                                                                 },
+  { NULL,          0                                                                                          }
+};
+
 list_t confblocks;
 list_t conf_si_table;
 list_t conf_ci_table;
@@ -164,13 +189,29 @@ list_t conf_gi_table;
 list_t conf_ms_table;
 list_t conf_la_table;
 list_t conf_ss_table;
+list_t conf_gs_table;
 
 /* *INDENT-ON* */
 
-static void conf_process(CONFIGFILE *cfp)
+static void conf_report_error(config_entry_t *ce, const char *fmt, ...)
 {
-	CONFIGFILE *cfptr;
-	CONFIGENTRY *ce;
+	va_list va;
+	char buf[BUFSIZE];
+
+	return_if_fail(ce != NULL);
+	return_if_fail(fmt != NULL);
+
+	va_start(va, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, va);
+	va_end(va);
+
+	slog(LG_INFO, "%s:%d: configuration error - %s", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, buf);
+}
+
+static void conf_process(config_file_t *cfp)
+{
+	config_file_t *cfptr;
+	config_entry_t *ce;
 	node_t *tn;
 	struct ConfTable *ct = NULL;
 
@@ -188,15 +229,16 @@ static void conf_process(CONFIGFILE *cfp)
 					break;
 				}
 			}
-			if (!ct)
-				slog(LG_INFO, "%s:%d: invalid configuration option: %s", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_varname);
+
+			if (ct == NULL)
+				conf_report_error(ce, "invalid configuration option: %s", ce->ce_varname);
 		}
 	}
 }
 
 boolean_t conf_parse(char *file)
 {
-	CONFIGFILE *cfp;
+	config_file_t *cfp;
 
 	cfp = config_load(file);
 	if (cfp == NULL)
@@ -247,7 +289,6 @@ void conf_init(void)
 		config_options.flood_msgs = config_options.flood_time = config_options.kline_time = config_options.commit_interval =
 		config_options.expire = 0;
 
-	/* we don't reset loglevel because too much stuff uses it */
 	config_options.defuflags = config_options.defcflags = 0x00000000;
 
 	config_options.silent = config_options.join_chans = config_options.leave_chans = config_options.raw = FALSE;
@@ -259,12 +300,14 @@ void conf_init(void)
 	chansvs.fantasy = FALSE;
 	if (chansvs.me != NULL && fcmd_agent == chansvs.me)
 		fcmd_agent = NULL;
-	chansvs.ca_vop = CA_VOP_DEF;
-	chansvs.ca_hop = CA_HOP_DEF;
-	chansvs.ca_aop = CA_AOP_DEF;
-	chansvs.ca_sop = CA_SOP_DEF;
+	chansvs.ca_vop = CA_VOP_DEF & ca_all;
+	chansvs.ca_hop = CA_HOP_DEF & ca_all;
+	chansvs.ca_aop = CA_AOP_DEF & ca_all;
+	chansvs.ca_sop = CA_SOP_DEF & ca_all;
 	chansvs.changets = FALSE;
-	chansvs.trigger = '!';
+	if (chansvs.trigger != NULL)
+		free(chansvs.trigger);
+	chansvs.trigger = sstrdup("!");
 
 	if (!(runflags & RF_REHASHING))
 	{
@@ -272,8 +315,6 @@ void conf_init(void)
 			free(me.name);
 		if (me.desc)
 			free(me.desc);
-		if (me.uplink)
-			free(me.uplink);
 		if (me.vhost)
 			free(me.vhost);
 		if (chansvs.user)
@@ -283,13 +324,13 @@ void conf_init(void)
 		if (chansvs.real)
 			free(chansvs.real);
 
-		me.name = me.desc = me.uplink = me.vhost = chansvs.user = chansvs.host = chansvs.real = NULL;
+		me.name = me.desc = me.vhost = chansvs.user = chansvs.host = chansvs.real = NULL;
 
 		set_match_mapping(MATCH_RFC1459);	/* default to RFC compliancy */
 	}
 }
 
-int subblock_handler(CONFIGENTRY *ce, list_t *entries)
+int subblock_handler(config_entry_t *ce, list_t *entries)
 {
 	node_t *tn;
 	struct ConfTable *ct = NULL;
@@ -306,8 +347,9 @@ int subblock_handler(CONFIGENTRY *ce, list_t *entries)
 				break;
 			}
 		}
-		if (!ct)
-			slog(LG_INFO, "%s:%d: invalid configuration option: %s", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_varname);
+
+		if (ct == NULL)
+			conf_report_error(ce, "invalid configuration option: %s", ce->ce_varname);
 	}
 	return 0;
 }
@@ -344,7 +386,7 @@ struct ConfTable *find_conf_item(char *name, list_t *conflist)
 	return NULL;
 }
 
-void add_top_conf(char *name, int (*handler) (CONFIGENTRY *ce))
+void add_top_conf(char *name, int (*handler) (config_entry_t *ce))
 {
 	struct ConfTable *ct;
 
@@ -363,7 +405,7 @@ void add_top_conf(char *name, int (*handler) (CONFIGENTRY *ce))
 	node_add(ct, node_create(), &confblocks);
 }
 
-void add_conf_item(char *name, list_t *conflist, int (*handler) (CONFIGENTRY *ce))
+void add_conf_item(char *name, list_t *conflist, int (*handler) (config_entry_t *ce))
 {
 	struct ConfTable *ct;
 
@@ -448,7 +490,7 @@ void init_newconf(void)
 
 	if (!conftable_heap)
 	{
-		slog(LG_INFO, "init_newconf(): block allocator failure.");
+		slog(LG_ERROR, "init_newconf(): block allocator failure.");
 		exit(EXIT_FAILURE);
 	}
 
@@ -463,6 +505,7 @@ void init_newconf(void)
 	add_top_conf("NICKSERV", c_nickserv);
 	add_top_conf("SASLSERV", c_saslserv);
 	add_top_conf("MEMOSERV", c_memoserv);
+	add_top_conf("GAMESERV", c_gameserv);
 	add_top_conf("UPLINK", c_uplink);
 	add_top_conf("GENERAL", c_general);
 	add_top_conf("DATABASE", c_database);
@@ -471,11 +514,11 @@ void init_newconf(void)
 	add_top_conf("OPERATOR", c_operator);
 	add_top_conf("LANGUAGE", c_language);
 	add_top_conf("STRING", c_string);
+	add_top_conf("LOGFILE", c_logfile);
 
 	/* Now we fill in the information */
 	add_conf_item("NAME", &conf_si_table, c_si_name);
 	add_conf_item("DESC", &conf_si_table, c_si_desc);
-	add_conf_item("UPLINK", &conf_si_table, c_si_uplink);
 	add_conf_item("NUMERIC", &conf_si_table, c_si_numeric);
 	add_conf_item("VHOST", &conf_si_table, c_si_vhost);
 	add_conf_item("RECONTIME", &conf_si_table, c_si_recontime);
@@ -558,6 +601,12 @@ void init_newconf(void)
 	add_conf_item("USER", &conf_ms_table, c_ms_user);
 	add_conf_item("HOST", &conf_ms_table, c_ms_host);
 	add_conf_item("REAL", &conf_ms_table, c_ms_real);
+
+	/* memoserv{} block */
+	add_conf_item("NICK", &conf_gs_table, c_gs_nick);
+	add_conf_item("USER", &conf_gs_table, c_gs_user);
+	add_conf_item("HOST", &conf_gs_table, c_gs_host);
+	add_conf_item("REAL", &conf_gs_table, c_gs_real);
 	
 	/* database{} block */
 	add_conf_item("USER", &conf_db_table, c_db_user);
@@ -571,55 +620,61 @@ void init_newconf(void)
 	add_conf_item("TRANSLATOR", &conf_la_table, c_la_translator);
 }
 
-static int c_serverinfo(CONFIGENTRY *ce)
+static int c_serverinfo(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_si_table);
 	return 0;
 }
 
-static int c_cservice(CONFIGENTRY *ce)
+static int c_cservice(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_ci_table);
 	return 0;
 }
 
-static int c_gservice(CONFIGENTRY *ce)
+static int c_gservice(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_gl_table);
 	return 0;
 }
 
-static int c_oservice(CONFIGENTRY *ce)
+static int c_oservice(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_oi_table);
 	return 0;
 }
 
-static int c_nickserv(CONFIGENTRY *ce)
+static int c_nickserv(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_ni_table);
 	return 0;
 }
 
-static int c_saslserv(CONFIGENTRY *ce)
+static int c_saslserv(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_ss_table);
 	return 0;
 }
 
-static int c_memoserv(CONFIGENTRY *ce)
+static int c_memoserv(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_ms_table);
 	return 0;
 }
 
-static int c_database(CONFIGENTRY *ce)
+static int c_gameserv(config_entry_t *ce)
+{
+	subblock_handler(ce, &conf_gs_table);
+	return 0;
+}
+
+static int c_database(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_db_table);
 	return 0;
 }
 
-static int c_loadmodule(CONFIGENTRY *ce)
+static int c_loadmodule(config_entry_t *ce)
 {
 	char pathbuf[4096];
 	char *name;
@@ -645,14 +700,21 @@ static int c_loadmodule(CONFIGENTRY *ce)
 	}
 }
 
-static int c_uplink(CONFIGENTRY *ce)
+static int c_uplink(config_entry_t *ce)
 {
 	char *name;
 	char *host = NULL, *vhost = NULL, *password = NULL;
-	uint32_t port = 0;
+	unsigned int port = 0;
 
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
+
+	if (me.name != NULL && !irccasecmp(ce->ce_vardata, me.name))
+		slog(LG_ERROR, "%s:%d: uplink's server name %s should not be the same as our server name, continuing anyway", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_vardata);
+	else if (!strchr(ce->ce_vardata, '.'))
+		slog(LG_ERROR, "%s:%d: uplink's server name %s is invalid, continuing anyway", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_vardata);
+	else if (isdigit(ce->ce_vardata[0]))
+		slog(LG_ERROR, "%s:%d: uplink's server name %s starts with a digit, probably invalid (continuing anyway)", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_vardata);
 
 	name = sstrdup(ce->ce_vardata);
 
@@ -697,7 +759,7 @@ static int c_uplink(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_operclass(CONFIGENTRY *ce)
+static int c_operclass(config_entry_t *ce)
 {
 	operclass_t *operclass;
 	char *name;
@@ -732,7 +794,7 @@ static int c_operclass(CONFIGENTRY *ce)
 			}
 			else
 			{
-				CONFIGENTRY *conf_p;
+				config_entry_t *conf_p;
 				/*
 				 * New definition format for operclasses.
 				 *
@@ -776,11 +838,11 @@ static int c_operclass(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_operator(CONFIGENTRY *ce)
+static int c_operator(config_entry_t *ce)
 {
 	char *name;
 	operclass_t *operclass = NULL;
-	CONFIGENTRY *topce;
+	config_entry_t *topce;
 
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -815,7 +877,7 @@ static int c_operator(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_general(CONFIGENTRY *ce)
+static int c_general(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_gi_table);
 	return 0;
@@ -835,7 +897,7 @@ static int c_general(CONFIGENTRY *ce)
  * to set the languagefile setting. So it's rather weird.
  *    --nenolod
  */
-static int c_language(CONFIGENTRY *ce)
+static int c_language(config_entry_t *ce)
 {
 	if (ce->ce_entries)
 	{
@@ -848,10 +910,10 @@ static int c_language(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_string(CONFIGENTRY *ce)
+static int c_string(config_entry_t *ce)
 {
 	char *name, *trans = NULL;
-	CONFIGENTRY *topce;
+	config_entry_t *topce;
 
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -882,7 +944,7 @@ static int c_string(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_la_name(CONFIGENTRY *ce)
+static int c_la_name(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -892,7 +954,7 @@ static int c_la_name(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_la_translator(CONFIGENTRY *ce)
+static int c_la_translator(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -902,7 +964,7 @@ static int c_la_translator(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_name(CONFIGENTRY *ce)
+static int c_si_name(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -913,7 +975,7 @@ static int c_si_name(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_desc(CONFIGENTRY *ce)
+static int c_si_desc(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -923,17 +985,7 @@ static int c_si_desc(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_uplink(CONFIGENTRY *ce)
-{
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
-
-	me.uplink = sstrdup(ce->ce_vardata);
-
-	return 0;
-}
-
-static int c_si_numeric(CONFIGENTRY *ce)
+static int c_si_numeric(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -944,7 +996,7 @@ static int c_si_numeric(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_mdlimit(CONFIGENTRY *ce)
+static int c_si_mdlimit(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -954,7 +1006,7 @@ static int c_si_mdlimit(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_vhost(CONFIGENTRY *ce)
+static int c_si_vhost(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -964,7 +1016,7 @@ static int c_si_vhost(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_recontime(CONFIGENTRY *ce)
+static int c_si_recontime(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -974,7 +1026,7 @@ static int c_si_recontime(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_restarttime(CONFIGENTRY *ce)
+static int c_si_restarttime(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -984,7 +1036,7 @@ static int c_si_restarttime(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_netname(CONFIGENTRY *ce)
+static int c_si_netname(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -994,7 +1046,7 @@ static int c_si_netname(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_hidehostsuffix(CONFIGENTRY *ce)
+static int c_si_hidehostsuffix(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1004,7 +1056,7 @@ static int c_si_hidehostsuffix(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_adminname(CONFIGENTRY *ce)
+static int c_si_adminname(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1014,7 +1066,7 @@ static int c_si_adminname(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_adminemail(CONFIGENTRY *ce)
+static int c_si_adminemail(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1024,7 +1076,7 @@ static int c_si_adminemail(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_mta(CONFIGENTRY *ce)
+static int c_si_mta(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1034,30 +1086,40 @@ static int c_si_mta(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_loglevel(CONFIGENTRY *ce)
+static int c_si_loglevel(config_entry_t *ce)
 {
-	if (ce->ce_vardata == NULL)
-		PARAM_ERROR(ce);
+	config_entry_t *flce;
+	int val;
+	int mask = 0;
 
-	if (!strcasecmp("DEBUG", ce->ce_vardata))
-		me.loglevel = LG_ALL;
-	else if (!strcasecmp("TRACE", ce->ce_vardata))
-		me.loglevel = LG_INFO | LG_ERROR | LG_CMD_ALL | LG_NETWORK | LG_WALLOPS;
-	else if (!strcasecmp("INFO", ce->ce_vardata))
-		me.loglevel = LG_INFO | LG_ERROR | LG_CMD_ADMIN | LG_CMD_REGISTER | LG_CMD_SET | LG_NETWORK | LG_WALLOPS;
-	else if (!strcasecmp("NOTICE", ce->ce_vardata))
-		me.loglevel = LG_INFO | LG_ERROR | LG_CMD_ADMIN | LG_CMD_REGISTER | LG_NETWORK;
-	else if (!strcasecmp("ERROR", ce->ce_vardata))
-		me.loglevel = LG_ERROR | LG_CMD_ADMIN;
-	else if (!strcasecmp("NONE", ce->ce_vardata))
-		me.loglevel = 0;
-	else
-		me.loglevel = LG_ERROR | LG_CMD_ADMIN;
+	if (ce->ce_vardata != NULL)
+	{
+		val = token_to_value(logflags, ce->ce_vardata);
+
+		if ((val != TOKEN_UNMATCHED) && (val != TOKEN_ERROR))
+			mask |= val;
+		else
+		{
+			slog(LG_INFO, "%s:%d: unknown flag: %s", ce->ce_fileptr->cf_filename, ce->ce_varlinenum, ce->ce_vardata);
+		}
+	}
+	for (flce = ce->ce_entries; flce; flce = flce->ce_next)
+	{
+		val = token_to_value(logflags, flce->ce_varname);
+
+		if ((val != TOKEN_UNMATCHED) && (val != TOKEN_ERROR))
+			mask |= val;
+		else
+		{
+			slog(LG_INFO, "%s:%d: unknown flag: %s", flce->ce_fileptr->cf_filename, flce->ce_varlinenum, flce->ce_varname);
+		}
+	}
+	log_master_set_mask(mask);
 
 	return 0;
 }
 
-static int c_si_maxlogins(CONFIGENTRY *ce)
+static int c_si_maxlogins(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1068,7 +1130,7 @@ static int c_si_maxlogins(CONFIGENTRY *ce)
 
 }
 
-static int c_si_maxusers(CONFIGENTRY *ce)
+static int c_si_maxusers(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1079,7 +1141,7 @@ static int c_si_maxusers(CONFIGENTRY *ce)
 
 }
 
-static int c_si_maxnicks(CONFIGENTRY *ce)
+static int c_si_maxnicks(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1089,7 +1151,7 @@ static int c_si_maxnicks(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_maxchans(CONFIGENTRY *ce)
+static int c_si_maxchans(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1099,7 +1161,7 @@ static int c_si_maxchans(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_emaillimit(CONFIGENTRY *ce)
+static int c_si_emaillimit(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1109,7 +1171,7 @@ static int c_si_emaillimit(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_emailtime(CONFIGENTRY *ce)
+static int c_si_emailtime(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1119,7 +1181,7 @@ static int c_si_emailtime(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_auth(CONFIGENTRY *ce)
+static int c_si_auth(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1133,7 +1195,7 @@ static int c_si_auth(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_si_casemapping(CONFIGENTRY *ce)
+static int c_si_casemapping(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1147,7 +1209,7 @@ static int c_si_casemapping(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_nick(CONFIGENTRY *ce)
+static int c_ci_nick(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1157,7 +1219,7 @@ static int c_ci_nick(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_user(CONFIGENTRY *ce)
+static int c_ci_user(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1167,7 +1229,7 @@ static int c_ci_user(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_host(CONFIGENTRY *ce)
+static int c_ci_host(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1177,7 +1239,7 @@ static int c_ci_host(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_real(CONFIGENTRY *ce)
+static int c_ci_real(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1187,7 +1249,7 @@ static int c_ci_real(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_fantasy(CONFIGENTRY *ce)
+static int c_ci_fantasy(config_entry_t *ce)
 {
 	chansvs.fantasy = TRUE;
 	
@@ -1197,7 +1259,7 @@ static int c_ci_fantasy(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_vop(CONFIGENTRY *ce)
+static int c_ci_vop(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1207,7 +1269,7 @@ static int c_ci_vop(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_hop(CONFIGENTRY *ce)
+static int c_ci_hop(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1217,7 +1279,7 @@ static int c_ci_hop(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_aop(CONFIGENTRY *ce)
+static int c_ci_aop(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1227,7 +1289,7 @@ static int c_ci_aop(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_sop(CONFIGENTRY *ce)
+static int c_ci_sop(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1237,23 +1299,25 @@ static int c_ci_sop(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ci_changets(CONFIGENTRY *ce)
+static int c_ci_changets(config_entry_t *ce)
 {
 	chansvs.changets = TRUE;
 	return 0;
 }
 
-static int c_ci_trigger(CONFIGENTRY *ce)
+static int c_ci_trigger(config_entry_t *ce)
 {
-	if (ce->ce_vardata == NULL || strlen(ce->ce_vardata) != 1)
+	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
 
-	chansvs.trigger = *ce->ce_vardata;
+	if (chansvs.trigger != NULL)
+		free(chansvs.trigger);
+	chansvs.trigger = sstrdup(ce->ce_vardata);
 
 	return 0;
 }
 
-static int c_gi_chan(CONFIGENTRY *ce)
+static int c_gi_chan(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1263,45 +1327,45 @@ static int c_gi_chan(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gi_silent(CONFIGENTRY *ce)
+static int c_gi_silent(config_entry_t *ce)
 {
 	config_options.silent = TRUE;
 	return 0;
 }
 
-static int c_gi_verbose_wallops(CONFIGENTRY *ce)
+static int c_gi_verbose_wallops(config_entry_t *ce)
 {
 	config_options.verbose_wallops = TRUE;
 	return 0;
 }
 
-static int c_gi_use_privmsg(CONFIGENTRY *ce)
+static int c_gi_use_privmsg(config_entry_t *ce)
 {
 	config_options.use_privmsg = TRUE;
 	return 0;
 }
 
-static int c_gi_secure(CONFIGENTRY *ce)
+static int c_gi_secure(config_entry_t *ce)
 {
 	config_options.secure = TRUE;
 	return 0;
 }
 
-static int c_gi_join_chans(CONFIGENTRY *ce)
+static int c_gi_join_chans(config_entry_t *ce)
 {
 	config_options.join_chans = TRUE;
 	return 0;
 }
 
-static int c_gi_leave_chans(CONFIGENTRY *ce)
+static int c_gi_leave_chans(config_entry_t *ce)
 {
 	config_options.leave_chans = TRUE;
 	return 0;
 }
 
-static int c_gi_uflags(CONFIGENTRY *ce)
+static int c_gi_uflags(config_entry_t *ce)
 {
-	CONFIGENTRY *flce;
+	config_entry_t *flce;
 
 	for (flce = ce->ce_entries; flce; flce = flce->ce_next)
 	{
@@ -1321,9 +1385,9 @@ static int c_gi_uflags(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gi_cflags(CONFIGENTRY *ce)
+static int c_gi_cflags(config_entry_t *ce)
 {
-	CONFIGENTRY *flce;
+	config_entry_t *flce;
 
 	for (flce = ce->ce_entries; flce; flce = flce->ce_next)
 	{
@@ -1346,13 +1410,13 @@ static int c_gi_cflags(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gi_raw(CONFIGENTRY *ce)
+static int c_gi_raw(config_entry_t *ce)
 {
 	config_options.raw = TRUE;
 	return 0;
 }
 
-static int c_gi_flood_msgs(CONFIGENTRY *ce)
+static int c_gi_flood_msgs(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1362,7 +1426,7 @@ static int c_gi_flood_msgs(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gi_flood_time(CONFIGENTRY *ce)
+static int c_gi_flood_time(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1372,7 +1436,7 @@ static int c_gi_flood_time(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gi_kline_time(CONFIGENTRY *ce)
+static int c_gi_kline_time(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1382,7 +1446,7 @@ static int c_gi_kline_time(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gi_commit_interval(CONFIGENTRY *ce)
+static int c_gi_commit_interval(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1392,7 +1456,7 @@ static int c_gi_commit_interval(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gi_expire(CONFIGENTRY *ce)
+static int c_gi_expire(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1402,7 +1466,7 @@ static int c_gi_expire(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_oi_nick(CONFIGENTRY *ce)
+static int c_oi_nick(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1412,7 +1476,7 @@ static int c_oi_nick(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_oi_user(CONFIGENTRY *ce)
+static int c_oi_user(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1422,7 +1486,7 @@ static int c_oi_user(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_oi_host(CONFIGENTRY *ce)
+static int c_oi_host(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1432,7 +1496,7 @@ static int c_oi_host(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_oi_real(CONFIGENTRY *ce)
+static int c_oi_real(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1442,7 +1506,7 @@ static int c_oi_real(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ni_nick(CONFIGENTRY *ce)
+static int c_ni_nick(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1452,7 +1516,7 @@ static int c_ni_nick(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ni_user(CONFIGENTRY *ce)
+static int c_ni_user(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1462,7 +1526,7 @@ static int c_ni_user(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ni_host(CONFIGENTRY *ce)
+static int c_ni_host(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1472,7 +1536,7 @@ static int c_ni_host(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ni_real(CONFIGENTRY *ce)
+static int c_ni_real(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1482,19 +1546,19 @@ static int c_ni_real(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ni_spam(CONFIGENTRY *ce)
+static int c_ni_spam(config_entry_t *ce)
 {
 	nicksvs.spam = TRUE;
 	return 0;
 }
 
-static int c_ni_no_nick_ownership(CONFIGENTRY *ce)
+static int c_ni_no_nick_ownership(config_entry_t *ce)
 {
 	nicksvs.no_nick_ownership = TRUE;
 	return 0;
 }
 
-static int c_ss_nick(CONFIGENTRY *ce)
+static int c_ss_nick(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1504,7 +1568,7 @@ static int c_ss_nick(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ss_user(CONFIGENTRY *ce)
+static int c_ss_user(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1514,7 +1578,7 @@ static int c_ss_user(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ss_host(CONFIGENTRY *ce)
+static int c_ss_host(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1524,7 +1588,7 @@ static int c_ss_host(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ss_real(CONFIGENTRY *ce)
+static int c_ss_real(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1534,7 +1598,7 @@ static int c_ss_real(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ms_nick(CONFIGENTRY *ce)
+static int c_ms_nick(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1544,7 +1608,7 @@ static int c_ms_nick(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ms_user(CONFIGENTRY *ce)
+static int c_ms_user(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1554,7 +1618,7 @@ static int c_ms_user(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ms_host(CONFIGENTRY *ce)
+static int c_ms_host(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1564,7 +1628,7 @@ static int c_ms_host(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_ms_real(CONFIGENTRY *ce)
+static int c_ms_real(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1574,7 +1638,47 @@ static int c_ms_real(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gl_nick(CONFIGENTRY *ce)
+static int c_gs_nick(config_entry_t *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	gamesvs.nick = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_gs_user(config_entry_t *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	gamesvs.user = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_gs_host(config_entry_t *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	gamesvs.host = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_gs_real(config_entry_t *ce)
+{
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	gamesvs.real = sstrdup(ce->ce_vardata);
+
+	return 0;
+}
+
+static int c_gl_nick(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1584,7 +1688,7 @@ static int c_gl_nick(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gl_user(CONFIGENTRY *ce)
+static int c_gl_user(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1594,7 +1698,7 @@ static int c_gl_user(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gl_host(CONFIGENTRY *ce)
+static int c_gl_host(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1604,7 +1708,7 @@ static int c_gl_host(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_gl_real(CONFIGENTRY *ce)
+static int c_gl_real(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1614,7 +1718,7 @@ static int c_gl_real(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_db_user(CONFIGENTRY *ce)
+static int c_db_user(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1624,7 +1728,7 @@ static int c_db_user(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_db_host(CONFIGENTRY *ce)
+static int c_db_host(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1634,7 +1738,7 @@ static int c_db_host(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_db_password(CONFIGENTRY *ce)
+static int c_db_password(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1644,7 +1748,7 @@ static int c_db_password(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_db_database(CONFIGENTRY *ce)
+static int c_db_database(config_entry_t *ce)
 {
 	if (ce->ce_vardata == NULL)
 		PARAM_ERROR(ce);
@@ -1654,12 +1758,39 @@ static int c_db_database(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int c_db_port(CONFIGENTRY *ce)
+static int c_db_port(config_entry_t *ce)
 {
 	if (ce->ce_vardatanum == 0)
 		PARAM_ERROR(ce);
 
 	database_options.port = ce->ce_vardatanum;
+
+	return 0;
+}
+
+static int c_logfile(config_entry_t *ce)
+{
+	config_entry_t *flce;
+	unsigned int logval = 0;
+
+	if (ce->ce_vardata == NULL)
+		PARAM_ERROR(ce);
+
+	for (flce = ce->ce_entries; flce; flce = flce->ce_next)
+	{
+		int val;
+
+		val = token_to_value(logflags, flce->ce_varname);
+
+		if ((val != TOKEN_UNMATCHED) && (val != TOKEN_ERROR))
+			logval |= val;
+		else
+		{
+			slog(LG_INFO, "%s:%d: unknown flag: %s", flce->ce_fileptr->cf_filename, flce->ce_varlinenum, flce->ce_varname);
+		}
+	}
+
+	logfile_new(ce->ce_vardata, logval);
 
 	return 0;
 }
@@ -1673,7 +1804,6 @@ static void copy_me(struct me *src, struct me *dst)
 	dst->adminname = sstrdup(src->adminname);
 	dst->adminemail = sstrdup(src->adminemail);
 	dst->mta = src->mta ? sstrdup(src->mta) : NULL;
-	dst->loglevel = src->loglevel;
 	dst->maxlogins = src->maxlogins;
 	dst->maxusers = src->maxusers;
 	dst->maxnicks = src->maxnicks;
@@ -1698,7 +1828,7 @@ boolean_t conf_rehash(void)
 {
 	struct me *hold_me = scalloc(sizeof(struct me), 1);	/* and keep_me_warm; */
 	char *oldsnoop;
-	CONFIGFILE *cfp;
+	config_file_t *cfp;
 
 	/* we're rehashing */
 	slog(LG_INFO, "conf_rehash(): rehashing");
@@ -1708,7 +1838,7 @@ boolean_t conf_rehash(void)
 	cfp = config_load(config_file);
 	if (cfp == NULL)
 	{
-		slog(LG_INFO, "conf_rehash(): unable to load configuration file: %s, aborting rehash", strerror(errno));
+		slog(LG_ERROR, "conf_rehash(): unable to load configuration file: %s, aborting rehash", strerror(errno));
 		runflags &= ~RF_REHASHING;
 		return FALSE;
 	}
@@ -1720,10 +1850,11 @@ boolean_t conf_rehash(void)
 
 	/* reset everything */
 	conf_init();
-
 	mark_all_illegal();
+	log_shutdown();
 
 	/* now reload */
+	log_open();
 	conf_process(cfp);
 	config_free(cfp);
 	hook_call_event("config_ready", NULL);
@@ -1731,7 +1862,7 @@ boolean_t conf_rehash(void)
 	/* now recheck */
 	if (!conf_check())
 	{
-		slog(LG_INFO, "conf_rehash(): conf file was malformed, aborting rehash");
+		slog(LG_ERROR, "conf_rehash(): conf file was malformed, aborting rehash");
 
 		/* freeing the new conf strings */
 		free_cstructs(&me, &chansvs);
@@ -1775,15 +1906,20 @@ boolean_t conf_check(void)
 {
 	if (!me.name)
 	{
-		slog(LG_INFO, "conf_check(): no `name' set in %s", config_file);
+		slog(LG_ERROR, "conf_check(): no `name' set in %s", config_file);
 		return FALSE;
 	}
 
-	if (!strchr(me.name, '.'))
+	/* The following checks could perhaps be stricter */
+	if (!strchr(me.name, '.') || strchr("!\"#$%&+,-./:@", me.name[0]) ||
+			strchr(me.name, ' '))
 	{
-		slog(LG_INFO, "conf_check(): bogus `name' in %s (did you specify a valid server name?)", config_file);
+		slog(LG_ERROR, "conf_check(): bogus `name' in %s (did you specify a valid server name?)", config_file);
 		return FALSE;
 	}
+
+	if (isdigit(me.name[0]))
+		slog(LG_ERROR, "conf_check(): `name' in %s starts with a digit, probably invalid (continuing anyway)", config_file);
 
 	if (!me.desc)
 		me.desc = sstrdup("Atheme IRC Services");
@@ -1863,18 +1999,24 @@ boolean_t conf_check(void)
 
 	if (!chansvs.nick || !chansvs.user || !chansvs.host || !chansvs.real)
 	{
-		slog(LG_INFO, "conf_check(): invalid chanserv{} block in %s", config_file);
+		slog(LG_ERROR, "conf_check(): invalid chanserv{} block in %s", config_file);
 		return FALSE;
 	}
 
 	if ((strchr(chansvs.user, ' ')) || (strlen(chansvs.user) > 10))
 	{
-		slog(LG_INFO, "conf_check(): invalid `chanserv::user' in %s", config_file);
+		slog(LG_ERROR, "conf_check(): invalid `chanserv::user' in %s", config_file);
 		return FALSE;
 	}
 
+	/* we know ca_all now */
+	chansvs.ca_vop &= ca_all;
+	chansvs.ca_hop &= ca_all;
+	chansvs.ca_aop &= ca_all;
+	chansvs.ca_sop &= ca_all;
+	/* chansvs.ca_hop may be equal to chansvs.ca_vop to disable HOP */
 	if (!chansvs.ca_vop || !chansvs.ca_hop || !chansvs.ca_aop ||
-			!chansvs.ca_sop || chansvs.ca_vop == chansvs.ca_hop ||
+			!chansvs.ca_sop ||
 			chansvs.ca_vop == chansvs.ca_aop ||
 			chansvs.ca_vop == chansvs.ca_sop ||
 			chansvs.ca_hop == chansvs.ca_aop ||
@@ -1882,10 +2024,10 @@ boolean_t conf_check(void)
 			chansvs.ca_aop == chansvs.ca_sop)
 	{
 		slog(LG_INFO, "conf_check(): invalid xop levels in %s, using defaults", config_file);
-		chansvs.ca_vop = CA_VOP_DEF;
-		chansvs.ca_hop = CA_HOP_DEF;
-		chansvs.ca_aop = CA_AOP_DEF;
-		chansvs.ca_sop = CA_SOP_DEF;
+		chansvs.ca_vop = CA_VOP_DEF & ca_all;
+		chansvs.ca_hop = CA_HOP_DEF & ca_all;
+		chansvs.ca_aop = CA_AOP_DEF & ca_all;
+		chansvs.ca_sop = CA_SOP_DEF & ca_all;
 	}
 
 	if (config_options.flood_msgs && !config_options.flood_time)
@@ -1900,3 +2042,9 @@ boolean_t conf_check(void)
 
 	return TRUE;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

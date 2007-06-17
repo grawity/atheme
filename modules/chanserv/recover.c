@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService RECOVER functions.
  *
- * $Id: recover.c 6657 2006-10-04 21:22:47Z jilles $
+ * $Id: recover.c 8257 2007-05-13 14:09:51Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/recover", FALSE, _modinit, _moddeinit,
-	"$Id: recover.c 6657 2006-10-04 21:22:47Z jilles $",
+	"$Id: recover.c 8257 2007-05-13 14:09:51Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_recover(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_recover = { "RECOVER", "Regain control of your channel.",
+command_t cs_recover = { "RECOVER", N_("Regain control of your channel."),
                         AC_NONE, 1, cs_cmd_recover };
 
 list_t *cs_cmdtree;
@@ -54,31 +54,31 @@ static void cs_cmd_recover(sourceinfo_t *si, int parc, char *parv[])
 	if (!name)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RECOVER");
-		command_fail(si, fault_needmoreparams, "Syntax: RECOVER <#channel>");
+		command_fail(si, fault_needmoreparams, _("Syntax: RECOVER <#channel>"));
 		return;
 	}
 
 	if (!(mc = mychan_find(name)))
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", name);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), name);
 		return;
 	}
 	
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		command_fail(si, fault_noprivs, "\2%s\2 is closed.", name);
+		command_fail(si, fault_noprivs, _("\2%s\2 is closed."), name);
 		return;
 	}
 
 	if (!mc->chan)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 does not exist.", name);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is currently empty."), name);
 		return;
 	}
 
 	if (!chanacs_source_has_flag(mc, si, CA_RECOVER))
 	{
-		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
 		return;
 	}
 
@@ -96,14 +96,24 @@ static void cs_cmd_recover(sourceinfo_t *si, int parc, char *parv[])
 			;
 		else
 		{
+			if (ircd->uses_owner && (ircd->owner_mode & cu->modes))
+			{
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, ircd->owner_mchar[1], CLIENT_NAME(cu->user));
+				cu->modes &= ~ircd->owner_mode;
+			}
+			if (ircd->uses_protect && (ircd->protect_mode & cu->modes))
+			{
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, ircd->protect_mchar[1], CLIENT_NAME(cu->user));
+				cu->modes &= ~ircd->protect_mode;
+			}
 			if ((CMODE_OP & cu->modes))
 			{
-				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, 'o', CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, 'o', CLIENT_NAME(cu->user));
 				cu->modes &= ~CMODE_OP;
 			}
 			if (ircd->uses_halfops && (ircd->halfops_mode & cu->modes))
 			{
-				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
 				cu->modes &= ~ircd->halfops_mode;
 			}
 		}
@@ -133,7 +143,7 @@ static void cs_cmd_recover(sourceinfo_t *si, int parc, char *parv[])
 	else
 	{
 		if (!(CMODE_OP & origin_cu->modes))
-			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, 'o', CLIENT_NAME(si->su));
+			modestack_mode_param(chansvs.nick, mc->chan, MTYPE_ADD, 'o', CLIENT_NAME(si->su));
 		origin_cu->modes |= CMODE_OP;
 	}
 
@@ -160,7 +170,7 @@ static void cs_cmd_recover(sourceinfo_t *si, int parc, char *parv[])
 			continue;
 		if (!match(cb->mask, hostbuf) || !match(cb->mask, hostbuf2) || !match(cb->mask, hostbuf3) || !match_cidr(cb->mask, hostbuf3))
 		{
-			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, 'b', cb->mask);
+			modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, 'b', cb->mask);
 			chanban_delete(cb);
 		}
 	}
@@ -174,20 +184,26 @@ static void cs_cmd_recover(sourceinfo_t *si, int parc, char *parv[])
 			if (!chanban_find(mc->chan, hostbuf2, e))
 			{
 				chanban_add(mc->chan, hostbuf2, e);
-				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, e, hostbuf2);
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_ADD, e, hostbuf2);
 				added_exempt = TRUE;
 			}
 		}
 	}
 
-	modestack_flush_channel(mc->chan->name);
+	modestack_flush_channel(mc->chan);
 
 	/* invite them back. must have sent +i before this */
 	if (origin_cu == NULL)
 		invite_sts(si->service->me, si->su, mc->chan);
 
 	if (added_exempt)
-		command_success_nodata(si, "Recover complete for \2%s\2, ban exception \2%s\2 added.", mc->chan->name, hostbuf2);
+		command_success_nodata(si, _("Recover complete for \2%s\2, ban exception \2%s\2 added."), mc->chan->name, hostbuf2);
 	else
-		command_success_nodata(si, "Recover complete for \2%s\2.", mc->chan->name);
+		command_success_nodata(si, _("Recover complete for \2%s\2."), mc->chan->name);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

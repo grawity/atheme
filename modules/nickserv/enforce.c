@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Atheme Development Group
+ * Copyright (c) 2005-2007 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
  * This file contains code for the NickServ RELEASE/ENFORCE functions.
@@ -23,61 +23,56 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/enforce",FALSE, _modinit, _moddeinit,
-	"$Id: enforce.c 7351 2006-12-09 20:54:13Z jilles $",
+	"$Id: enforce.c 8233 2007-05-06 22:47:38Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
+#define ENFORCE_TIMEOUT 30
+#define ENFORCE_CHECK_FREQ 5
+
+typedef struct {
+	char nick[NICKLEN];
+	char host[HOSTLEN];
+	time_t timelimit;
+	node_t node;
+} enforce_timeout_t;
+
+list_t enforce_list;
+BlockHeap *enforce_timeout_heap;
+
+static void guest_nickname(user_t *u);
+
 static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[]);
 static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[]);
-static void reg_check(void *arg);
-static void remove_idcheck(void *vuser);
-static void show_enforce(void *vdata);
 
-command_t ns_set_enforce = { "ENFORCE", "Enables or disables automatic protection of a nickname.", AC_NONE, 1, ns_cmd_set_enforce }; 
-command_t ns_release = { "RELEASE", "Releases a services enforcer.", AC_NONE, 2, ns_cmd_release };
+static void enforce_timeout_check(void *arg);
+static void show_enforce(void *vdata);
+static void check_registration(void *vdata);
+static void check_enforce(void *vdata);
+
+command_t ns_set_enforce = { "ENFORCE", N_("Enables or disables automatic protection of a nickname."), AC_NONE, 1, ns_cmd_set_enforce }; 
+command_t ns_release = { "RELEASE", N_("Releases a services enforcer."), AC_NONE, 2, ns_cmd_release };
 
 list_t *ns_cmdtree, *ns_set_cmdtree, *ns_helptree;
 
-#if 0
-void manage_bots(void *arg)
+/* sends an FNC for the given user */
+static void guest_nickname(user_t *u)
 {
-	user_t *u;
-	node_t *n, *tn;
-	myuser_t *mu;
-	metadata_t *md;
-	int i = 0;
-	
-	for (i = 0; i < HASHSIZE; i++) 
+	char gnick[NICKLEN];
+	int tries;
+
+	/* Generate a new guest nickname and check if it already exists
+	 * This will try to generate a new nickname 30 different times
+	 * if nicks are in use. If it runs into 30 nicks in use, maybe 
+	 * you shouldn't use this module. */
+	for (tries = 0; tries < 30; tries++)
 	{
-		LIST_FOREACH_SAFE(n, tn, userlist[i].head)
-		{
-			u = (user_t *)n->data;
-			if ((mu = myuser_find(u->nick)))
-			{
-			if (is_internal_client(u))
-			{
-				if (md = metadata_find(mu, METADATA_USER, "private:enforcer"))
-				{
-					int x = atoi(md->value);
-					if(x < 5)
-					{
-						x++;
-						char buf[32];
-						sprintf(buf, "%d", x);
-						metadata_add(mu, METADATA_USER, "private:enforcer", buf);
-					}
-					else
-					{
-						metadata_delete(mu, METADATA_USER, "private:enforcer");
-						quit_sts(u, "timed out svs enforcer");
-					}
-				}
-			}
-			}
-		}
+		snprintf(gnick, sizeof gnick, "Guest%d", arc4random()%100000);
+		if (!user_find_named(gnick))
+			break;
 	}
+	fnc_sts(nicksvs.me->me, u, gnick, FNC_FORCE);
 }
-#endif
 
 static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[])
 {
@@ -87,13 +82,13 @@ static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[])
 	if (!setting)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "ENFORCE");
-		command_fail(si, fault_needmoreparams, "Syntax: SET ENFORCE ON|OFF");
+		command_fail(si, fault_needmoreparams, _("Syntax: SET ENFORCE ON|OFF"));
 		return;
 	}
 
 	if (!si->smu)
 	{
-		command_fail(si, fault_noprivs, "You are not logged in.");
+		command_fail(si, fault_noprivs, _("You are not logged in."));
 		return;
 	}
 
@@ -101,12 +96,12 @@ static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[])
 	{
 		if ((md = metadata_find(si->smu, METADATA_USER, "private:doenforce")) != NULL)
 		{
-			command_fail(si, fault_nochange, "ENFORCE is already enabled.");
+			command_fail(si, fault_nochange, _("ENFORCE is already enabled."));
 		}
 		else
 		{
 			metadata_add(si->smu, METADATA_USER, "private:doenforce", "1");
-			command_success_nodata(si, "ENFORCE is now enabled.");
+			command_success_nodata(si, _("ENFORCE is now enabled."));
 		}
 	}
 	else if (strcasecmp(setting, "OFF") == 0)
@@ -114,16 +109,16 @@ static void ns_cmd_set_enforce(sourceinfo_t *si, int parc, char *parv[])
 		if ((md = metadata_find(si->smu, METADATA_USER, "private:doenforce")) != NULL)
 		{
 			metadata_delete(si->smu, METADATA_USER, "private:doenforce");
-			command_success_nodata(si, "ENFORCE is now disabled.");
+			command_success_nodata(si, _("ENFORCE is now disabled."));
 		}
 		else
 		{
-			command_fail(si, fault_nochange, "ENFORCE is already disabled.");
+			command_fail(si, fault_nochange, _("ENFORCE is already disabled."));
 		}
 	}
 	else
 	{
-		command_fail(si, fault_badparams, "Unknown value for ENFORCE. Expected values are ON or OFF.");
+		command_fail(si, fault_badparams, _("Unknown value for ENFORCE. Expected values are ON or OFF."));
 	}
 }
 
@@ -133,16 +128,15 @@ static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[])
 	metadata_t *md;
 	char *target = parv[0];
 	char *password = parv[1];
-	char *gnick;
-	int i;
 	user_t *u;
-	char ign[BUFSIZE];
+	node_t *n, *tn;
+	enforce_timeout_t *timeout;
 
 	/* Absolutely do not do anything like this if nicks
 	 * are not considered owned */
 	if (nicksvs.no_nick_ownership)
 	{
-		command_fail(si, fault_noprivs, "RELEASE is disabled.");
+		command_fail(si, fault_noprivs, _("RELEASE is disabled."));
 		return;
 	}
 
@@ -151,7 +145,7 @@ static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[])
 	if (!target)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RELEASE");
-		command_fail(si, fault_needmoreparams, "Syntax: RELEASE <nick> [password]");
+		command_fail(si, fault_needmoreparams, _("Syntax: RELEASE <nick> [password]"));
 		return;
 	}
 
@@ -160,128 +154,88 @@ static void ns_cmd_release(sourceinfo_t *si, int parc, char *parv[])
 	
 	if (!mn)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not a registered nickname.", target);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not a registered nickname."), target);
 		return;
 	}
 	
 	if (u == si->su)
 	{
-		command_fail(si, fault_noprivs, "You cannot RELEASE yourself.");
+		command_fail(si, fault_noprivs, _("You cannot RELEASE yourself."));
 		return;
 	}
 	if ((si->smu == mn->owner) || verify_password(mn->owner, password))
 	{
+		/* if this (nick, host) is waiting to be enforced, remove it */
+		LIST_FOREACH_SAFE(n, tn, enforce_list.head)
+		{
+			timeout = n->data;
+			if (!irccasecmp(mn->nick, timeout->nick) && (!strcmp(u->host, timeout->host) || !strcmp(u->vhost, timeout->host)))
+			{
+				node_del(&timeout->node, &enforce_list);
+				BlockHeapFree(enforce_timeout_heap, timeout);
+			}
+		}
 		if (u == NULL || is_internal_client(u))
 		{
-			if ((md = metadata_find(mn->owner, METADATA_USER, "private:enforcer")) != NULL)
-				metadata_delete(mn->owner, METADATA_USER, "private:enforcer");
 			logcommand(si, CMDLOG_DO, "RELEASE %s", target);
 			holdnick_sts(si->service->me, 0, target, mn->owner);
-			command_success_nodata(si, "\2%s\2 has been released.", target);
-			/*hook_call_event("user_identify", u);*/
+			command_success_nodata(si, _("\2%s\2 has been released."), target);
 		}
 		else
 		{
-			if ((md = metadata_find(mn->owner, METADATA_USER, "private:enforcer")) != NULL)
-				metadata_delete(mn->owner, METADATA_USER, "private:enforcer");
-			
 			notice(nicksvs.nick, target, "%s has released your nickname.", get_source_mask(si));
-			i = 0;
-			for (i = 0; i < 30; i++)
-			{
-				snprintf( ign, BUFSIZE, "Guest%d", rand( )%99999 );
-				gnick = ign;
-				if (!user_find_named(ign))
-					break;
-			}
-			fnc_sts(si->service->me, u, gnick, FNC_FORCE);
-			command_success_nodata(si, "%s has been released.", target);
+			guest_nickname(u);
+			command_success_nodata(si, _("%s has been released."), target);
 			logcommand(si, CMDLOG_DO, "RELEASE %s!%s@%s", u->nick, u->user, u->vhost);
-			/*hook_call_event("user_identify", u);*/
 		}
 		return;
 	}
 	if (!password)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RELEASE");
-		command_fail(si, fault_needmoreparams, "Syntax: RELEASE <nickname> [password]");
+		command_fail(si, fault_needmoreparams, _("Syntax: RELEASE <nickname> [password]"));
 		return;
 	}
 	else
 	{
 		logcommand(si, CMDLOG_DO, "failed RELEASE %s (bad password)", target);
-		command_fail(si, fault_authfail, "Invalid password for \2%s\2.", target);
+		command_fail(si, fault_authfail, _("Invalid password for \2%s\2."), target);
 	}
 }
 
-void reg_check(void *arg)
+void enforce_timeout_check(void *arg)
 {
+	node_t *n, *tn;
+	enforce_timeout_t *timeout;
 	user_t *u;
 	mynick_t *mn;
-	myuser_t *mu;
-	char *gnick;
-	int x = 0;
-	char ign[BUFSIZE];
-	dictionary_iteration_state_t state;
+	boolean_t valid;
 
-	/* Absolutely do not do anything like this if nicks
-	 * are not considered owned */
-	if (nicksvs.no_nick_ownership)
-		return;
-	
-	DICTIONARY_FOREACH(u, &state, userlist)
+	LIST_FOREACH_SAFE(n, tn, enforce_list.head)
 	{
-		/* nick is a service, ignore it */
+		timeout = n->data;
+		if (timeout->timelimit > CURRTIME)
+			break; /* assume sorted list */
+		u = user_find_named(timeout->nick);
+		mn = mynick_find(timeout->nick);
+		valid = u != NULL && mn != NULL && (!strcmp(u->host, timeout->host) || !strcmp(u->vhost, timeout->host));
+		node_del(&timeout->node, &enforce_list);
+		BlockHeapFree(enforce_timeout_heap, timeout);
+		if (!valid)
+			continue;
 		if (is_internal_client(u))
 			continue;
-		if ((mn = mynick_find(u->nick)))
-		{
-			mu = mn->owner;
-			if (u->myuser == mu)
-				continue;
-			if (!metadata_find(mu, METADATA_USER, "private:doenforce"))
-				;
-			else if (myuser_access_verify(u, mu))
-				;
-			else if (u->flags & UF_NICK_WARNED)
-			{
-				notice(nicksvs.nick, u->nick, "You failed to authenticate in time for the nickname %s", u->nick);
-				/* Generate a new guest nickname and check if it already exists
-				 * This will try to generate a new nickname 30 different times
-				 * if nicks are in use. If it runs into 30 nicks in use, maybe 
-				 * you shouldn't use this module. */
-				for (x = 0; x < 30; x++)
-				{
-					snprintf( ign, BUFSIZE, "Guest%d", rand( )%99999 );
-					gnick = ign;
-					if (!user_find_named(ign))
-						break;
-				}
-				fnc_sts(nicksvs.me->me, u, gnick, FNC_FORCE);
-				holdnick_sts(nicksvs.me->me, 3600, u->nick, mu);
-#if 0 /* can't do this, need to wait for SVSNICK to complete! -- jilles */
-				uid = uid_get();
-				introduce_nick(u->nick, "enforcer", "services.hold", "Services Enforcer", uid);
-				user_add(u->nick, "enforcer", "services.hold", NULL, NULL, uid, "Services Enforcer", me.me, CURRTIME);
-#endif
-				u->flags &= ~UF_NICK_WARNED;
-				metadata_add(mu, METADATA_USER, "private:enforcer", "1");
-			}
-			else
-			{
-				u->flags |= UF_NICK_WARNED;
-				notice(nicksvs.nick, u->nick, "You have 30 seconds to identify to your nickname before it is changed.");
-			}
-		}
+		if (u->myuser == mn->owner)
+			continue;
+		if (myuser_access_verify(u, mn->owner))
+			continue;
+		if (!metadata_find(mn->owner, METADATA_USER, "private:doenforce"))
+			continue;
+
+		notice(nicksvs.nick, u->nick, "You failed to identify in time for the nickname %s", mn->nick);
+		guest_nickname(u);
+		holdnick_sts(nicksvs.me->me, 3600, u->nick, mn->owner);
 	}
-}
-
-static void remove_idcheck(void *vuser)
-{
-	user_t *u;
-
-	u = vuser;
-	u->flags &= ~UF_NICK_WARNED;
 }
 
 static void show_enforce(void *vdata)
@@ -292,6 +246,63 @@ static void show_enforce(void *vdata)
 		command_success_nodata(hdata->si, "%s has enabled nick protection", hdata->mu->name);
 }
 
+static void check_registration(void *vdata)
+{
+	hook_user_register_check_t *hdata = vdata;
+
+	if (hdata->approved)
+		return;
+	if (!strncasecmp(hdata->account, "Guest", 5) && isdigit(hdata->account[5]))
+	{
+		command_fail(hdata->si, fault_badparams, "The nick \2%s\2 is reserved and cannot be registered.", hdata->account);
+		hdata->approved = 1;
+	}
+}
+
+static void check_enforce(void *vdata)
+{
+	hook_nick_enforce_t *hdata = vdata;
+	enforce_timeout_t *timeout, *timeout2;
+	node_t *n;
+
+	/* nick is a service, ignore it */
+	if (is_internal_client(hdata->u))
+		return;
+
+	if (!metadata_find(hdata->mn->owner, METADATA_USER, "private:doenforce"))
+		return;
+
+	/* check if it's already in enforce_list */
+	timeout = NULL;
+#ifdef SHOW_CORRECT_TIMEOUT_BUT_BE_SLOW
+	/* don't do this now, it's O(N^2) in the number of users using
+	 * a nick without access at a time */
+	LIST_FOREACH(n, enforce_list.head)
+	{
+		timeout2 = n->data;
+		if (!irccasecmp(hdata->mn->nick, timeout2->nick) && (!strcmp(hdata->u->host, timeout2->host) || !strcmp(hdata->u->vhost, timeout2->host)))
+		{
+			timeout = timeout2;
+			break;
+		}
+	}
+#endif
+
+	if (timeout == NULL)
+	{
+		timeout = BlockHeapAlloc(enforce_timeout_heap);
+		strlcpy(timeout->nick, hdata->mn->nick, sizeof timeout->nick);
+		strlcpy(timeout->host, hdata->u->host, sizeof timeout->host);
+		/* the following ENFORCE_TIMEOUT must be constant,
+		 * otherwise the timeouts will not be sorted and
+		 * enforce_timeout_check() will break */
+		timeout->timelimit = CURRTIME + ENFORCE_TIMEOUT;
+		node_add(timeout, &timeout->node, &enforce_list);
+	}
+
+	notice(nicksvs.nick, hdata->u->nick, "You have %d seconds to identify to your nickname before it is changed.", timeout->timelimit - CURRTIME);
+}
+
 static int idcheck_foreach_cb(dictionary_elem_t *delem, void *privdata)
 {
 	metadata_t *md;
@@ -299,6 +310,8 @@ static int idcheck_foreach_cb(dictionary_elem_t *delem, void *privdata)
 
 	if ((md = metadata_find(mu, METADATA_USER, "private:idcheck")))
 		metadata_delete(mu, METADATA_USER, "private:idcheck");
+	if ((md = metadata_find(mu, METADATA_USER, "private:enforcer")))
+		metadata_delete(mu, METADATA_USER, "private:enforcer");
 
 	return 0;
 }
@@ -314,26 +327,51 @@ void _modinit(module_t *m)
 	 */
 	dictionary_foreach(mulist, idcheck_foreach_cb, NULL);
 
-	event_add("reg_check", reg_check, NULL, 30);
+	/* Absolutely do not do anything like this if nicks
+	 * are not considered owned */
+	if (nicksvs.no_nick_ownership)
+	{
+		slog(LG_ERROR, "modules/nickserv/enforce: nicks are not configured to be owned");
+		m->mflags = MODTYPE_FAIL;
+		return;
+	}
+	
+	enforce_timeout_heap = BlockHeapCreate(sizeof(enforce_timeout_t), 128);
+	if (enforce_timeout_heap == NULL)
+	{
+		m->mflags = MODTYPE_FAIL;
+		return;
+	}
+
+	event_add("enforce_timeout_check", enforce_timeout_check, NULL, ENFORCE_CHECK_FREQ);
 	/*event_add("manage_bots", manage_bots, NULL, 30);*/
 	command_add(&ns_release, ns_cmdtree);
 	command_add(&ns_set_enforce, ns_set_cmdtree);
 	help_addentry(ns_helptree, "RELEASE", "help/nickserv/release", NULL);
 	help_addentry(ns_helptree, "SET ENFORCE", "help/nickserv/set_enforce", NULL);
-	hook_add_event("user_identify");
-	hook_add_hook("user_identify", remove_idcheck);
 	hook_add_event("user_info");
 	hook_add_hook("user_info", show_enforce);
+	hook_add_event("user_can_register");
+	hook_add_hook("user_can_register", check_registration);
+	hook_add_event("nick_enforce");
+	hook_add_hook("nick_enforce", check_enforce);
 }
 
 void _moddeinit()
 {
-	event_delete(reg_check, NULL);
-	/*event_delete(manage_bots, NULL);*/
+	event_delete(enforce_timeout_check, NULL);
 	command_delete(&ns_release, ns_cmdtree);
 	command_delete(&ns_set_enforce, ns_set_cmdtree);
 	help_delentry(ns_helptree, "RELEASE");
 	help_delentry(ns_helptree, "SET ENFORCE");
-	hook_del_hook("user_identify", remove_idcheck);
 	hook_del_hook("user_info", show_enforce);
+	hook_del_hook("user_can_register", check_registration);
+	hook_del_hook("nick_enforce", check_enforce);
+	BlockHeapDestroy(enforce_timeout_heap);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

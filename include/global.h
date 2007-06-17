@@ -5,7 +5,7 @@
  *
  * Global data
  *
- * $Id: global.h 7363 2006-12-13 00:49:59Z jilles $
+ * $Id: global.h 8297 2007-05-20 08:56:59Z nenolod $
  */
 
 #ifndef _GLOBAL_H
@@ -20,11 +20,10 @@ struct me
 {
   char *name;                   /* server's name on IRC               */
   char *desc;                   /* server's description               */
-  char *uplink;                 /* the server we connect to           */
   char *actual;                 /* the reported name of the uplink    */
   char *vhost;                  /* IP we bind outgoing stuff to       */
-  uint16_t recontime;           /* time between reconnection attempts */
-  uint16_t restarttime;         /* time before restarting             */
+  unsigned int recontime;           /* time between reconnection attempts */
+  unsigned int restarttime;         /* time before restarting             */
   char *netname;                /* IRC network name                   */
   char *hidehostsuffix;         /* host suffix for P10 +x etc         */
   char *adminname;              /* SRA's name (for ADMIN)             */
@@ -32,22 +31,21 @@ struct me
   char *mta;                    /* path to mta program                */
   char *numeric;		/* server numeric		      */
 
-  uint32_t loglevel;            /* logging level                      */
-  uint32_t maxfd;               /* how many fds do we have?           */
-  uint32_t mdlimit;		/* metadata entry limit		      */
+  int maxfd;                    /* how many fds do we have?           */
+  unsigned int mdlimit;		/* metadata entry limit		      */
   time_t start;                 /* starting time                      */
   server_t *me;                 /* pointer to our server struct       */
   boolean_t connected;          /* are we connected?                  */
   boolean_t bursting;           /* are we bursting?                   */
   boolean_t recvsvr;		/* received server peer               */
 
-  uint16_t maxlogins;           /* maximum logins per username        */
-  uint16_t maxusers;            /* maximum usernames from one email   */
-  uint16_t maxnicks;            /* maximum nicks from one username    */
-  uint16_t maxchans;            /* maximum chans from one username    */
-  uint8_t auth;                 /* registration auth type             */
-  uint16_t emaillimit;          /* maximum number of emails sent      */
-  uint16_t emailtime;           /* ... in this amount of time         */
+  unsigned int maxlogins;           /* maximum logins per username        */
+  unsigned int maxusers;            /* maximum usernames from one email   */
+  unsigned int maxnicks;            /* maximum nicks from one username    */
+  unsigned int maxchans;            /* maximum chans from one username    */
+  unsigned int auth;                /* registration auth type             */
+  unsigned int emaillimit;          /* maximum number of emails sent      */
+  unsigned int emailtime;           /* ... in this amount of time         */
 
   time_t uplinkpong;            /* when the uplink last sent a PONG   */
 
@@ -68,19 +66,19 @@ struct ConfOption
 {
   char *chan;                   /* channel we join/msg        */
 
-  uint16_t flood_msgs;          /* messages determining flood */
-  uint16_t flood_time;          /* time determining flood     */
-  uint32_t kline_time;          /* default expire for klines  */
-  uint16_t commit_interval;     /* interval between commits   */
-  int32_t expire;               /* time before registrations expire */
+  unsigned int flood_msgs;          /* messages determining flood */
+  unsigned int flood_time;          /* time determining flood     */
+  unsigned int kline_time;          /* default expire for klines  */
+  unsigned int commit_interval;     /* interval between commits   */
+  int expire;               /* time before registrations expire */
 
   boolean_t silent;             /* stop sending WALLOPS?      */
   boolean_t join_chans;         /* join registered channels?  */
   boolean_t leave_chans;        /* leave channels when empty? */
   boolean_t secure;             /* require /msg <service>@host? */
 
-  uint16_t defuflags;           /* default username flags     */
-  uint16_t defcflags;           /* default channel flags      */
+  unsigned int defuflags;           /* default username flags     */
+  unsigned int defcflags;           /* default channel flags      */
 
   boolean_t raw;                /* enable raw/inject?         */
 
@@ -97,34 +95,54 @@ struct Database
   char *pass;
   char *database;
   char *host;
-  uint32_t port;
+  unsigned int port;
 } database_options;
 
 /* keep track of how many of what we have */
 struct cnt
 {
-  uint32_t event;
-  uint32_t soper;
-  uint32_t svsignore;
-  uint32_t tld;
-  uint32_t kline;
-  uint32_t server;
-  uint32_t user;
-  uint32_t chan;
-  uint32_t chanuser;
-  uint32_t myuser;
-  uint32_t mynick;
-  uint32_t mychan;
-  uint32_t chanacs;
-  uint32_t node;
-  uint32_t bin;
-  uint32_t bout;
-  uint32_t uplink;
-  uint32_t operclass;
-  uint32_t myuser_access;
+  unsigned int event;
+  unsigned int soper;
+  unsigned int svsignore;
+  unsigned int tld;
+  unsigned int kline;
+  unsigned int server;
+  unsigned int user;
+  unsigned int chan;
+  unsigned int chanuser;
+  unsigned int myuser;
+  unsigned int mynick;
+  unsigned int mychan;
+  unsigned int chanacs;
+  unsigned int node;
+  unsigned int bin;
+  unsigned int bout;
+  unsigned int uplink;
+  unsigned int operclass;
+  unsigned int myuser_access;
 };
 
 E struct cnt cnt;
+
+typedef struct claro_state_ {
+	unsigned int node;
+	unsigned int event;
+	time_t currtime;
+	unsigned int maxfd;
+} claro_state_t;
+
+E claro_state_t claro_state;
+
+#define CURRTIME claro_state.currtime
+
+/* run flags */
+E int runflags;
+
+#define RF_LIVE         0x00000001      /* don't fork  */
+#define RF_SHUTDOWN     0x00000002      /* shut down   */
+#define RF_STARTING     0x00000004      /* starting up */
+#define RF_RESTART      0x00000008      /* restart     */
+#define RF_REHASHING    0x00000010      /* rehashing   */
 
 /* conf.c */
 E boolean_t conf_parse(char *);
@@ -133,9 +151,9 @@ E boolean_t conf_rehash(void);
 E boolean_t conf_check(void);
 
 /* confp.c */
-E void config_free(CONFIGFILE *cfptr);
-E CONFIGFILE *config_load(char *filename);
-E CONFIGENTRY *config_find(CONFIGENTRY *ceptr, char *name);
+E void config_free(config_file_t *cfptr);
+E config_file_t *config_load(char *filename);
+E config_entry_t *config_find(config_entry_t *ceptr, char *name);
 
 /* node.c */
 E void init_nodes(void);
@@ -162,3 +180,9 @@ E void sighandler(int signum);
 E void check_signals(void);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ REGISTER function.
  *
- * $Id: register.c 7381 2006-12-23 22:53:28Z jilles $
+ * $Id: register.c 8279 2007-05-20 06:47:41Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/register", FALSE, _modinit, _moddeinit,
-	"$Id: register.c 7381 2006-12-23 22:53:28Z jilles $",
+	"$Id: register.c 8279 2007-05-20 06:47:41Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_register = { "REGISTER", "Registers a nickname.", AC_NONE, 3, ns_cmd_register };
+command_t ns_register = { "REGISTER", N_("Registers a nickname."), AC_NONE, 3, ns_cmd_register };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -67,7 +67,7 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 
 	if (si->smu)
 	{
-		command_fail(si, fault_already_authed, "You are already logged in.");
+		command_fail(si, fault_already_authed, _("You are already logged in."));
 		return;
 	}
 
@@ -80,9 +80,9 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "REGISTER");
 		if (nicksvs.no_nick_ownership || si->su == NULL)
-			command_fail(si, fault_needmoreparams, "Syntax: REGISTER <account> <password> <email>");
+			command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <account> <password> <email>"));
 		else
-			command_fail(si, fault_needmoreparams, "Syntax: REGISTER <password> <email>");
+			command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <password> <email>"));
 		return;
 	}
 
@@ -94,14 +94,14 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!nicksvs.no_nick_ownership && si->su == NULL && user_find_named(account))
 	{
-		command_fail(si, fault_noprivs, "A user matching this account is already on IRC.");
+		command_fail(si, fault_noprivs, _("A user matching this account is already on IRC."));
 		return;
 	}
 
 	if (!nicksvs.no_nick_ownership && IsDigit(*account))
 	{
-		command_fail(si, fault_badparams, "For security reasons, you can't register your UID.");
-		command_fail(si, fault_badparams, "Please change to a real nickname, and try again.");
+		command_fail(si, fault_badparams, _("For security reasons, you can't register your UID."));
+		command_fail(si, fault_badparams, _("Please change to a real nickname, and try again."));
 		return;
 	}
 
@@ -109,31 +109,31 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 	{
 		if (strchr(account, ' ') || strchr(account, '\n') || strchr(account, '\r') || account[0] == '=' || account[0] == '#' || account[0] == '@' || account[0] == '+' || account[0] == '%' || account[0] == '!' || strchr(account, ','))
 		{
-			command_fail(si, fault_badparams, "The account name \2%s\2 is invalid.", account);
+			command_fail(si, fault_badparams, _("The account name \2%s\2 is invalid."), account);
 			return;
 		}
 	}
 
 	if ((si->su != NULL && !strcasecmp(pass, si->su->nick)) || !strcasecmp(pass, account))
 	{
-		command_fail(si, fault_badparams, "You cannot use your nickname as a password.");
+		command_fail(si, fault_badparams, _("You cannot use your nickname as a password."));
 		if (nicksvs.no_nick_ownership || si->su == NULL)
-			command_fail(si, fault_needmoreparams, "Syntax: REGISTER <account> <password> <email>");
+			command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <account> <password> <email>"));
 		else
-			command_fail(si, fault_needmoreparams, "Syntax: REGISTER <password> <email>");
+			command_fail(si, fault_needmoreparams, _("Syntax: REGISTER <password> <email>"));
 		return;
 	}
 
 	if (!validemail(email))
 	{
-		command_fail(si, fault_badparams, "\2%s\2 is not a valid email address.", email);
+		command_fail(si, fault_badparams, _("\2%s\2 is not a valid email address."), email);
 		return;
 	}
 
 	/* make sure it isn't registered already */
 	if (nicksvs.no_nick_ownership ? myuser_find(account) != NULL : mynick_find(account) != NULL)
 	{
-		command_fail(si, fault_alreadyexists, "\2%s\2 is already registered.", account);
+		command_fail(si, fault_alreadyexists, _("\2%s\2 is already registered."), account);
 		return;
 	}
 
@@ -151,11 +151,11 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 
 	if (tcnt >= me.maxusers)
 	{
-		command_fail(si, fault_toomany, "\2%s\2 has too many nicknames registered.", email);
+		command_fail(si, fault_toomany, _("\2%s\2 has too many nicknames registered."), email);
 		return;
 	}
 
-	mu = myuser_add(account, pass, email, config_options.defuflags);
+	mu = myuser_add(account, pass, email, config_options.defuflags | MU_NOBURSTLOGIN);
 	mu->registered = CURRTIME;
 	mu->lastlogin = CURRTIME;
 	if (!nicksvs.no_nick_ownership)
@@ -175,14 +175,14 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 
 		if (!sendemail(si->su != NULL ? si->su : si->service->me, EMAIL_REGISTER, mu, key))
 		{
-			command_fail(si, fault_emailfail, "Sending email failed, sorry! Registration aborted.");
-			myuser_delete(mu);
+			command_fail(si, fault_emailfail, _("Sending email failed, sorry! Registration aborted."));
+			object_unref(mu);
 			free(key);
 			return;
 		}
 
-		command_success_nodata(si, "An email containing nickname activation instructions has been sent to \2%s\2.", mu->email);
-		command_success_nodata(si, "If you do not complete registration within one day your nickname will expire.");
+		command_success_nodata(si, _("An email containing nickname activation instructions has been sent to \2%s\2."), mu->email);
+		command_success_nodata(si, _("If you do not complete registration within one day, your nickname will expire."));
 
 		free(key);
 	}
@@ -210,8 +210,8 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 		snoop("SOPER: \2%s\2 as \2%s\2", get_oper_name(si), mu->name);
 	}
 
-	command_success_nodata(si, "\2%s\2 is now registered to \2%s\2.", mu->name, mu->email);
-	command_success_nodata(si, "The password is \2%s\2. Please write this down for future reference.", pass);
+	command_success_nodata(si, _("\2%s\2 is now registered to \2%s\2."), mu->name, mu->email);
+	command_success_nodata(si, _("The password is \2%s\2. Please write this down for future reference."), pass);
 	hook_call_event("user_register", mu);
 
 	if (si->su != NULL)
@@ -223,3 +223,9 @@ static void ns_cmd_register(sourceinfo_t *si, int parc, char *parv[])
 		metadata_add(mu, METADATA_USER, "private:host:actual", lao);
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

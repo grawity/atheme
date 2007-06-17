@@ -4,7 +4,7 @@
  *
  * Lists object properties via their metadata table.
  *
- * $Id: taxonomy.c 6617 2006-10-01 22:11:49Z jilles $
+ * $Id: taxonomy.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/taxonomy", FALSE, _modinit, _moddeinit,
-	"$Id: taxonomy.c 6617 2006-10-01 22:11:49Z jilles $",
+	"$Id: taxonomy.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_taxonomy(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_taxonomy = { "TAXONOMY", "Displays a user's metadata.", AC_NONE, 1, ns_cmd_taxonomy };
+command_t ns_taxonomy = { "TAXONOMY", N_("Displays a user's metadata."), AC_NONE, 1, ns_cmd_taxonomy };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -47,13 +47,13 @@ static void ns_cmd_taxonomy(sourceinfo_t *si, int parc, char *parv[])
 	if (!target)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "TAXONOMY");
-		command_fail(si, fault_needmoreparams, "Syntax: TAXONOMY <nick>");
+		command_fail(si, fault_needmoreparams, _("Syntax: TAXONOMY <nick>"));
 		return;
 	}
 
 	if (!(mu = myuser_find_ext(target)))
 	{
-		command_fail(si, fault_badparams, "\2%s\2 is not registered.", target);
+		command_fail(si, fault_badparams, _("\2%s\2 is not registered."), target);
 		return;
 	}
 
@@ -63,7 +63,7 @@ static void ns_cmd_taxonomy(sourceinfo_t *si, int parc, char *parv[])
 	else
 		logcommand(si, CMDLOG_GET, "TAXONOMY %s", target);
 
-	command_success_nodata(si, "Taxonomy for \2%s\2:", target);
+	command_success_nodata(si, _("Taxonomy for \2%s\2:"), target);
 
 	LIST_FOREACH(n, mu->metadata.head)
 	{
@@ -75,5 +75,11 @@ static void ns_cmd_taxonomy(sourceinfo_t *si, int parc, char *parv[])
 		command_success_nodata(si, "%-32s: %s", md->name, md->value);
 	}
 
-	command_success_nodata(si, "End of \2%s\2 taxonomy.", target);
+	command_success_nodata(si, _("End of \2%s\2 taxonomy."), target);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

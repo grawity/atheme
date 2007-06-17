@@ -6,7 +6,7 @@
  * This file contains customized casemapping functions.
  * This code was mostly lifted from ircd 2.10.
  *
- * $Id: match.c 7265 2006-11-24 22:56:04Z jilles $
+ * $Id: match.c 7839 2007-03-06 00:09:30Z pippijn $
  */
 
 #include "atheme.h"
@@ -636,3 +636,8 @@ boolean_t regex_destroy(regex_t *preg)
 	return TRUE;
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

@@ -4,7 +4,7 @@
  *
  * Message translation stuff.
  * 
- * $Id: culture.h 6803 2006-10-21 19:24:38Z nenolod $
+ * $Id: culture.h 7779 2007-03-03 13:55:42Z pippijn $
  */
 
 #ifndef CULTURE_H
@@ -26,3 +26,9 @@ E void translation_destroy(char *str);
 E void translation_init(void);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

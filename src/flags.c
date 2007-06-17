@@ -1,11 +1,16 @@
 /*
- * Copyright (c) 2005 Atheme Development Group
+ * Copyright (c) 2005-2007 Atheme Development Group
  * flags.c: Functions to convert a flags table into a bitmask.
  *
  * See doc/LICENSE for licensing information.
  */
 
 #include "atheme.h"
+
+#define FLAGS_ADD       0x1
+#define FLAGS_DEL       0x2
+
+unsigned int ca_all = CA_ALL_ALL;
 
 static char flags_buf[128];
 
@@ -30,7 +35,7 @@ struct flags_table chanacs_flags[] = {
 /* Construct bitmasks to be added and removed
  * Postcondition *addflags & *removeflags == 0
  * -- jilles */
-void flags_make_bitmasks(const char *string, struct flags_table table[], uint32_t *addflags, uint32_t *removeflags)
+void flags_make_bitmasks(const char *string, struct flags_table table[], unsigned int *addflags, unsigned int *removeflags)
 {
 	int status = FLAGS_ADD;
 	short i = 0;
@@ -63,7 +68,7 @@ void flags_make_bitmasks(const char *string, struct flags_table table[], uint32_
 				  /* If this is chanacs_flags[], remove the ban flag. */
 				  if (table == chanacs_flags)
 				  {
-					  *addflags &= CA_ALLPRIVS;
+					  *addflags &= CA_ALLPRIVS & ca_all;
 					  *removeflags |= CA_AKICK;
 				  }
 			  }
@@ -97,7 +102,7 @@ void flags_make_bitmasks(const char *string, struct flags_table table[], uint32_
 	return;
 }
 
-uint32_t flags_to_bitmask(const char *string, struct flags_table table[], uint32_t flags)
+unsigned int flags_to_bitmask(const char *string, struct flags_table table[], unsigned int flags)
 {
 	int bitmask = (flags ? flags : 0x0);
 	int status = FLAGS_ADD;
@@ -127,7 +132,7 @@ uint32_t flags_to_bitmask(const char *string, struct flags_table table[], uint32
 
 				  /* If this is chanacs_flags[], do privs only */
 				  if (table == chanacs_flags)
-					  bitmask &= CA_ALLPRIVS;
+					  bitmask &= CA_ALLPRIVS & ca_all;
 			  }
 			  else if (status == FLAGS_DEL)
 				  bitmask = 0;
@@ -150,7 +155,7 @@ uint32_t flags_to_bitmask(const char *string, struct flags_table table[], uint32
 	return bitmask;
 }
 
-char *bitmask_to_flags(uint32_t flags, struct flags_table table[])
+char *bitmask_to_flags(unsigned int flags, struct flags_table table[])
 {
 	char *bptr;
 	short i = 0;
@@ -168,7 +173,7 @@ char *bitmask_to_flags(uint32_t flags, struct flags_table table[])
 	return flags_buf;
 }
 
-char *bitmask_to_flags2(uint32_t addflags, uint32_t removeflags, struct flags_table table[])
+char *bitmask_to_flags2(unsigned int addflags, unsigned int removeflags, struct flags_table table[])
 {
 	char *bptr;
 	short i = 0;
@@ -196,7 +201,7 @@ char *bitmask_to_flags2(uint32_t addflags, uint32_t removeflags, struct flags_ta
 }
 
 /* flags a non-founder with +f and these flags is allowed to set -- jilles */
-uint32_t allow_flags(uint32_t flags)
+unsigned int allow_flags(unsigned int flags)
 {
 	flags &= ~CA_AKICK;
 	if (flags & CA_REMOVE)
@@ -209,3 +214,16 @@ uint32_t allow_flags(uint32_t flags)
 		flags |= CA_AUTOVOICE;
 	return flags;
 }
+
+void update_chanacs_flags(void)
+{
+	ca_all = CA_ALL_ALL;
+	if (!ircd->uses_halfops)
+		ca_all &= ~(CA_HALFOP | CA_AUTOHALFOP);
+}
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

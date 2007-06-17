@@ -4,26 +4,17 @@
  *
  * Module management.
  *
- * $Id: module.c 6931 2006-10-24 16:53:07Z jilles $
+ * $Id: module.c 8079 2007-04-02 17:37:39Z nenolod $
  */
 
 #include "atheme.h"
 
-#ifndef _WIN32
 #include <dlfcn.h>
-#endif
 
 static BlockHeap *module_heap;
 list_t modules;
 
 module_t *modtarget = NULL;
-
-/* Microsoft's POSIX API is a joke. */
-#ifdef _WIN32
-
-#define dlerror() ""
-
-#endif
 
 void modules_init(void)
 {
@@ -31,7 +22,7 @@ void modules_init(void)
 
 	if (!module_heap)
 	{
-		slog(LG_INFO, "modules_init(): block allocator failed.");
+		slog(LG_ERROR, "modules_init(): block allocator failed.");
 		exit(EXIT_FAILURE);
 	}
 
@@ -71,9 +62,9 @@ module_t *module_load(char *filespec)
 	if (!handle)
 	{
 		char *errp = sstrdup(dlerror());
-		slog(LG_INFO, "module_load(): error: %s", errp);
+		slog(LG_ERROR, "module_load(): error: %s", errp);
 		if (me.connected)
-			snoop("MODLOAD:ERROR: loading module \2%s\2: %s", filespec, errp);
+			snoop(_("MODLOAD:ERROR: loading module \2%s\2: %s"), filespec, errp);
 		free(errp);
 		return NULL;
 	}
@@ -88,7 +79,7 @@ module_t *module_load(char *filespec)
 		slog(LG_DEBUG, "module_load(): %s: Attempted to load an incompatible module. Aborting.", filespec);
 
 		if (me.connected)
-			snoop("MODLOAD:ERROR: Module \2%s\2 is not a valid atheme module.", filespec);
+			snoop(_("MODLOAD:ERROR: Module \2%s\2 is not a valid atheme module."), filespec);
 
 		linker_close(handle);
 		return NULL;
@@ -123,9 +114,9 @@ module_t *module_load(char *filespec)
 
 	if (m->mflags & MODTYPE_FAIL)
 	{
-		slog(LG_INFO, "module_load(): module %s init failed", filespec);
+		slog(LG_ERROR, "module_load(): module %s init failed", filespec);
 		if (me.connected)
-			snoop("MODLOAD:ERROR: Init failed while loading module \2%s\2", filespec);
+			snoop(_("MODLOAD:ERROR: Init failed while loading module \2%s\2"), filespec);
 		module_unload(m);
 		return NULL;
 	}
@@ -137,8 +128,8 @@ module_t *module_load(char *filespec)
 
 	if (me.connected && !cold_start)
 	{
-		wallops("Module %s loaded [at 0x%lx; MAPI version %d]", h->name, m->address, h->abi_ver);
-		snoop("MODLOAD: \2%s\2 [at 0x%lx; MAPI version %d]", h->name, m->address, h->abi_ver);
+		wallops(_("Module %s loaded [at 0x%lx; MAPI version %d]"), h->name, m->address, h->abi_ver);
+		snoop(_("MODLOAD: \2%s\2 [at 0x%lx; MAPI version %d]"), h->name, m->address, h->abi_ver);
 	}
 
 	return m;
@@ -166,7 +157,7 @@ void module_load_dir(char *dirspec)
 
 	if (!module_dir)
 	{
-		slog(LG_INFO, "module_load_dir(): %s: %s", dirspec, strerror(errno));
+		slog(LG_ERROR, "module_load_dir(): %s: %s", dirspec, strerror(errno));
 		return;
 	}
 
@@ -205,7 +196,7 @@ void module_load_dir_match(char *dirspec, char *pattern)
 
 	if (!module_dir)
 	{
-		slog(LG_INFO, "module_load_dir(): %s: %s", dirspec, strerror(errno));
+		slog(LG_ERROR, "module_load_dir(): %s: %s", dirspec, strerror(errno));
 		return;
 	}
 
@@ -262,7 +253,7 @@ void module_unload(module_t * m)
 		slog(LG_INFO, "module_unload(): unloaded %s", m->header->name);
 		if (me.connected)
 		{
-			wallops("Module %s unloaded.", m->header->name);
+			wallops(_("Module %s unloaded."), m->header->name);
 			snoop("MODUNLOAD: \2%s\2", m->header->name);
 		}
 
@@ -367,3 +358,9 @@ module_t *module_find_published(char *name)
 
 	return NULL;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

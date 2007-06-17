@@ -4,7 +4,7 @@
  *
  * XMLRPC memo management functions.
  *
- * $Id: memo.c 6665 2006-10-05 23:45:09Z jilles $
+ * $Id: memo.c 8331 2007-05-27 14:13:44Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"xmlrpc/memo", FALSE, _modinit, _moddeinit,
-	"$Id: memo.c 6665 2006-10-05 23:45:09Z jilles $",
+	"$Id: memo.c 8331 2007-05-27 14:13:44Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -138,7 +138,7 @@ static int memo_send(void *conn, int parc, char *parv[])
 
 	memo = smalloc(sizeof(mymemo_t));
 	memo->sent = CURRTIME;
-	memo->status = MEMO_NEW;
+	memo->status = 0;
 	strlcpy (memo->sender, mu->name, NICKLEN);
 	strlcpy (memo->text, m, MEMOLEN);
 
@@ -183,7 +183,7 @@ static int memo_forward(void *conn, int parc, char *parv[])
 	myuser_t *mu = u->myuser, *tmu = NULL;
 	mymemo_t *memo = NULL, *forward = NULL;
 	node_t *n = NULL;
-	uint8_t i = 1, memonum = atoi(parv[3]);
+	unsigned int i = 1, memonum = atoi(parv[3]);
 	static char buf[XMLRPC_BUFSIZE] = "";
 
 	*buf = '\0';
@@ -280,7 +280,7 @@ static int memo_forward(void *conn, int parc, char *parv[])
 
 			/* Duplicate memo */
 			memo->sent = CURRTIME;
-			memo->status = MEMO_NEW;
+			memo->status = 0;
 			strlcpy (forward->sender, mu->name, NICKLEN);
 			strlcpy (forward->text, memo->text, MEMOLEN);
 
@@ -325,7 +325,7 @@ static int memo_delete(void *conn, int parc, char *parv[])
 	myuser_t *mu;
 	mymemo_t *memo = NULL;
 	node_t *n = NULL, *tn = NULL;
-	uint8_t i = 0, delcount = 0, memonum = 0, deleteall = 0;
+	unsigned int i = 0, delcount = 0, memonum = 0, deleteall = 0;
 	static char buf[XMLRPC_BUFSIZE] = "";
 
 	*buf = '\0';
@@ -384,7 +384,7 @@ static int memo_delete(void *conn, int parc, char *parv[])
 			
 			memo = (mymemo_t*) n->data;
 			
-			if (memo->status == MEMO_NEW)
+			if (!(memo->status & MEMO_READ))
 				mu->memoct_new--; /* Decrease memocount */
 			
 			node_del(n,&mu->memos);
@@ -421,7 +421,7 @@ static int memo_list(void *conn, int parc, char *parv[])
 	myuser_t *mu;
 	mymemo_t *memo = NULL;
 	node_t *n = NULL;
-	uint8_t i = 0;
+	unsigned int i = 0;
 	char timebuf[16] = "", memobuf[64] = "", sendbuf[XMLRPC_BUFSIZE - 1] = "";
 	struct tm memotime;
 	static char buf[XMLRPC_BUFSIZE] = "";
@@ -470,7 +470,7 @@ static int memo_list(void *conn, int parc, char *parv[])
 		memotime = *localtime(&memo->sent);
 		snprintf(timebuf, 16, "%lu", (long unsigned) mktime(&memotime));
 		
-		if (memo->status == MEMO_NEW)
+		if (!(memo->status & MEMO_READ))
 			snprintf(memobuf, 64, "%d:%s:%s:1\n", i, memo->sender, timebuf);
 		else
 			snprintf(memobuf, 64, "%d:%s:%s:0\n", i, memo->sender, timebuf);
@@ -505,7 +505,7 @@ static int memo_read(void *conn, int parc, char *parv[])
 	myuser_t *mu;
 	mymemo_t *memo = NULL, *receipt = NULL;
 	node_t *n = NULL;
-	uint32_t i = 1, memonum = 0;
+	unsigned int i = 1, memonum = 0;
 	struct tm memotime;
 	char timebuf[16] = "", sendbuf[XMLRPC_BUFSIZE - 1] = "", strfbuf[32] = "";
 	static char buf[XMLRPC_BUFSIZE] = "";
@@ -556,20 +556,22 @@ static int memo_read(void *conn, int parc, char *parv[])
 			strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &memotime);
 
 			/* If the memo is unread, */
-			if (memo->status == MEMO_NEW)
+			if (!(memo->status & MEMO_READ))
 			{
 				/* mark it as read */
-				memo->status = MEMO_READ;
+				memo->status |= MEMO_READ;
 				/* and decrease "new memos" count */
 				mu->memoct_new--;
 				mu = myuser_find(memo->sender);
 
 				/* If the sender's inbox is not full and is not MemoServ */
-				if ((mu != NULL) && (mu->memos.count < me.mdlimit) && strcasecmp(memosvs.nick, memo->sender))
+				if (memo->status & MEMO_CHANNEL)
+					;
+				else if ((mu != NULL) && (mu->memos.count < me.mdlimit) && strcasecmp(memosvs.nick, memo->sender))
 				{       
 					receipt = smalloc(sizeof(mymemo_t));
 					receipt->sent = CURRTIME;
-					receipt->status = MEMO_NEW;
+					receipt->status = 0;
 					strlcpy(receipt->sender, memosvs.nick, NICKLEN);
 					snprintf(receipt->text, MEMOLEN, "%s has read a memo from you sent at %s", mu->name, strfbuf);
 
@@ -837,7 +839,7 @@ static int memo_ignore_list(void *conn, int parc, char *parv[])
 	/* Define and initialise structs and variables */
 	myuser_t *mu;
 	node_t *n;
-	uint8_t i = 1;
+	unsigned int i = 1;
 	char sendbuf[XMLRPC_BUFSIZE - 1] = "", ignorebuf[64] = "";
 	static char buf[XMLRPC_BUFSIZE] = "";
 
@@ -909,3 +911,9 @@ void _moddeinit(void)
 	xmlrpc_unregister_method("atheme.memo.ignore.clear");
 	xmlrpc_unregister_method("atheme.memo.ignore.list");
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

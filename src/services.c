@@ -4,7 +4,7 @@
  *
  * This file contains client interaction routines.
  *
- * $Id: services.c 7377 2006-12-16 15:59:44Z jilles $
+ * $Id: services.c 8431 2007-06-12 20:33:07Z jilles $
  */
 
 #include "atheme.h"
@@ -40,7 +40,7 @@ int ban(user_t *sender, channel_t *c, user_t *user)
 
 	chanban_add(c, mask, 'b');
 
-	mode_sts(sender->nick, c->name, modemask);
+	mode_sts(sender->nick, c, modemask);
 	return 1;
 }
 
@@ -73,7 +73,7 @@ int remove_ban_exceptions(user_t *source, channel_t *chan, user_t *target)
 		if (!match(cb->mask, hostbuf) || !match(cb->mask, hostbuf2) || !match(cb->mask, hostbuf3) || !match_cidr(cb->mask, hostbuf3))
 		{
 			snprintf(change, sizeof change, "-%c %s", e, cb->mask);
-			mode_sts(source->nick, chan->name, change);
+			mode_sts(source->nick, chan, change);
 			chanban_delete(cb);
 			count++;
 		}
@@ -113,7 +113,7 @@ void join(char *chan, char *nick)
 		}
 		else
 			ts = CURRTIME;
-		c = channel_add(chan, ts);
+		c = channel_add(chan, ts, me.me);
 		c->modes |= CMODE_NOEXT | CMODE_TOPIC;
 		if (mc != NULL)
 			check_modes(mc, FALSE);
@@ -124,9 +124,30 @@ void join(char *chan, char *nick)
 		slog(LG_DEBUG, "join(): i'm already in `%s'", c->name);
 		return;
 	}
+	join_sts(c, u, isnew, channel_modes(c, TRUE));
 	cu = chanuser_add(c, CLIENT_NAME(u));
 	cu->modes |= CMODE_OP;
-	join_sts(c, u, isnew, channel_modes(c, TRUE));
+	if (isnew)
+	{
+		hook_call_event("channel_add", c);
+		if (config_options.chan != NULL && !irccasecmp(config_options.chan, c->name))
+			joinall(config_options.chan);
+	}
+}
+
+/* part a channel */
+void part(char *chan, char *nick)
+{
+	channel_t *c = channel_find(chan);
+	user_t *u = user_find_named(nick);
+
+	if (!u || !c)
+		return;
+	if (!chanuser_find(c, u))
+		return;
+	if (me.connected)
+		part_sts(c, u);
+	chanuser_delete(c, u);
 }
 
 void services_init(void)
@@ -184,7 +205,6 @@ void reintroduce_user(user_t *u)
 {
 	node_t *n;
 	channel_t *c;
-	/*char chname[256];*/
 	service_t *svs;
 
 	svs = find_service(u->nick);
@@ -206,12 +226,7 @@ void reintroduce_user(user_t *u)
 			chanban_clear(c);
 			join_sts(c, u, 1, channel_modes(c, TRUE));
 			if (c->topic != NULL)
-				topic_sts(c->name, c->topic_setter, c->topicts, c->topic);
-#if 0
-			strlcpy(chname, c->name, sizeof chname);
-			chanuser_delete(c, u);
-			join(chname, u->nick);
-#endif
+				topic_sts(c, c->topic_setter, c->topicts, 0, c->topic);
 		}
 	}
 }
@@ -259,13 +274,12 @@ void snoop(char *fmt, ...)
 void handle_nickchange(user_t *u)
 {
 	mynick_t *mn;
-	node_t *n;
+	hook_nick_enforce_t hdata;
 
 	if (u == NULL)
 		return;
 
-	if ((log_force || (me.loglevel & (LG_DEBUG | LG_RAWDATA))) &&
-			runflags & RF_LIVE)
+	if (runflags & RF_LIVE && log_debug_enabled())
 		notice(globsvs.nick, u->nick, "Services are presently running in debug mode, attached to a console. You should take extra caution when utilizing your services passwords.");
 
 	/* Only do the following checks if nicks are considered owned -- jilles */
@@ -310,11 +324,15 @@ void handle_nickchange(user_t *u)
 		return;
 	}
 
-	notice(nicksvs.nick, u->nick, "This nickname is registered. Please choose a different nickname, or identify via \2/%s%s identify <password>\2.",
+	notice(nicksvs.nick, u->nick, _("This nickname is registered. Please choose a different nickname, or identify via \2/%s%s identify <password>\2."),
 	       (ircd->uses_rcommand == FALSE) ? "msg " : "", nicksvs.disp);
+	hdata.u = u;
+	hdata.mn = mn;
+	hook_call_event("nick_enforce", &hdata);
 }
 
-/* User u is bursted as being logged in to login
+/* User u is bursted as being logged in to login (if not NULL) or as
+ * being identified to their current nick (if login is NULL)
  * Update the administration or log them out on ircd
  * How to use this in protocol modules:
  * 1. if login info is bursted in a command that always occurs, call
@@ -327,11 +345,19 @@ void handle_nickchange(user_t *u)
  */
 void handle_burstlogin(user_t *u, char *login)
 {
+	mynick_t *mn;
 	myuser_t *mu;
 	node_t *n;
 
-	/* don't allow alias nicks here -- jilles */
-	mu = myuser_find(login);
+	if (login != NULL)
+		/* don't allow alias nicks here -- jilles */
+		mu = myuser_find(login);
+	else
+	{
+		mn = mynick_find(u->nick);
+		mu = mn != NULL ? mn->owner : NULL;
+		login = mu != NULL ? mu->name : u->nick;
+	}
 	if (mu == NULL)
 	{
 		/* account dropped during split...
@@ -339,13 +365,23 @@ void handle_burstlogin(user_t *u, char *login)
 		slog(LG_DEBUG, "handle_burstlogin(): got nonexistent login %s for user %s", login, u->nick);
 		if (authservice_loaded)
 		{
-			notice(nicksvs.nick ? nicksvs.nick : me.name, u->nick, "Account %s dropped, forcing logout", login);
+			notice(nicksvs.nick ? nicksvs.nick : me.name, u->nick, _("Account %s dropped, forcing logout"), login);
 			ircd_on_logout(u->nick, login, NULL);
 		}
 		return;
 	}
 	if (u->myuser != NULL)	/* already logged in, hmm */
 		return;
+	if (mu->flags & MU_NOBURSTLOGIN && authservice_loaded)
+	{
+		/* no splits for this account, this bursted login cannot
+		 * be legit...
+		 * if we have an authentication service, log them out */
+		slog(LG_INFO, "handle_burstlogin(): got illegit login %s for user %s", login, u->nick);
+		notice(nicksvs.nick ? nicksvs.nick : me.name, u->nick, _("Login to account %s seems invalid, forcing logout"), login);
+		ircd_on_logout(u->nick, login, NULL);
+		return;
+	}
 	u->myuser = mu;
 	n = node_create();
 	node_add(u, n, &mu->logins);
@@ -453,43 +489,15 @@ void command_success_string(sourceinfo_t *si, const char *result, const char *fm
 		notice_user_sts(si->service->me, si->su, buf);
 }
 
-#if 0
-/* TBD */
-void command_success_struct(sourceinfo_t *si, char *name, char *value)
+static void command_table_cb(const char *line, void *data)
 {
-	const char *name1 = translation_get(name);
-
-	if (config_options.use_privmsg)
-		msg(si->service->name, si->su->nick, "%-16s: %s", name, value);
-	else
-		notice_user_sts(si->service->me, si->su, buf);
+	command_success_nodata(data, "%s", line);
 }
 
-void command_success_table_init(sourceinfo_t *si, int count, ...)
+void command_success_table(sourceinfo_t *si, table_t *table)
 {
-	va_list args;
-	char *name, *name1;
-	char buf[BUFSIZE];
-	int i;
-	int size;
-
-	va_start(args, count);
-	buf[0] = '\0';
-	for (i = 0; i < count; i++)
-	{
-		name = va_arg(args, char *);
-		name1 = translation_get(name);
-		size = va_arg(args, int);
-		snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
-				"%-*s ", size, name1);
-	}
-	va_end(args);
-	if (config_options.use_privmsg)
-		msg(si->service->name, si->su->nick, "%s", buf);
-	else
-		notice_user_sts(si->service->me, si->su, buf);
+	table_render(table, command_table_cb, si);
 }
-#endif
 
 const char *get_source_name(sourceinfo_t *si)
 {
@@ -570,7 +578,10 @@ void wallops(char *fmt, ...)
 	vsnprintf(buf, BUFSIZE, translation_get(fmt), args);
 	va_end(args);
 
-	wallops_sts(buf);
+	if (me.me != NULL && me.connected)
+		wallops_sts(buf);
+	else
+		slog(LG_ERROR, "wallops(): unable to send: %s", buf);
 }
 
 void verbose_wallops(char *fmt, ...)
@@ -585,5 +596,14 @@ void verbose_wallops(char *fmt, ...)
 	vsnprintf(buf, BUFSIZE, translation_get(fmt), args);
 	va_end(args);
 
-	wallops_sts(buf);
+	if (me.me != NULL && me.connected)
+		wallops_sts(buf);
+	else
+		slog(LG_ERROR, "verbose_wallops(): unable to send: %s", buf);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

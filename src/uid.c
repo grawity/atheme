@@ -4,17 +4,17 @@
  *
  * Hybrid's UID code, adopted to be as generic as possible.
  *
- * $Id: uid.c 6085 2006-08-16 17:46:26Z jilles $
+ * $Id: uid.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
 
 static char new_uid[9];		/* allow for \0 */
-static uint32_t uindex = 0;
+static unsigned int uindex = 0;
 
 void init_uid(void)
 {
-	uint32_t i;
+	unsigned int i;
 	char buf[BUFSIZE];
 
 	if (ircd->uses_p10 == TRUE)
@@ -41,7 +41,7 @@ void init_uid(void)
 		new_uid[i] = 'A';
 }
 
-static void add_one_to_uid(uint32_t i)
+static void add_one_to_uid(unsigned int i)
 {
 	if (i != strlen(me.numeric))	/* Not reached server SID portion yet? */
 	{
@@ -71,3 +71,8 @@ char *uid_get(void)
 	return (new_uid);
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

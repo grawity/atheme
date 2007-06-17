@@ -4,7 +4,7 @@
  *
  * This file contains functionality which implements the OService SPECS command.
  *
- * $Id: specs.c 7167 2006-11-15 17:54:46Z jilles $
+ * $Id: specs.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/specs", FALSE, _modinit, _moddeinit,
-	"$Id: specs.c 7167 2006-11-15 17:54:46Z jilles $",
+	"$Id: specs.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_specs(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_specs = { "SPECS", "Shows oper flags.", AC_NONE, 2, os_cmd_specs };
+command_t os_specs = { "SPECS", N_("Shows oper flags."), AC_NONE, 2, os_cmd_specs };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -46,8 +46,10 @@ struct
 {
 	/* NickServ/UserServ */
 	{ PRIV_USER_AUSPEX, "view concealed information", NULL, NULL, NULL },
-	{ PRIV_USER_ADMIN, "drop accounts, freeze accounts, reset passwords, send passwords", NULL, NULL, NULL },
+	{ PRIV_USER_ADMIN, "drop accounts, freeze accounts, reset passwords", NULL, NULL, NULL },
+	{ PRIV_USER_SENDPASS, "send passwords", NULL, NULL, NULL },
 	{ PRIV_USER_VHOST, "set vhosts", NULL, NULL, NULL },
+	{ PRIV_USER_FREGISTER, "register accounts on behalf of another user", NULL, NULL, NULL },
 	/* ChanServ */
 	{ PRIV_CHAN_AUSPEX, NULL, "view concealed information", NULL, NULL },
 	{ PRIV_CHAN_ADMIN, NULL, "drop channels, close channels, transfer ownership", NULL, NULL },
@@ -86,7 +88,7 @@ static void os_cmd_specs(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!has_any_privs(si))
 	{
-		command_fail(si, fault_noprivs, "You are not authorized to use %s.", opersvs.nick);
+		command_fail(si, fault_noprivs, _("You are not authorized to use %s."), opersvs.nick);
 		return;
 	}
 
@@ -94,7 +96,7 @@ static void os_cmd_specs(sourceinfo_t *si, int parc, char *parv[])
 	{
 		if (!has_priv(si, PRIV_VIEWPRIVS))
 		{
-			command_fail(si, fault_noprivs, "You do not have %s privilege.", PRIV_VIEWPRIVS);
+			command_fail(si, fault_noprivs, _("You do not have %s privilege."), PRIV_VIEWPRIVS);
 			return;
 		}
 		if (target == NULL)
@@ -104,17 +106,17 @@ static void os_cmd_specs(sourceinfo_t *si, int parc, char *parv[])
 			tu = user_find_named(target);
 			if (tu == NULL)
 			{
-				command_fail(si, fault_nosuch_target, "\2%s\2 is not on IRC.", target);
+				command_fail(si, fault_nosuch_target, _("\2%s\2 is not on IRC."), target);
 				return;
 			}
 			if (!has_any_privs_user(tu))
 			{
-				command_success_nodata(si, "\2%s\2 is unprivileged.", tu->nick);
+				command_success_nodata(si, _("\2%s\2 is unprivileged."), tu->nick);
 				return;
 			}
 			if (is_internal_client(tu))
 			{
-				command_fail(si, fault_noprivs, "\2%s\2 is an internal client.", tu->nick);
+				command_fail(si, fault_noprivs, _("\2%s\2 is an internal client."), tu->nick);
 				return;
 			}
 		}
@@ -123,13 +125,13 @@ static void os_cmd_specs(sourceinfo_t *si, int parc, char *parv[])
 			cl = operclass_find(target);
 			if (cl == NULL)
 			{
-				command_fail(si, fault_nosuch_target, "No such oper class \2%s\2.", target);
+				command_fail(si, fault_nosuch_target, _("No such oper class \2%s\2."), target);
 				return;
 			}
 		}
 		else
 		{
-			command_fail(si, fault_badparams, "Valid target types: USER, OPERCLASS.");
+			command_fail(si, fault_badparams, _("Valid target types: USER, OPERCLASS."));
 			return;
 		}
 	}
@@ -171,21 +173,21 @@ static void os_cmd_specs(sourceinfo_t *si, int parc, char *parv[])
 	}
 
 	if (targettype == NULL)
-		command_success_nodata(si, "Privileges for \2%s\2:", get_source_name(si));
+		command_success_nodata(si, _("Privileges for \2%s\2:"), get_source_name(si));
 	else if (tu)
-		command_success_nodata(si, "Privileges for \2%s\2:", tu->nick);
+		command_success_nodata(si, _("Privileges for \2%s\2:"), tu->nick);
 	else
-		command_success_nodata(si, "Privileges for oper class \2%s\2:", cl->name);
+		command_success_nodata(si, _("Privileges for oper class \2%s\2:"), cl->name);
 
 	if (*nprivs)
-		command_success_nodata(si, "\2Nicknames/accounts\2: %s", nprivs);
+		command_success_nodata(si, _("\2Nicknames/accounts\2: %s"), nprivs);
 	if (*cprivs)
-		command_success_nodata(si, "\2Channels\2: %s", cprivs);
+		command_success_nodata(si, _("\2Channels\2: %s"), cprivs);
 	if (*gprivs)
-		command_success_nodata(si, "\2General\2: %s", gprivs);
+		command_success_nodata(si, _("\2General\2: %s"), gprivs);
 	if (*oprivs)
-		command_success_nodata(si, "\2OperServ\2: %s", oprivs);
-	command_success_nodata(si, "End of privileges");
+		command_success_nodata(si, _("\2OperServ\2: %s"), oprivs);
+	command_success_nodata(si, _("End of privileges"));
 
 	if (targettype == NULL)
 		logcommand(si, CMDLOG_ADMIN, "SPECS");
@@ -194,3 +196,9 @@ static void os_cmd_specs(sourceinfo_t *si, int parc, char *parv[])
 	else
 		logcommand(si, CMDLOG_ADMIN, "SPECS OPERCLASS %s", cl->name);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

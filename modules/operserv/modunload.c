@@ -4,7 +4,7 @@
  *
  * Removes a module from memory.
  *
- * $Id: modunload.c 6927 2006-10-24 15:22:05Z jilles $
+ * $Id: modunload.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modunload", FALSE, _modinit, _moddeinit,
-	"$Id: modunload.c 6927 2006-10-24 15:22:05Z jilles $",
+	"$Id: modunload.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_modunload(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_modunload = { "MODUNLOAD", "Unloads a module.", PRIV_ADMIN, 20, os_cmd_modunload };
+command_t os_modunload = { "MODUNLOAD", N_("Unloads a module."), PRIV_ADMIN, 20, os_cmd_modunload };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -48,7 +48,7 @@ static void os_cmd_modunload(sourceinfo_t *si, int parc, char *parv[])
 	if (parc < 1)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MODUNLOAD");
-		command_fail(si, fault_needmoreparams, "Syntax: MODUNLOAD <module...>");
+		command_fail(si, fault_needmoreparams, _("Syntax: MODUNLOAD <module...>"));
 		return;
 	}
 	i = 0;
@@ -59,8 +59,7 @@ static void os_cmd_modunload(sourceinfo_t *si, int parc, char *parv[])
 
 		if (!m)
 		{
-			command_fail(si, fault_nosuch_target, "\2%s\2 is not loaded; "
-					"it cannot be unloaded.", module);
+			command_fail(si, fault_nosuch_target, _("\2%s\2 is not loaded; it cannot be unloaded."), module);
 			continue;
 		}
 
@@ -68,14 +67,13 @@ static void os_cmd_modunload(sourceinfo_t *si, int parc, char *parv[])
 		{
 			slog(LG_INFO, "%s tried to unload a permanent module",
 				get_oper_name(si));
-			command_fail(si, fault_noprivs, "\2%s\2 is an permanent module; "
-					"it cannot be unloaded.", module);
+			command_fail(si, fault_noprivs, _("\2%s\2 is an permanent module; it cannot be unloaded."), module);
 			continue;
 		}
 
 		if (!strcmp(m->header->name, "operserv/main") || !strcmp(m->header->name, "operserv/modload") || !strcmp(m->header->name, "operserv/modunload"))
 		{
-			command_fail(si, fault_noprivs, "Refusing to unload \2%s\2.",
+			command_fail(si, fault_noprivs, _("Refusing to unload \2%s\2."),
 					module);
 			continue;
 		}
@@ -83,6 +81,12 @@ static void os_cmd_modunload(sourceinfo_t *si, int parc, char *parv[])
 		module_unload(m);
 
 		logcommand(si, CMDLOG_ADMIN, "MODUNLOAD %s", module);
-		command_success_nodata(si, "Module \2%s\2 unloaded.", module);
+		command_success_nodata(si, _("Module \2%s\2 unloaded."), module);
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

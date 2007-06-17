@@ -4,7 +4,7 @@
  *
  * Dynamic services operator privileges
  *
- * $Id: soper.c 7225 2006-11-19 15:44:42Z jilles $
+ * $Id: soper.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/soper", FALSE, _modinit, _moddeinit,
-	"$Id: soper.c 7225 2006-11-19 15:44:42Z jilles $",
+	"$Id: soper.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -22,12 +22,12 @@ static void os_cmd_soper_listclass(sourceinfo_t *si, int parc, char *parv[]);
 static void os_cmd_soper_add(sourceinfo_t *si, int parc, char *parv[]);
 static void os_cmd_soper_del(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_soper = { "SOPER", "Shows and changes services operator privileges.", AC_NONE, 3, os_cmd_soper };
+command_t os_soper = { "SOPER", N_("Shows and changes services operator privileges."), AC_NONE, 3, os_cmd_soper };
 
-command_t os_soper_list = { "LIST", "Lists services operators.", PRIV_VIEWPRIVS, 0, os_cmd_soper_list };
-command_t os_soper_listclass = { "LISTCLASS", "Lists operclasses.", PRIV_VIEWPRIVS, 0, os_cmd_soper_listclass };
-command_t os_soper_add = { "ADD", "Grants services operator privileges to an account.", PRIV_GRANT, 2, os_cmd_soper_add };
-command_t os_soper_del = { "DEL", "Removes services operator privileges from an account.", PRIV_GRANT, 1, os_cmd_soper_del };
+command_t os_soper_list = { "LIST", N_("Lists services operators."), PRIV_VIEWPRIVS, 0, os_cmd_soper_list };
+command_t os_soper_listclass = { "LISTCLASS", N_("Lists operclasses."), PRIV_VIEWPRIVS, 0, os_cmd_soper_listclass };
+command_t os_soper_add = { "ADD", N_("Grants services operator privileges to an account."), PRIV_GRANT, 2, os_cmd_soper_add };
+command_t os_soper_del = { "DEL", N_("Removes services operator privileges from an account."), PRIV_GRANT, 1, os_cmd_soper_del };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -64,21 +64,21 @@ static void os_cmd_soper(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!has_any_privs(si))
 	{
-		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
 		return;
 	}
 
 	if (parc < 1)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "SOPER");
-		command_fail(si, fault_needmoreparams, "Syntax: SOPER LIST|LISTCLASS|ADD|DEL [account] [operclass]");
+		command_fail(si, fault_needmoreparams, _("Syntax: SOPER LIST|LISTCLASS|ADD|DEL [account] [operclass]"));
 		return;
 	}
 
 	c = command_find(&os_soper_cmds, parv[0]);
 	if (c == NULL)
 	{
-		command_fail(si, fault_badparams, "Invalid command. Use \2/%s%s help\2 for a command listing.", (ircd->uses_rcommand == FALSE) ? "msg " : "", si->service->disp);
+		command_fail(si, fault_badparams, _("Invalid command. Use \2/%s%s help\2 for a command listing."), (ircd->uses_rcommand == FALSE) ? "msg " : "", si->service->disp);
 		return;
 	}
 
@@ -92,7 +92,7 @@ static void os_cmd_soper_list(sourceinfo_t *si, int parc, char *parv[])
 	const char *typestr;
 
 	logcommand(si, CMDLOG_GET, "SOPER LIST");
-	command_success_nodata(si, "%-20s %-5s %-20s", "Account", "Type", "Operclass");
+	command_success_nodata(si, "%-20s %-5s %-20s", _("Account"), _("Type"), _("Operclass"));
 	command_success_nodata(si, "%-20s %-5s %-20s", "--------------------", "-----", "--------------------");
 	LIST_FOREACH(n, soperlist.head)
 	{
@@ -109,17 +109,16 @@ static void os_cmd_soper_list(sourceinfo_t *si, int parc, char *parv[])
 				soper->classname);
 	}
 	command_success_nodata(si, "%-20s %-5s %-20s", "--------------------", "-----", "--------------------");
-	command_success_nodata(si, "End of services operator list");
+	command_success_nodata(si, _("End of services operator list"));
 }
 
 static void os_cmd_soper_listclass(sourceinfo_t *si, int parc, char *parv[])
 {
 	node_t *n;
 	operclass_t *operclass;
-	const char *typestr;
 
 	logcommand(si, CMDLOG_GET, "SOPER LISTCLASS");
-	command_success_nodata(si, "Oper class list:");
+	command_success_nodata(si, _("Oper class list:"));
 	LIST_FOREACH(n, operclasslist.head)
 	{
 		operclass = n->data;
@@ -128,7 +127,7 @@ static void os_cmd_soper_listclass(sourceinfo_t *si, int parc, char *parv[])
 				operclass->flags & OPERCLASS_NEEDOPER ? '*' : ' ',
 				operclass->name);
 	}
-	command_success_nodata(si, "End of oper class list");
+	command_success_nodata(si, _("End of oper class list"));
 }
 
 static void os_cmd_soper_add(sourceinfo_t *si, int parc, char *parv[])
@@ -139,43 +138,43 @@ static void os_cmd_soper_add(sourceinfo_t *si, int parc, char *parv[])
 	if (parc < 2)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "SOPER ADD");
-		command_fail(si, fault_needmoreparams, "Syntax: SOPER ADD <account> <operclass>");
+		command_fail(si, fault_needmoreparams, _("Syntax: SOPER ADD <account> <operclass>"));
 		return;
 	}
 
 	mu = myuser_find_ext(parv[0]);
 	if (mu == NULL)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", parv[0]);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), parv[0]);
 		return;
 	}
 
 	if (is_conf_soper(mu))
 	{
-		command_fail(si, fault_noprivs, "You may not modify \2%s\2's operclass as it is defined in the configuration file.", mu->name);
+		command_fail(si, fault_noprivs, _("You may not modify \2%s\2's operclass as it is defined in the configuration file."), mu->name);
 		return;
 	}
 
 	operclass = operclass_find(parv[1]);
 	if (operclass == NULL)
 	{
-		command_fail(si, fault_nosuch_target, "No such oper class \2%s\2.", parv[1]);
+		command_fail(si, fault_nosuch_target, _("No such oper class \2%s\2."), parv[1]);
 		return;
 	}
 	else if (mu->soper != NULL && mu->soper->operclass == operclass)
 	{
-		command_fail(si, fault_nochange, "Oper class for \2%s\2 is already set to \2%s\2.", mu->name, operclass->name);
+		command_fail(si, fault_nochange, _("Oper class for \2%s\2 is already set to \2%s\2."), mu->name, operclass->name);
 		return;
 	}
 
 	if (!has_all_operclass(si, operclass))
 	{
-		command_fail(si, fault_noprivs, "Oper class \2%s\2 has more privileges than you.", operclass->name);
+		command_fail(si, fault_noprivs, _("Oper class \2%s\2 has more privileges than you."), operclass->name);
 		return;
 	}
 	else if (mu->soper != NULL && mu->soper->operclass != NULL && !has_all_operclass(si, mu->soper->operclass))
 	{
-		command_fail(si, fault_noprivs, "Oper class for \2%s\2 is set to \2%s\2 which you are not authorized to change.",
+		command_fail(si, fault_noprivs, _("Oper class for \2%s\2 is set to \2%s\2 which you are not authorized to change."),
 				mu->name, mu->soper->operclass->name);
 		return;
 	}
@@ -187,42 +186,41 @@ static void os_cmd_soper_add(sourceinfo_t *si, int parc, char *parv[])
 	if (is_soper(mu))
 		soper_delete(mu->soper);
 	soper_add(mu->name, operclass->name, 0);
-	command_success_nodata(si, "Set class for \2%s\2 to \2%s\2.", mu->name, operclass->name);
+	command_success_nodata(si, _("Set class for \2%s\2 to \2%s\2."), mu->name, operclass->name);
 }
 
 static void os_cmd_soper_del(sourceinfo_t *si, int parc, char *parv[])
 {
 	myuser_t *mu;
-	operclass_t *operclass;
 
 	if (parc < 1)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "SOPER DEL");
-		command_fail(si, fault_needmoreparams, "Syntax: SOPER DEL <account>");
+		command_fail(si, fault_needmoreparams, _("Syntax: SOPER DEL <account>"));
 		return;
 	}
 
 	mu = myuser_find_ext(parv[0]);
 	if (mu == NULL)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", parv[0]);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), parv[0]);
 		return;
 	}
 
 	if (is_conf_soper(mu))
 	{
-		command_fail(si, fault_noprivs, "You may not modify \2%s\2's operclass as it is defined in the configuration file.", mu->name);
+		command_fail(si, fault_noprivs, _("You may not modify \2%s\2's operclass as it is defined in the configuration file."), mu->name);
 		return;
 	}
 
 	if (!is_soper(mu))
 	{
-		command_fail(si, fault_nochange, "\2%s\2 does not have an operclass set.", mu->name);
+		command_fail(si, fault_nochange, _("\2%s\2 does not have an operclass set."), mu->name);
 		return;
 	}
 	else if (mu->soper->operclass != NULL && !has_all_operclass(si, mu->soper->operclass))
 	{
-		command_fail(si, fault_noprivs, "Oper class for \2%s\2 is set to \2%s\2 which you are not authorized to change.",
+		command_fail(si, fault_noprivs, _("Oper class for \2%s\2 is set to \2%s\2 which you are not authorized to change."),
 				mu->name, mu->soper->operclass->name);
 		return;
 	}
@@ -232,5 +230,11 @@ static void os_cmd_soper_del(sourceinfo_t *si, int parc, char *parv[])
 	snoop("SOPER:DELETE: \2%s\2 by \2%s\2", mu->name, get_oper_name(si));
 	logcommand(si, CMDLOG_ADMIN, "SOPER DEL %s", mu->name);
 	soper_delete(mu->soper);
-	command_success_nodata(si, "Removed class for \2%s\2.", mu->name);
+	command_success_nodata(si, _("Removed class for \2%s\2."), mu->name);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

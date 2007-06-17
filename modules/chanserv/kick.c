@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService KICK functions.
  *
- * $Id: kick.c 6727 2006-10-20 18:48:53Z jilles $
+ * $Id: kick.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,16 +12,16 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/kick", FALSE, _modinit, _moddeinit,
-	"$Id: kick.c 6727 2006-10-20 18:48:53Z jilles $",
+	"$Id: kick.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_kick(sourceinfo_t *si, int parc, char *parv[]);
 static void cs_cmd_kickban(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_kick = { "KICK", "Removes a user from a channel.",
+command_t cs_kick = { "KICK", N_("Removes a user from a channel."),
                         AC_NONE, 3, cs_cmd_kick };
-command_t cs_kickban = { "KICKBAN", "Removes and bans a user from a channel.",
+command_t cs_kickban = { "KICKBAN", N_("Removes and bans a user from a channel."),
 			AC_NONE, 3, cs_cmd_kickban };
 
 list_t *cs_cmdtree;
@@ -61,33 +61,33 @@ static void cs_cmd_kick(sourceinfo_t *si, int parc, char *parv[])
 	if (!chan || !nick)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "KICK");
-		command_fail(si, fault_needmoreparams, "Syntax: KICK <#channel> <nickname> [reason]");
+		command_fail(si, fault_needmoreparams, _("Syntax: KICK <#channel> <nickname> [reason]"));
 		return;
 	}
 
 	mc = mychan_find(chan);
 	if (!mc)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", chan);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), chan);
 		return;
 	}
 
 	if (!chanacs_source_has_flag(mc, si, CA_REMOVE))
 	{
-		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
 		return;
 	}
 	
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		command_fail(si, fault_noprivs, "\2%s\2 is closed.", chan);
+		command_fail(si, fault_noprivs, _("\2%s\2 is closed."), chan);
 		return;
 	}
 
 	/* figure out who we're going to kick */
 	if (!(tu = user_find_named(nick)))
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not online.", nick);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not online."), nick);
 		return;
 	}
 
@@ -98,7 +98,7 @@ static void cs_cmd_kick(sourceinfo_t *si, int parc, char *parv[])
 	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not on \2%s\2."), tu->nick, mc->name);
 		return;
 	}
 
@@ -106,7 +106,7 @@ static void cs_cmd_kick(sourceinfo_t *si, int parc, char *parv[])
 	kick(chansvs.nick, chan, tu->nick, reasonbuf);
 	logcommand(si, CMDLOG_SET, "%s KICK %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
 	if (si->su != tu && !chanuser_find(mc->chan, si->su))
-		command_success_nodata(si, "\2%s\2 has been kicked from \2%s\2.", tu->nick, mc->name);
+		command_success_nodata(si, _("\2%s\2 has been kicked from \2%s\2."), tu->nick, mc->name);
 }
 
 static void cs_cmd_kickban(sourceinfo_t *si, int parc, char *parv[])
@@ -123,27 +123,27 @@ static void cs_cmd_kickban(sourceinfo_t *si, int parc, char *parv[])
 	if (!chan || !nick)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "KICKBAN");
-		command_fail(si, fault_needmoreparams, "Syntax: KICKBAN <#channel> <nickname> [reason]");
+		command_fail(si, fault_needmoreparams, _("Syntax: KICKBAN <#channel> <nickname> [reason]"));
 		return;
 	}
 
 	mc = mychan_find(chan);
 	if (!mc)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", chan);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), chan);
 		return;
 	}
 
 	if (!chanacs_source_has_flag(mc, si, CA_REMOVE))
 	{
-		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
 		return;
 	}
 
 	/* figure out who we're going to kick */
 	if (!(tu = user_find_named(nick)))
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not online.", nick);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not online."), nick);
 		return;
 	}
 
@@ -154,7 +154,7 @@ static void cs_cmd_kickban(sourceinfo_t *si, int parc, char *parv[])
 	cu = chanuser_find(mc->chan, tu);
 	if (!cu)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not on \2%s\2.", tu->nick, mc->name);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not on \2%s\2."), tu->nick, mc->name);
 		return;
 	}
 
@@ -162,10 +162,15 @@ static void cs_cmd_kickban(sourceinfo_t *si, int parc, char *parv[])
 	ban(si->service->me, mc->chan, tu);
 	n = remove_ban_exceptions(si->service->me, mc->chan, tu);
 	if (n > 0)
-		command_success_nodata(si, "To avoid rejoin, %d ban exception(s) matching \2%s\2 have been removed from \2%s\2.", n, tu->nick, mc->name);
+		command_success_nodata(si, _("To avoid rejoin, %d ban exception(s) matching \2%s\2 have been removed from \2%s\2."), n, tu->nick, mc->name);
 	kick(chansvs.nick, chan, tu->nick, reasonbuf);
 	logcommand(si, CMDLOG_SET, "%s KICKBAN %s!%s@%s", mc->name, tu->nick, tu->user, tu->vhost);
 	if (si->su != tu && !chanuser_find(mc->chan, si->su))
-		command_success_nodata(si, "\2%s\2 has been kickbanned from \2%s\2.", tu->nick, mc->name);
+		command_success_nodata(si, _("\2%s\2 has been kickbanned from \2%s\2."), tu->nick, mc->name);
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

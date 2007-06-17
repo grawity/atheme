@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 7277 2006-11-25 01:41:18Z jilles $
+ * $Id: main.c 7877 2007-03-06 01:43:05Z pippijn $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 DECLARE_MODULE_V1
 (
 	"global/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 7277 2006-11-25 01:41:18Z jilles $",
+	"$Id: main.c 7877 2007-03-06 01:43:05Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -30,20 +30,10 @@ list_t *os_helptree;
 static void gs_cmd_global(sourceinfo_t *si, const int parc, char *parv[]);
 static void gs_cmd_help(sourceinfo_t *si, const int parc, char *parv[]);
 
-command_t gs_help = {
-	"HELP",
-	"Displays contextual help information.",
-	PRIV_GLOBAL,
-	1,
-	gs_cmd_help
-};
-command_t gs_global = {
-	"GLOBAL",
-	"Sends a global notice.",
-	PRIV_GLOBAL,
-        1,
-	gs_cmd_global
-};
+command_t gs_help = { "HELP", N_("Displays contextual help information."),
+		      PRIV_GLOBAL, 1, gs_cmd_help };
+command_t gs_global = { "GLOBAL", N_("Sends a global notice."),
+			PRIV_GLOBAL, 1, gs_cmd_global };
 
 /* *INDENT-ON* */
 
@@ -79,7 +69,7 @@ static void gs_cmd_global(sourceinfo_t *si, const int parc, char *parv[])
 	if (!params)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "GLOBAL");
-		command_fail(si, fault_needmoreparams, "Syntax: GLOBAL <parameters>|SEND|CLEAR");
+		command_fail(si, fault_needmoreparams, _("Syntax: GLOBAL <parameters>|SEND|CLEAR"));
 		return;
 	}
 
@@ -87,7 +77,7 @@ static void gs_cmd_global(sourceinfo_t *si, const int parc, char *parv[])
 	{
 		if (!globlist.count)
 		{
-			command_fail(si, fault_nochange, "No message to clear.");
+			command_fail(si, fault_nochange, _("No message to clear."));
 			return;
 		}
 
@@ -115,7 +105,7 @@ static void gs_cmd_global(sourceinfo_t *si, const int parc, char *parv[])
 	{
 		if (!globlist.count)
 		{
-			command_fail(si, fault_nosuch_target, "No message to send.");
+			command_fail(si, fault_nosuch_target, _("No message to send."));
 			return;
 		}
 
@@ -168,7 +158,7 @@ static void gs_cmd_global(sourceinfo_t *si, const int parc, char *parv[])
 
 	if (irccasecmp(sender, si->su->nick))
 	{
-		command_fail(si, fault_noprivs, "There is already a GLOBAL in progress by \2%s\2.", sender);
+		command_fail(si, fault_noprivs, _("There is already a GLOBAL in progress by \2%s\2."), sender);
 		return;
 	}
 
@@ -209,7 +199,7 @@ static void gservice(sourceinfo_t *si, int parc, char *parv[])
 		return;
 	if (*cmd == '\001')
 	{
-		handle_ctcp_common(cmd, text, si->su->nick, globsvs.nick);
+		handle_ctcp_common(si, cmd, text);
 		return;
 	}
 
@@ -281,3 +271,8 @@ void _moddeinit(void)
 	command_delete(&gs_help, &gs_cmdtree);
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

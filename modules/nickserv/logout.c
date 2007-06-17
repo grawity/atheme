@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService LOGOUT functions.
  *
- * $Id: logout.c 6825 2006-10-21 23:32:38Z jilles $
+ * $Id: logout.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/logout", FALSE, _modinit, _moddeinit,
-	"$Id: logout.c 6825 2006-10-21 23:32:38Z jilles $",
+	"$Id: logout.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_logout(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_logout = { "LOGOUT", "Logs your services session out.", AC_NONE, 2, ns_cmd_logout };
+command_t ns_logout = { "LOGOUT", N_("Logs your services session out."), AC_NONE, 2, ns_cmd_logout };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -46,7 +46,7 @@ static void ns_cmd_logout(sourceinfo_t *si, int parc, char *parv[])
 
 	if ((!si->smu) && (!user || !pass))
 	{
-		command_fail(si, fault_nochange, "You are not logged in.");
+		command_fail(si, fault_nochange, _("You are not logged in."));
 		return;
 	}
 
@@ -56,7 +56,7 @@ static void ns_cmd_logout(sourceinfo_t *si, int parc, char *parv[])
 
 		if (!mu)
 		{
-			command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", user);
+			command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), user);
 			return;
 		}
 
@@ -68,18 +68,18 @@ static void ns_cmd_logout(sourceinfo_t *si, int parc, char *parv[])
 		}
 		else
 		{
-			command_fail(si, fault_authfail, "Authentication failed. Invalid password for \2%s\2.", mu->name);
+			command_fail(si, fault_authfail, _("Authentication failed. Invalid password for \2%s\2."), mu->name);
 			return;
 		}
 #endif
 		/* remove this for now -- jilles */
-		command_fail(si, fault_unimplemented, "External logout is not yet implemented.");
+		command_fail(si, fault_unimplemented, _("External logout is not yet implemented."));
 		return;
 	}
 	else if (si->su == NULL)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "LOGOUT");
-		command_fail(si, fault_needmoreparams, "Syntax: LOGOUT <target> <password>");
+		command_fail(si, fault_needmoreparams, _("Syntax: LOGOUT <target> <password>"));
 		return;
 	}
 
@@ -90,12 +90,12 @@ static void ns_cmd_logout(sourceinfo_t *si, int parc, char *parv[])
 	if (si->su != u)
 	{
 		logcommand(si, CMDLOG_LOGIN, "LOGOUT %s", u->nick);
-		command_success_nodata(si, "\2%s\2 has been logged out.", si->su->nick);
+		command_success_nodata(si, _("\2%s\2 has been logged out."), si->su->nick);
 	}
 	else
 	{
 		logcommand(si, CMDLOG_LOGIN, "LOGOUT");
-		command_success_nodata(si, "You have been logged out.");
+		command_success_nodata(si, _("You have been logged out."));
 	}
 
 	si->smu->lastlogin = CURRTIME;
@@ -113,3 +113,9 @@ static void ns_cmd_logout(sourceinfo_t *si, int parc, char *parv[])
 		si->su->myuser = NULL;
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

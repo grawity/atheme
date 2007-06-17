@@ -4,7 +4,7 @@
  *
  * This file contains functionality which implements the OService MODE command.
  *
- * $Id: mode.c 7231 2006-11-19 19:02:41Z jilles $
+ * $Id: mode.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/mode", FALSE, _modinit, _moddeinit,
-	"$Id: mode.c 7231 2006-11-19 19:02:41Z jilles $",
+	"$Id: mode.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_mode(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_mode = { "MODE", "Changes modes on channels.", PRIV_OMODE, 2, os_cmd_mode };
+command_t os_mode = { "MODE", N_("Changes modes on channels."), PRIV_OMODE, 2, os_cmd_mode };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -49,14 +49,14 @@ static void os_cmd_mode(sourceinfo_t *si, int parc, char *parv[])
         if (!channel || !mode)
         {
                 command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MODE");
-                command_fail(si, fault_needmoreparams, "Syntax: MODE <channel> <parameters>");
+                command_fail(si, fault_needmoreparams, _("Syntax: MODE <channel> <parameters>"));
                 return;
         }
 
 	c = channel_find(channel);
 	if (!c)
 	{
-                command_fail(si, fault_nosuch_target, "Channel \2%s\2 does not exist.", channel);
+                command_fail(si, fault_nosuch_target, _("Channel \2%s\2 does not exist."), channel);
                 return;
 	}
 
@@ -68,6 +68,11 @@ static void os_cmd_mode(sourceinfo_t *si, int parc, char *parv[])
 	modeparc = sjtoken(mode, ' ', modeparv);
 
 	channel_mode(si->service->me, c, modeparc, modeparv);
-	command_success_nodata(si, "Set modes \2%s\2 on \2%s\2.", mode, channel);
+	command_success_nodata(si, _("Set modes \2%s\2 on \2%s\2."), mode, channel);
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

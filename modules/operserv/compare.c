@@ -4,7 +4,7 @@
  *
  * This file contains functionality implementing OperServ COMPARE.
  *
- * $Id: compare.c 6631 2006-10-02 10:24:13Z jilles $
+ * $Id: compare.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/compare", FALSE, _modinit, _moddeinit,
-	"$Id: compare.c 6631 2006-10-02 10:24:13Z jilles $",
+	"$Id: compare.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Robin Burchell <surreal.w00t@gmail.com>"
 );
 
 static void os_cmd_compare(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_compare = { "COMPARE", "Compares two users or channels.", PRIV_CHAN_AUSPEX, 2, os_cmd_compare };
+command_t os_compare = { "COMPARE", N_("Compares two users or channels."), PRIV_CHAN_AUSPEX, 2, os_cmd_compare };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -58,7 +58,7 @@ static void os_cmd_compare(sourceinfo_t *si, int parc, char *parv[])
 	if (!object1 || !object2)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "COMPARE");
-		command_fail(si, fault_needmoreparams, "Syntax: COMPARE <nick|#channel> <nick|#channel>");
+		command_fail(si, fault_needmoreparams, _("Syntax: COMPARE <nick|#channel> <nick|#channel>"));
 		return;
 	}
 
@@ -72,11 +72,11 @@ static void os_cmd_compare(sourceinfo_t *si, int parc, char *parv[])
 
 			if (!c1 || !c2)
 			{
-				command_fail(si, fault_nosuch_target, "Both channels must exist for @compare");
+				command_fail(si, fault_nosuch_target, _("Both channels must exist for @compare"));
 				return;				
 			}
 
-			command_success_nodata(si, "Common users in \2%s\2 and \2%s\2", object1, object2);
+			command_success_nodata(si, _("Common users in \2%s\2 and \2%s\2"), object1, object2);
 
 			/* iterate over the users in channel 1 */
 			LIST_FOREACH(n1, c1->members.head)
@@ -113,7 +113,7 @@ static void os_cmd_compare(sourceinfo_t *si, int parc, char *parv[])
 		else
 		{
 			/* bad syntax */
-			command_fail(si, fault_badparams, "Bad syntax for @compare. Use @compare on two channels, or two users.");
+			command_fail(si, fault_badparams, _("Bad syntax for @compare. Use @compare on two channels, or two users."));
 			return;				
 		}
 	}
@@ -122,7 +122,7 @@ static void os_cmd_compare(sourceinfo_t *si, int parc, char *parv[])
 		if (*object2 == '#')
 		{
 			/* bad syntax */
-			command_fail(si, fault_badparams, "Bad syntax for @compare. Use @compare on two channels, or two users.");
+			command_fail(si, fault_badparams, _("Bad syntax for @compare. Use @compare on two channels, or two users."));
 			return;				
 		}
 		else
@@ -133,11 +133,11 @@ static void os_cmd_compare(sourceinfo_t *si, int parc, char *parv[])
 
 			if (!u1 || !u2)
 			{
-				command_fail(si, fault_nosuch_target, "Both users must exist for @compare");
+				command_fail(si, fault_nosuch_target, _("Both users must exist for @compare"));
 				return;				
 			}
 
-			command_success_nodata(si, "Common channels for \2%s\2 and \2%s\2", object1, object2);
+			command_success_nodata(si, _("Common channels for \2%s\2 and \2%s\2"), object1, object2);
 
 			/* iterate over the channels of user 1 */
 			LIST_FOREACH(n1, u1->channels.head)
@@ -176,7 +176,13 @@ static void os_cmd_compare(sourceinfo_t *si, int parc, char *parv[])
 	if (buf[0] != 0)
 		command_success_nodata(si, "%s", buf);
 
-	command_success_nodata(si, "\2%d\2 matches comparing %s and %s", matches, object1, object2);
+	command_success_nodata(si, _("\2%d\2 matches comparing %s and %s"), matches, object1, object2);
 	logcommand(si, CMDLOG_ADMIN, "COMPARE %s to %s (%d matches)", object1, object2, matches);
 	snoop("COMPARE: \2%s\2 to \2%s\2 by \2%s\2", object1, object2, get_oper_name(si));
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

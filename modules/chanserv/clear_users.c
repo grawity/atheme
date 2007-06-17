@@ -4,7 +4,7 @@
  *
  * This file contains code for the ChanServ CLEAR USERS function.
  *
- * $Id: clear_users.c 7199 2006-11-18 05:10:57Z nenolod $
+ * $Id: clear_users.c 7969 2007-03-23 19:19:38Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/clear_users", FALSE, _modinit, _moddeinit,
-	"$Id: clear_users.c 7199 2006-11-18 05:10:57Z nenolod $",
+	"$Id: clear_users.c 7969 2007-03-23 19:19:38Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_clear_users(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_clear_users = { "USERS", "Kicks all users from a channel.",
+command_t cs_clear_users = { "USERS", N_("Kicks all users from a channel."),
 	AC_NONE, 2, cs_cmd_clear_users };
 
 list_t *cs_clear_cmds;
@@ -50,12 +50,6 @@ static void cs_cmd_clear_users(sourceinfo_t *si, int parc, char *parv[])
 	node_t *n, *tn;
 	int oldlimit;
 
-	if (!(c = channel_find(channel)))
-	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 does not exist.", channel);
-		return;
-	}
-
 	if (parc >= 2)
 		snprintf(fullreason, sizeof fullreason, "CLEAR USERS used by %s: %s", get_source_name(si), parv[1]);
 	else
@@ -63,27 +57,33 @@ static void cs_cmd_clear_users(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!mc)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", c->name);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), channel);
+		return;
+	}
+
+	if (!(c = channel_find(channel)))
+	{
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is currently empty."), channel);
 		return;
 	}
 
 	if (!chanacs_source_has_flag(mc, si, CA_RECOVER))
 	{
-		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
 		return;
 	}
 	
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		command_fail(si, fault_noprivs, "\2%s\2 is closed.", channel);
+		command_fail(si, fault_noprivs, _("\2%s\2 is closed."), channel);
 		return;
 	}
 
 	/* stop a race condition where users can rejoin */
 	oldlimit = c->limit;
 	if (oldlimit != 1)
-		modestack_mode_limit(chansvs.nick, c->name, MTYPE_ADD, 1);
-	modestack_flush_channel(c->name);
+		modestack_mode_limit(chansvs.nick, c, MTYPE_ADD, 1);
+	modestack_flush_channel(c);
 
 	LIST_FOREACH_SAFE(n, tn, c->members.head)
 	{
@@ -112,13 +112,19 @@ static void cs_cmd_clear_users(sourceinfo_t *si, int parc, char *parv[])
 		if (c != NULL)
 		{
 			if (oldlimit == 0)
-				modestack_mode_limit(chansvs.nick, c->name, MTYPE_DEL, 0);
+				modestack_mode_limit(chansvs.nick, c, MTYPE_DEL, 0);
 			else if (oldlimit != 1)
-				modestack_mode_limit(chansvs.nick, c->name, MTYPE_ADD, oldlimit);
+				modestack_mode_limit(chansvs.nick, c, MTYPE_ADD, oldlimit);
 		}
 	}
 
 	logcommand(si, CMDLOG_DO, "%s CLEAR USERS", mc->name);
 
-	command_success_nodata(si, "Cleared users from \2%s\2.", channel);
+	command_success_nodata(si, _("Cleared users from \2%s\2."), channel);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

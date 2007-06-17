@@ -4,7 +4,7 @@
  *
  * An echo server. (proof of concept for integrated XMLRPC HTTPD)
  *
- * $Id: gen_echoserver.c 2415 2005-09-28 02:48:18Z nenolod $
+ * $Id: gen_echoserver.c 7785 2007-03-03 15:54:32Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"contrib/gen_echoserver", FALSE, _modinit, _moddeinit,
-	"$Id: gen_echoserver.c 2415 2005-09-28 02:48:18Z nenolod $",
+	"$Id: gen_echoserver.c 7785 2007-03-03 15:54:32Z pippijn $",
 	"William Pitcock <nenolod -at- nenolod.net>"
 );
 
@@ -80,3 +80,9 @@ void _moddeinit(void)
 {
 	connection_close(listener);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

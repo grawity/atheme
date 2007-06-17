@@ -4,7 +4,7 @@
  *
  * Data structures for channel information.
  *
- * $Id: channels.h 6963 2006-10-26 22:30:51Z jilles $
+ * $Id: channels.h 8223 2007-05-05 12:58:06Z jilles $
  */
 
 #ifndef CHANNELS_H
@@ -16,12 +16,12 @@ struct channel_
 {
   char *name;
 
-  uint32_t modes;
+  unsigned int modes;
   char *key;
-  uint32_t limit;
+  unsigned int limit;
   char *extmodes[MAXEXTMODES]; /* non-standard simple modes with param eg +j */
 
-  uint32_t nummembers;
+  unsigned int nummembers;
 
   time_t ts;
 
@@ -33,12 +33,14 @@ struct channel_
   list_t bans;
 };
 
-/* struct for channel users */
+/* struct for channel memberships */
 struct chanuser_
 {
   channel_t *chan;
   user_t *user;
-  uint32_t modes;
+  unsigned int modes;
+  node_t unode;
+  node_t cnode;
 };
 
 struct chanban_
@@ -67,7 +69,7 @@ struct chanban_
 struct cmode_
 {
         char mode;
-        uint32_t value;
+        unsigned int value;
 };
 
 struct extmode
@@ -107,18 +109,19 @@ typedef struct {
 } hook_channel_topic_check_t;
 
 /* cmode.c */
-E char *flags_to_string(int32_t flags);
-E int32_t mode_to_flag(char c);
+E char *flags_to_string(int flags);
+E int mode_to_flag(char c);
 E void channel_mode(user_t *source, channel_t *chan, int parc, char *parv[]);
 E void channel_mode_va(user_t *source, channel_t *chan, int parc, char *parv0, ...);
 E void clear_simple_modes(channel_t *c);
 E char *channel_modes(channel_t *c, boolean_t doparams);
-E void modestack_flush_channel(char *channel);
-E void modestack_forget_channel(char *channel);
-E void modestack_mode_simple(char *source, char *channel, int dir, int32_t flags);
-E void modestack_mode_limit(char *source, char *channel, int dir, uint32_t limit);
-E void modestack_mode_ext(char *source, char *channel, int dir, int i, const char *value);
-E void modestack_mode_param(char *source, char *channel, int dir, char type, const char *value);
+E void modestack_flush_channel(channel_t *channel);
+E void modestack_forget_channel(channel_t *channel);
+E void modestack_finalize_channel(channel_t *channel);
+E void modestack_mode_simple(char *source, channel_t *channel, int dir, int flags);
+E void modestack_mode_limit(char *source, channel_t *channel, int dir, unsigned int limit);
+E void modestack_mode_ext(char *source, channel_t *channel, int dir, int i, const char *value);
+E void modestack_mode_param(char *source, channel_t *channel, int dir, char type, const char *value);
 E void check_modes(mychan_t *mychan, boolean_t sendnow);
 
 /* channels.c */
@@ -126,8 +129,8 @@ E dictionary_tree_t *chanlist;
 
 E void init_channels(void);
 
-E channel_t *channel_add(const char *name, uint32_t ts);
-E void channel_delete(const char *name);
+E channel_t *channel_add(const char *name, unsigned int ts, server_t *creator);
+E void channel_delete(channel_t *c);
 E channel_t *channel_find(const char *name);
 
 E chanuser_t *chanuser_add(channel_t *chan, const char *user);
@@ -140,3 +143,9 @@ E chanban_t *chanban_find(channel_t *chan, const char *mask, int type);
 E void chanban_clear(channel_t *chan);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

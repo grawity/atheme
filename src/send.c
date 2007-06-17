@@ -5,18 +5,18 @@
  * This file contains socket routines.
  * Based off of W. Campbell's code.
  *
- * $Id: send.c 7233 2006-11-19 19:25:53Z jilles $
+ * $Id: send.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
 #include "uplink.h"
 
 /* send a line to the server, append the \r\n */
-int8_t sts(char *fmt, ...)
+int sts(char *fmt, ...)
 {
 	va_list ap;
 	char buf[BUFSIZE];
-	int16_t len;
+	int len;
 
 	/* glibc sucks. */
 	if (!fmt)
@@ -42,27 +42,8 @@ int8_t sts(char *fmt, ...)
 
 void reconn(void *arg)
 {
-	channel_t *c;
-	dictionary_iteration_state_t state;
-
 	if (me.connected)
 		return;
-
-	slog(LG_DEBUG, "reconn(): ----------------------- clearing -----------------------");
-
-	/* we have to kill everything.
-	 * we do not clear users here because when you delete a server,
-	 * it deletes its users
-	 */
-	server_delete(me.actual);
-	/* remove all the channels left */
-	DICTIONARY_FOREACH(c, &state, chanlist)
-	{
-		channel_delete(c->name);
-	}
-	/* this leaves me.me and all users on it (i.e. services) */
-
-	slog(LG_DEBUG, "reconn(): ------------------------- done -------------------------");
 
 	uplink_connect();
 }
@@ -100,3 +81,9 @@ void io_loop(void)
 		check_signals();
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

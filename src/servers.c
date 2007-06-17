@@ -4,7 +4,7 @@
  *
  * Server stuff.
  *
- * $Id: servers.c 7247 2006-11-20 01:08:16Z jilles $
+ * $Id: servers.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -47,7 +47,7 @@ void init_servers(void)
 }
 
 /*
- * server_add(const char *name, uint8_t hops, const char *uplink,
+ * server_add(const char *name, unsigned int hops, const char *uplink,
  *            const char *id, const char *desc)
  *
  * Server object factory.
@@ -65,7 +65,7 @@ void init_servers(void)
  * Side Effects:
  *     - the new server object is added to the server and sid DTree.
  */
-server_t *server_add(const char *name, uint8_t hops, const char *uplink, const char *id, const char *desc)
+server_t *server_add(const char *name, unsigned int hops, const char *uplink, const char *id, const char *desc)
 {
 	server_t *s, *u = NULL;
 	const char *tld;
@@ -114,8 +114,11 @@ server_t *server_add(const char *name, uint8_t hops, const char *uplink, const c
 	/* tld list for global noticer */
 	tld = strrchr(name, '.');
 
-	if (!tld_find(tld))
-		tld_add(tld);
+	if (tld != NULL)
+	{
+		if (!tld_find(tld))
+			tld_add(tld);
+	}
 
 	cnt.server++;
 
@@ -167,6 +170,11 @@ void server_delete(const char *name)
 	LIST_FOREACH_SAFE(n, tn, s->userlist.head)
 	{
 		u = (user_t *)n->data;
+		/* This user split, allow bursted logins for the account.
+		 * XXX should we do this here?
+		 * -- jilles */
+		if (u->myuser != NULL)
+			u->myuser->flags &= ~MU_NOBURSTLOGIN;
 		user_delete(u);
 	}
 
@@ -188,6 +196,12 @@ void server_delete(const char *name)
 		node_del(n, &s->uplink->children);
 		node_free(n);
 	}
+
+	/* If unconnect semantics SQUIT was confirmed, introduce the jupe
+	 * now. This must be after removing the server from the dtrees.
+	 * -- jilles */
+	if (s->flags & SF_JUPE_PENDING)
+		jupe(s->name, "Juped");
 
 	free(s->name);
 	free(s->desc);
@@ -217,7 +231,6 @@ void server_delete(const char *name)
 server_t *server_find(const char *name)
 {
 	server_t *s;
-	node_t *n;
 
 	if (ircd->uses_uid)
 	{
@@ -320,6 +333,9 @@ tld_t *tld_find(const char *name)
         tld_t *tld;
         node_t *n;
 
+	if (name == NULL)
+		return NULL;
+
         LIST_FOREACH(n, tldlist.head)
         {
                 tld = (tld_t *)n->data;
@@ -331,3 +347,8 @@ tld_t *tld_find(const char *name)
         return NULL;
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

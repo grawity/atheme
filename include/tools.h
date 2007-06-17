@@ -5,11 +5,78 @@
  *
  * Misc tools
  *
- * $Id: tools.h 7235 2006-11-19 20:02:08Z jilles $
+ * $Id: tools.h 8367 2007-06-02 22:26:48Z jilles $
  */
 
 #ifndef _TOOLS_H
 #define _TOOLS_H
+
+/*
+ * Performs a soft assertion. If the assertion fails, we wallops() and log.
+ */
+#ifdef __GNUC__
+#define soft_assert(x)								\
+	if (!(x)) { 								\
+		slog(LG_INFO, "%s(%d) [%s]: critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, __PRETTY_FUNCTION__, #x);		\
+		wallops("%s(%d) [%s]: critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, __PRETTY_FUNCTION__, #x);		\
+	}
+#else
+#define soft_assert(x)								\
+	if (!(x)) { 								\
+		slog(LG_INFO, "%s(%d): critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, #x);				\
+		wallops("%s(%d): critical: Assertion '%s' failed.",		\
+			__FILE__, __LINE__, #x);				\
+	}
+#endif
+
+/*
+ * Same as soft_assert, but returns if an assertion fails.
+ */
+#ifdef __GNUC__
+#define return_if_fail(x)							\
+	if (!(x)) { 								\
+		slog(LG_INFO, "%s(%d) [%s]: critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, __PRETTY_FUNCTION__, #x);		\
+		wallops("%s(%d) [%s]: critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, __PRETTY_FUNCTION__, #x);		\
+		return;								\
+	}
+#else
+#define return_if_fail(x)							\
+	if (!(x)) { 								\
+		slog(LG_INFO, "%s(%d): critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, #x);				\
+		wallops("%s(%d): critical: Assertion '%s' failed.",		\
+			__FILE__, __LINE__, #x);				\
+		return;								\
+	}
+#endif
+
+/*
+ * Same as soft_assert, but returns a given value if an assertion fails.
+ */
+#ifdef __GNUC__
+#define return_val_if_fail(x, y)						\
+	if (!(x)) { 								\
+		slog(LG_INFO, "%s(%d) [%s]: critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, __PRETTY_FUNCTION__, #x);		\
+		wallops("%s(%d) [%s]: critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, __PRETTY_FUNCTION__, #x);		\
+		return (y);							\
+	}
+#else
+#define return_val_if_fail(x, y)						\
+	if (!(x)) { 								\
+		slog(LG_INFO, "%s(%d): critical: Assertion '%s' failed.",	\
+			__FILE__, __LINE__, #x);				\
+		wallops("%s(%d): critical: Assertion '%s' failed.",		\
+			__FILE__, __LINE__, #x);				\
+		return (y);							\
+	}
+#endif
 
 /* email stuff */
 /* the following struct is not used yet */
@@ -33,14 +100,46 @@ E int sendemail(user_t *from, int type, myuser_t *mu, const char *param);
 #define EMAIL_SENDPASS 2 /* send a password to a user (password) */
 #define EMAIL_SETEMAIL 3 /* change email address (verification code) */
 #define EMAIL_MEMO     4 /* emailed memos (memo text) */
+#define EMAIL_SETPASS  5 /* send a password change key (verification code) */
 
-/* function.c */
-/* logging stuff */
-E FILE *log_file;
-E char *log_path;
+/* arc4random.c */
+#ifndef HAVE_ARC4RANDOM
+E void arc4random_stir();
+E void arc4random_addrandom(unsigned char *dat, int datlen);
+E unsigned int arc4random(void);
+#endif /* !HAVE_ARC4RANDOM */
+
+typedef struct logfile_ logfile_t;
+
+/* logstreams API --nenolod */
+typedef void (*log_write_func_t)(logfile_t *lf, const char *buf);
+
+/* logger.c */
+struct logfile_ {
+	object_t parent;
+	node_t node;
+
+	void *log_file;		/* opaque: can either be mychan_t or FILE --nenolod */
+	char *log_path;
+	unsigned int log_mask;
+
+	log_write_func_t write_func;
+};
+
+E char *log_path; /* contains path to default log. */
 E int log_force;
 
-/* claro-defined log levels are 0x1F */
+E logfile_t *logfile_new(const char *log_path_, unsigned int log_mask);
+E void logfile_write(logfile_t *lf, const char *buf);
+E void logfile_register(logfile_t *lf);
+E void logfile_unregister(logfile_t *lf);
+
+/* general */
+#define LG_NONE         0x00000001      /* don't log                */
+#define LG_INFO         0x00000002      /* log general info         */
+#define LG_ERROR        0x00000004      /* log real important stuff */
+#define LG_IOERROR      0x00000008      /* log I/O errors. */
+#define LG_DEBUG        0x00000010      /* log debugging stuff      */
 /* commands */
 #define LG_CMD_ADMIN    0x00000100 /* oper-only commands */
 #define LG_CMD_REGISTER 0x00000200 /* register/drop */
@@ -54,7 +153,7 @@ E int log_force;
 #define LG_RAWDATA      0x00040000 /* all data sent/received */
 
 #define LG_CMD_ALL      0x0000FF00
-#define LG_ALL          0xFFFFFFFF
+#define LG_ALL          0x7FFFFFFF /* XXX cannot use bit 31 as it would then be unequal to TOKEN_UNMATCHED */
 
 /* aliases for use with logcommand() */
 #define CMDLOG_ADMIN    LG_CMD_ADMIN
@@ -65,18 +164,20 @@ E int log_force;
 #define CMDLOG_GET      LG_CMD_GET
 
 E void log_open(void);
-E void slog(uint32_t level, const char *fmt, ...);
+E void log_shutdown(void);
+E boolean_t log_debug_enabled(void);
+E void log_master_set_mask(unsigned int mask);
+E void slog(unsigned int level, const char *fmt, ...);
 E void logcommand(sourceinfo_t *si, int level, const char *fmt, ...);
 E void logcommand_user(service_t *svs, user_t *source, int level, const char *fmt, ...);
 E void logcommand_external(service_t *svs, const char *type, connection_t *source, const char *sourcedesc, myuser_t *login, int level, const char *fmt, ...);
 
+/* function.c */
 /* misc string stuff */
-E char *gen_pw(int8_t sz);
+E char *gen_pw(int sz);
 E void tb2sp(char *line);
-E char *replace(char *s, int32_t size, const char *old, const char *new);
-#ifndef _WIN32
+E char *replace(char *s, int size, const char *old, const char *new);
 E char *itoa(int num);
-#endif
 E int validemail(char *email);
 E boolean_t validhostmask(char *host);
 E char *sbytes(float x);
@@ -85,13 +186,13 @@ E float bytes(float x);
 E unsigned long makekey(void);
 
 /* the hash function */
-E uint32_t shash(const unsigned char *text);
+E unsigned int shash(const unsigned char *text);
 
 /* time stuff */
 #if HAVE_GETTIMEOFDAY
 E void s_time(struct timeval *sttime);
 E void e_time(struct timeval sttime, struct timeval *ttime);
-E int32_t tv2ms(struct timeval *tv);
+E int tv2ms(struct timeval *tv);
 #endif
 E char *time_ago(time_t event);
 E char *timediff(time_t seconds);
@@ -109,11 +210,17 @@ E char *timediff(time_t seconds);
 #endif
 
 /* tokenize.c */
-E int8_t sjtoken(char *message, char delimiter, char **parv);
-E int8_t tokenize(char *message, char **parv);
+E int sjtoken(char *message, char delimiter, char **parv);
+E int tokenize(char *message, char **parv);
 
 /* ubase64.c */
 E const char* uinttobase64(char* buf, uint64_t v, int64_t count);
-E uint32_t base64touint(char* buf);
+E unsigned int base64touint(char* buf);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

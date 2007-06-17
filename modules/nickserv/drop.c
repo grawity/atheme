@@ -4,7 +4,7 @@
  *
  * This file contains code for the nickserv DROP function.
  *
- * $Id: drop.c 7191 2006-11-18 00:09:00Z jilles $
+ * $Id: drop.c 8321 2007-05-24 20:10:59Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/drop", FALSE, _modinit, _moddeinit,
-	"$Id: drop.c 7191 2006-11-18 00:09:00Z jilles $",
+	"$Id: drop.c 8321 2007-05-24 20:10:59Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_drop(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_drop = { "DROP", "Drops an account registration.", AC_NONE, 2, ns_cmd_drop };
+command_t ns_drop = { "DROP", N_("Drops an account registration."), AC_NONE, 2, ns_cmd_drop };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -47,7 +47,7 @@ static void ns_cmd_drop(sourceinfo_t *si, int parc, char *parv[])
 	if (!acc)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "DROP");
-		command_fail(si, fault_needmoreparams, "Syntax: DROP <account> <password>");
+		command_fail(si, fault_needmoreparams, _("Syntax: DROP <account> <password>"));
 		return;
 	}
 
@@ -58,17 +58,17 @@ static void ns_cmd_drop(sourceinfo_t *si, int parc, char *parv[])
 			mn = mynick_find(acc);
 			if (mn != NULL && command_find(si->service->cmdtree, "UNGROUP"))
 			{
-				command_fail(si, fault_nosuch_target, "\2%s\2 is a grouped nick, use UNGROUP to remove it.", acc);
+				command_fail(si, fault_nosuch_target, _("\2%s\2 is a grouped nick, use UNGROUP to remove it."), acc);
 				return;
 			}
 		}
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", acc);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), acc);
 		return;
 	}
 
 	if ((pass || !has_priv(si, PRIV_USER_ADMIN)) && !verify_password(mu, pass))
 	{
-		command_fail(si, fault_authfail, "Authentication failed. Invalid password for \2%s\2.", mu->name);
+		command_fail(si, fault_authfail, _("Authentication failed. Invalid password for \2%s\2."), mu->name);
 		return;
 	}
 
@@ -76,14 +76,20 @@ static void ns_cmd_drop(sourceinfo_t *si, int parc, char *parv[])
 			LIST_LENGTH(&mu->nicks) > 1 &&
 			command_find(si->service->cmdtree, "UNGROUP"))
 	{
-		command_fail(si, fault_noprivs, "Account \2%s\2 has %d other nick(s) grouped to it, remove those first.",
+		command_fail(si, fault_noprivs, _("Account \2%s\2 has %d other nick(s) grouped to it, remove those first."),
 				mu->name, LIST_LENGTH(&mu->nicks) - 1);
 		return;
 	}
 
 	if (is_soper(mu))
 	{
-		command_fail(si, fault_noprivs, "The nickname \2%s\2 belongs to a services operator; it cannot be dropped.", acc);
+		command_fail(si, fault_noprivs, _("The nickname \2%s\2 belongs to a services operator; it cannot be dropped."), acc);
+		return;
+	}
+
+	if (mu->flags & MU_HOLD)
+	{
+		command_fail(si, fault_noprivs, _("The account \2%s\2 is held; it cannot be dropped."), acc);
 		return;
 	}
 
@@ -93,6 +99,12 @@ static void ns_cmd_drop(sourceinfo_t *si, int parc, char *parv[])
 	snoop("DROP: \2%s\2 by \2%s\2", mu->name, get_oper_name(si));
 	logcommand(si, pass ? CMDLOG_REGISTER : CMDLOG_ADMIN, "DROP %s%s", mu->name, pass ? "" : " (admin)");
 	hook_call_event("user_drop", mu);
-	command_success_nodata(si, "The account \2%s\2 has been dropped.", mu->name);
-	myuser_delete(mu);
+	command_success_nodata(si, _("The account \2%s\2 has been dropped."), mu->name);
+	object_unref(mu);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

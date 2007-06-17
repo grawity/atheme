@@ -4,7 +4,7 @@
  *
  * Commandtree manipulation routines.
  *
- * $Id: commandtree.c 6931 2006-10-24 16:53:07Z jilles $
+ * $Id: commandtree.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -40,7 +40,7 @@ void command_add(command_t *cmd, list_t *commandtree)
  */
 void command_add_many(command_t **cmd, list_t *commandtree)
 {
-	uint32_t i;
+	unsigned int i;
 
 	for (i = 0; cmd[i] != NULL; i++)
 		command_add(cmd[i], commandtree);
@@ -75,7 +75,7 @@ void command_delete(command_t *cmd, list_t *commandtree)
  */
 void command_delete_many(command_t **cmd, list_t *commandtree)
 {
-	uint32_t i;
+	unsigned int i;
 
 	for (i = 0; cmd[i] != NULL; i++)
 		command_delete(cmd[i], commandtree);
@@ -106,10 +106,10 @@ void command_exec(service_t *svs, sourceinfo_t *si, command_t *c, int parc, char
 	}
 
 	if (has_any_privs(si))
-		command_fail(si, fault_noprivs, "You do not have %s privilege.", c->access);
+		command_fail(si, fault_noprivs, _("You do not have %s privilege."), c->access);
 	else
-		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
-	/*snoop("DENIED CMD: \2%s\2 used %s %s", origin, svs->name, cmd);*/
+		command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
+	/*snoop(_("DENIED CMD: \2%s\2 used %s %s"), origin, svs->name, cmd);*/
 }
 
 void command_exec_split(service_t *svs, sourceinfo_t *si, char *cmd, char *text, list_t *commandtree)
@@ -127,7 +127,7 @@ void command_exec_split(service_t *svs, sourceinfo_t *si, char *cmd, char *text,
 	}
 	else
 	{
-		notice(svs->name, si->su->nick, "Invalid command. Use \2/%s%s help\2 for a command listing.", (ircd->uses_rcommand == FALSE) ? "msg " : "", svs->disp);
+		notice(svs->name, si->su->nick, _("Invalid command. Use \2/%s%s help\2 for a command listing."), (ircd->uses_rcommand == FALSE) ? "msg " : "", svs->disp);
 	}
 }
 
@@ -147,9 +147,9 @@ void command_help(sourceinfo_t *si, list_t *commandtree)
 	node_t *n;
 
 	if (si->service == NULL || si->service->cmdtree == commandtree)
-		command_success_nodata(si, "The following commands are available:");
+		command_success_nodata(si, _("The following commands are available:"));
 	else
-		command_success_nodata(si, "The following subcommands are available:");
+		command_success_nodata(si, _("The following subcommands are available:"));
 
 	LIST_FOREACH(n, commandtree->head)
 	{
@@ -206,9 +206,9 @@ void command_help_short(sourceinfo_t *si, list_t *commandtree, char *maincmds)
 	char buf[256];
 
 	if (si->service == NULL || si->service->cmdtree == commandtree)
-		command_success_nodata(si, "The following commands are available:");
+		command_success_nodata(si, _("The following commands are available:"));
 	else
-		command_success_nodata(si, "The following subcommands are available:");
+		command_success_nodata(si, _("The following subcommands are available:"));
 
 	LIST_FOREACH(n, commandtree->head)
 	{
@@ -222,7 +222,7 @@ void command_help_short(sourceinfo_t *si, list_t *commandtree, char *maincmds)
 	}
 
 	command_success_nodata(si, " ");
-	strlcpy(buf, translation_get("Other commands: "), sizeof buf);
+	strlcpy(buf, translation_get(_("Other commands: ")), sizeof buf);
 	l = strlen(buf);
 	LIST_FOREACH(n, commandtree->head)
 	{
@@ -280,3 +280,9 @@ static int text_to_parv(char *text, int maxparc, char **parv)
 	}
 	return count;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

@@ -4,7 +4,7 @@
  *
  * This file contains IRC interaction routines.
  *
- * $Id: parse.c 7233 2006-11-19 19:25:53Z jilles $
+ * $Id: parse.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -22,14 +22,14 @@ void irc_parse(char *line)
 	char *origin = NULL;
 	char *command = NULL;
 	char *message = NULL;
-	char *parv[20];
+	char *parv[MAXPARC + 1];
 	static char coreLine[BUFSIZE];
 	int parc = 0;
-	uint8_t i;
+	unsigned int i;
 	pcommand_t *pcmd;
 
 	/* clear the parv */
-	for (i = 0; i < 20; i++)
+	for (i = 0; i <= MAXPARC; i++)
 		parv[i] = NULL;
 
 	memset(&si, '\0', sizeof si);
@@ -173,14 +173,14 @@ void p10_parse(char *line)
 	char *origin = NULL;
 	char *command = NULL;
 	char *message = NULL;
-	char *parv[20];
+	char *parv[MAXPARC + 1];
 	static char coreLine[BUFSIZE];
 	int parc = 0;
-	uint8_t i;
+	unsigned int i;
 	pcommand_t *pcmd;
 
 	/* clear the parv */
-	for (i = 0; i < 20; i++)
+	for (i = 0; i <= MAXPARC; i++)
 		parv[i] = NULL;
 
 	memset(&si, '\0', sizeof si);
@@ -310,3 +310,9 @@ void p10_parse(char *line)
 		}
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

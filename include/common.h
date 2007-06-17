@@ -4,7 +4,7 @@
  *
  * Defines needed by multiple header files.
  *
- * $Id: common.h 7179 2006-11-17 19:58:40Z jilles $
+ * $Id: common.h 8297 2007-05-20 08:56:59Z nenolod $
  */
 
 #ifndef COMMON_H
@@ -13,8 +13,10 @@
 /* D E F I N E S */
 #define BUFSIZE 1024            /* maximum size of a buffer */
 #define MAXMODES 4
+#define MAX_EVENTS	1024	 /* that's enough events, really! */
 
 /* lengths of buffers (string length is 1 less) */
+#define HOSTLEN  64		 /* seems good enough */
 #define NICKLEN 51
 #define IDLEN 10
 #define CHANNELLEN 201
@@ -39,6 +41,7 @@
 #endif
 
 #ifdef LARGE_NETWORK
+#define HEAP_NODE       1024
 #define HEAP_CHANNEL    1024
 #define HEAP_CHANUSER   1024
 #define HEAP_USER       1024
@@ -48,6 +51,7 @@
 #define HASH_CHANNEL    32768
 #define HASH_SERVER     128
 #else
+#define HEAP_NODE       1024
 #define HEAP_CHANNEL    64
 #define HEAP_CHANUSER   128
 #define HEAP_USER       128
@@ -86,8 +90,8 @@ typedef struct service_ service_t;
 
 typedef struct sourceinfo_ sourceinfo_t;
 
-typedef struct _configfile CONFIGFILE;
-typedef struct _configentry CONFIGENTRY;
+typedef struct _configfile config_file_t;
+typedef struct _configentry config_entry_t;
 
 /* fault codes */
 enum faultcode_
@@ -110,3 +114,9 @@ enum faultcode_
 typedef enum faultcode_ faultcode_t;
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

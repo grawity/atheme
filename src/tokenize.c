@@ -5,15 +5,16 @@
  *
  * This file contains IRC interaction routines.
  *
- * $Id: tokenize.c 6323 2006-09-06 23:59:05Z pippijn $
+ * $Id: tokenize.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
+#include "pmodule.h"
 
-int8_t sjtoken(char *message, char delimiter, char **parv)
+int sjtoken(char *message, char delimiter, char **parv)
 {
 	char *next;
-	uint16_t count;
+	unsigned int count;
 
 	if (!message)
 		return 0;
@@ -71,11 +72,11 @@ int8_t sjtoken(char *message, char delimiter, char **parv)
 }
 
 /* this splits apart a message with origin and command picked off already */
-int8_t tokenize(char *message, char **parv)
+int tokenize(char *message, char **parv)
 {
 	char *pos = NULL;
 	char *next;
-	uint8_t count = 0;
+	unsigned int count = 0;
 
 	if (!message)
 		return -1;
@@ -115,7 +116,7 @@ int8_t tokenize(char *message, char **parv)
 
 	while (*next)
 	{
-		if (count == 19)
+		if (count == MAXPARC)
 		{
 			/* we've reached one less than our max limit
 			 * to handle the parameter we already ripped off
@@ -150,3 +151,9 @@ int8_t tokenize(char *message, char **parv)
 
 	return count;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

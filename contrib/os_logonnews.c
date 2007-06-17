@@ -4,7 +4,7 @@
  *
  * Logon News stuff...
  *
- * $Id: os_logonnews.c 7503 2007-01-18 12:50:58Z jilles $
+ * $Id: os_logonnews.c 7785 2007-03-03 15:54:32Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/logonnews", FALSE, _modinit, _moddeinit,
-	"$Revision: 7503 $",
+	"$Revision: 7785 $",
 	"William Pitcock <nenolod -at- nenolod.net>"
 );
 
@@ -58,7 +58,7 @@ static void write_newsdb(void)
 	node_t *n;
 	logonnews_t *l;
 
-	if (!(f = fopen("etc/news.db.new", "w")))
+	if (!(f = fopen(DATADIR "/news.db.new", "w")))
 	{
 		slog(LG_DEBUG, "write_newsdb(): cannot write news database: %s", strerror(errno));
 		return;
@@ -73,7 +73,7 @@ static void write_newsdb(void)
 
 	fclose(f);
 
-	if ((rename("etc/news.db.new", "etc/news.db")) < 0)
+	if ((rename(DATADIR "/news.db.new", DATADIR "/news.db")) < 0)
 	{
 		slog(LG_DEBUG, "write_newsdb(): couldn't rename news database.");
 		return;
@@ -87,7 +87,7 @@ static void load_newsdb(void)
 	logonnews_t *l;
 	char *item, rBuf[BUFSIZE];
 
-	if (!(f = fopen("etc/news.db", "r")))
+	if (!(f = fopen(DATADIR "/news.db", "r")))
 	{
 		slog(LG_DEBUG, "read_newsdb(): cannot open news database: %s", strerror(errno));
 		return;
@@ -269,3 +269,9 @@ static void os_cmd_logonnews(sourceinfo_t *si, int parc, char *parv[])
 		return;
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

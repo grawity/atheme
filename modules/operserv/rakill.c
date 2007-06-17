@@ -4,7 +4,7 @@
  *
  * Regexp-based AKILL implementation.
  *
- * $Id: rakill.c 7277 2006-11-25 01:41:18Z jilles $
+ * $Id: rakill.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 /*
@@ -17,7 +17,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/rakill", FALSE, _modinit, _moddeinit,
-	"$Id: rakill.c 7277 2006-11-25 01:41:18Z jilles $",
+	"$Id: rakill.c 8027 2007-04-02 10:47:18Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -26,7 +26,7 @@ list_t *os_helptree;
 
 static void os_cmd_rakill(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_rakill = { "RAKILL", "Sets a group of AKILLs against users matching a specific regex pattern.", PRIV_MASS_AKILL, 1, os_cmd_rakill };
+command_t os_rakill = { "RAKILL", N_("Sets a group of AKILLs against users matching a specific regex pattern."), PRIV_MASS_AKILL, 1, os_cmd_rakill };
 
 void _modinit(module_t *m)
 {
@@ -47,7 +47,7 @@ static void os_cmd_rakill(sourceinfo_t *si, int parc, char *parv[])
 {
 	regex_t *regex;
 	char usermask[512];
-	uint32_t matches = 0;
+	unsigned int matches = 0;
 	dictionary_iteration_state_t state;
 	user_t *u;
 	char *args = parv[0];
@@ -59,14 +59,14 @@ static void os_cmd_rakill(sourceinfo_t *si, int parc, char *parv[])
 	/* make sure they could have done RMATCH */
 	if (!has_priv(si, PRIV_USER_AUSPEX))
 	{
-		command_fail(si, fault_noprivs, "You do not have %s privilege.", PRIV_USER_AUSPEX);
+		command_fail(si, fault_noprivs, _("You do not have %s privilege."), PRIV_USER_AUSPEX);
 		return;
 	}
 
 	if (args == NULL)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RAKILL");
-		command_fail(si, fault_needmoreparams, "Syntax: RAKILL /<regex>/[i] <reason>");
+		command_fail(si, fault_needmoreparams, _("Syntax: RAKILL /<regex>/[i] <reason>"));
 		return;
 	}
 
@@ -74,7 +74,7 @@ static void os_cmd_rakill(sourceinfo_t *si, int parc, char *parv[])
 	if (pattern == NULL)
 	{
 		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "RAKILL");
-		command_fail(si, fault_badparams, "Syntax: RAKILL /<regex>/[i] <reason>");
+		command_fail(si, fault_badparams, _("Syntax: RAKILL /<regex>/[i] <reason>"));
 		return;
 	}
 
@@ -84,14 +84,14 @@ static void os_cmd_rakill(sourceinfo_t *si, int parc, char *parv[])
 	if (*reason == '\0')
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RAKILL");
-		command_fail(si, fault_needmoreparams, "Syntax: RAKILL /<regex>/[i] <reason>");
+		command_fail(si, fault_needmoreparams, _("Syntax: RAKILL /<regex>/[i] <reason>"));
 		return;
 	}
 
 	regex = regex_create(pattern, flags);
 	if (regex == NULL)
 	{
-		command_fail(si, fault_badparams, "The provided regex \2%s\2 is invalid.", pattern);
+		command_fail(si, fault_badparams, _("The provided regex \2%s\2 is invalid."), pattern);
 		return;
 	}
 
@@ -104,7 +104,7 @@ static void os_cmd_rakill(sourceinfo_t *si, int parc, char *parv[])
 	if (regex_match(regex, (char *)usermask))
 	{
 		regex_destroy(regex);
-		command_fail(si, fault_noprivs, "The provided regex matches you, refusing RAKILL.");
+		command_fail(si, fault_noprivs, _("The provided regex matches you, refusing RAKILL."));
 		snoop("RAKILL:REFUSED: \2%s\2 by \2%s\2 (%s) (matches self)", pattern, get_oper_name(si), reason);
 		wallops("\2%s\2 attempted to do RAKILL on \2%s\2 matching self",
 				get_oper_name(si), pattern);
@@ -121,13 +121,19 @@ static void os_cmd_rakill(sourceinfo_t *si, int parc, char *parv[])
 		if (regex_match(regex, (char *)usermask))
 		{
 			/* match */
-			command_success_nodata(si, "\2Match:\2  %s!%s@%s %s - akilling", u->nick, u->user, u->host, u->gecos);
+			command_success_nodata(si, _("\2Match:\2  %s!%s@%s %s - akilling"), u->nick, u->user, u->host, u->gecos);
 			kline_sts("*", "*", u->host, 604800, reason);
 			matches++;
 		}
 	}
 	
 	regex_destroy(regex);
-	command_success_nodata(si, "\2%d\2 matches for %s akilled.", matches, pattern);
+	command_success_nodata(si, _("\2%d\2 matches for %s akilled."), matches, pattern);
 	logcommand(si, CMDLOG_ADMIN, "RAKILL %s %s (%d matches)", pattern, reason, matches);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

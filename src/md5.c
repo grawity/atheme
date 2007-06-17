@@ -288,3 +288,8 @@ static void Decode(UINT4 *output, unsigned const char *input, unsigned int len)
                                               24);
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

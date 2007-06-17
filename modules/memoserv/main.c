@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 6657 2006-10-04 21:22:47Z jilles $
+ * $Id: main.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,11 +12,12 @@
 DECLARE_MODULE_V1
 (
 	"memoserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 6657 2006-10-04 21:22:47Z jilles $",
+	"$Id: main.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void on_user_identify(void *vptr);
+static void on_user_away(void *vptr);
 
 list_t ms_cmdtree;
 list_t ms_helptree;
@@ -46,7 +47,7 @@ static void memoserv(sourceinfo_t *si, int parc, char *parv[])
 		return;
 	if (*cmd == '\001')
 	{
-		handle_ctcp_common(cmd, text, si->su->nick, memosvs.nick);
+		handle_ctcp_common(si, cmd, text);
 		return;
 	}
 
@@ -75,6 +76,9 @@ void _modinit(module_t *m)
 	hook_add_event("user_identify");
 	hook_add_hook("user_identify", on_user_identify);
 
+	hook_add_event("user_away");
+	hook_add_hook("user_away", on_user_away);
+
         if (!cold_start)
         {
                 memosvs.me = add_service(memosvs.nick, memosvs.user,
@@ -99,7 +103,39 @@ static void on_user_identify(void *vptr)
 	
 	if (mu->memoct_new > 0)
 	{
-		notice(memosvs.nick, u->nick, "You have %d new memo%s.",
-			mu->memoct_new, mu->memoct_new > 1 ? "s" : "");
+		notice(memosvs.nick, u->nick, ngettext(N_("You have %d new memo."),
+						       N_("You have %d new memos."),
+						       mu->memoct_new), mu->memoct_new);
 	}
 }
+
+static void on_user_away(void *vptr)
+{
+	user_t *u = vptr;
+	myuser_t *mu;
+	mynick_t *mn;
+
+	if (u->flags & UF_AWAY)
+		return;
+	mu = u->myuser;
+	if (mu == NULL)
+	{
+		mn = mynick_find(u->nick);
+		if (mn != NULL && myuser_access_verify(u, mn->owner))
+			mu = mn->owner;
+	}
+	if (mu == NULL)
+		return;
+	if (mu->memoct_new > 0)
+	{
+		notice(memosvs.nick, u->nick, ngettext(N_("You have %d new memo."),
+						       N_("You have %d new memos."),
+						       mu->memoct_new), mu->memoct_new);
+	}
+}
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

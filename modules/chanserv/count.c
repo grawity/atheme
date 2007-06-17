@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService COUNT functions.
  *
- * $Id: count.c 6877 2006-10-22 15:26:26Z jilles $
+ * $Id: count.c 7929 2007-03-08 18:50:21Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/count", FALSE, _modinit, _moddeinit,
-	"$Id: count.c 6877 2006-10-22 15:26:26Z jilles $",
+	"$Id: count.c 7929 2007-03-08 18:50:21Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_count(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_count = { "COUNT", "Shows number of entries in access lists.",
+command_t cs_count = { "COUNT", N_("Shows number of entries in access lists."),
                          AC_NONE, 1, cs_cmd_count };
 
 list_t *cs_cmdtree;
@@ -43,8 +43,8 @@ static void cs_cmd_count(sourceinfo_t *si, int parc, char *parv[])
 	char *chan = parv[0];
 	chanacs_t *ca;
 	mychan_t *mc = mychan_find(chan);
-	uint8_t vopcnt = 0, aopcnt = 0, hopcnt = 0, sopcnt = 0, akickcnt = 0;
-	uint8_t othercnt = 0;
+	int vopcnt = 0, aopcnt = 0, hopcnt = 0, sopcnt = 0, akickcnt = 0;
+	int othercnt = 0;
 	int i;
 	node_t *n;
 	char str[512];
@@ -53,13 +53,13 @@ static void cs_cmd_count(sourceinfo_t *si, int parc, char *parv[])
 	if (!chan)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "COUNT");
-		command_fail(si, fault_needmoreparams, "Syntax: COUNT <#channel>");
+		command_fail(si, fault_needmoreparams, _("Syntax: COUNT <#channel>"));
 		return;
 	}
 
 	if (!mc)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", chan);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), chan);
 		return;
 	}
 
@@ -69,14 +69,14 @@ static void cs_cmd_count(sourceinfo_t *si, int parc, char *parv[])
 			operoverride = 1;
 		else
 		{
-			command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+			command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
 			return;
 		}
 	}
 	
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		command_fail(si, fault_noprivs, "\2%s\2 is closed.", chan);
+		command_fail(si, fault_noprivs, _("\2%s\2 is closed."), chan);
 		return;
 	}
 
@@ -97,7 +97,7 @@ static void cs_cmd_count(sourceinfo_t *si, int parc, char *parv[])
 		else if (ca->myuser != mc->founder)
 			othercnt++;
 	}
-	command_success_nodata(si, "%s: VOp: %d, HOp: %d, AOp: %d, SOp: %d, AKick: %d, other: %d",
+	command_success_nodata(si, _("%s: VOp: %d, HOp: %d, AOp: %d, SOp: %d, AKick: %d, other: %d"),
 			chan, vopcnt, hopcnt, aopcnt, sopcnt, akickcnt, othercnt);
 	snprintf(str, sizeof str, "%s: ", chan);
 	for (i = 0; chanacs_flags[i].flag; i++)
@@ -120,3 +120,8 @@ static void cs_cmd_count(sourceinfo_t *si, int parc, char *parv[])
 		logcommand(si, CMDLOG_GET, "%s COUNT", mc->name);
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

@@ -5,7 +5,7 @@
  * This file contains data structures, and functions to
  * manipulate them.
  *
- * $Id: node.c 7037 2006-11-02 23:07:34Z jilles $
+ * $Id: node.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -101,7 +101,7 @@ kline_t *kline_add(char *user, char *host, char *reason, long duration)
 {
 	kline_t *k;
 	node_t *n = node_create();
-	static uint32_t kcnt = 0;
+	static unsigned int kcnt = 0;
 
 	slog(LG_DEBUG, "kline_add(): %s@%s -> %s (%ld)", user, host, reason, duration);
 
@@ -171,7 +171,7 @@ kline_t *kline_find(const char *user, const char *host)
 	return NULL;
 }
 
-kline_t *kline_find_num(uint32_t number)
+kline_t *kline_find_num(unsigned int number)
 {
 	kline_t *k;
 	node_t *n;
@@ -219,13 +219,19 @@ void kline_expire(void *arg)
 
 		if (k->expires <= CURRTIME)
 		{
-			snoop("KLINE:EXPIRE: \2%s@%s\2 set \2%s\2 ago by \2%s\2",
+			snoop(_("KLINE:EXPIRE: \2%s@%s\2 set \2%s\2 ago by \2%s\2"),
 				k->user, k->host, time_ago(k->settime), k->setby);
 
-			verbose_wallops("AKILL expired on \2%s@%s\2, set by \2%s\2",
+			verbose_wallops(_("AKILL expired on \2%s@%s\2, set by \2%s\2"),
 				k->user, k->host, k->setby);
 
 			kline_delete(k->user, k->host);
 		}
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

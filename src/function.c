@@ -4,34 +4,24 @@
  *
  * This file contains misc routines.
  *
- * $Id: function.c 7233 2006-11-19 19:25:53Z jilles $
+ * $Id: function.c 8079 2007-04-02 17:37:39Z nenolod $
  */
 
 #include "atheme.h"
-
-FILE *log_file;
-int log_force;
-
-/* there is no way windows has this command. */
-#ifdef _WIN32
-# undef HAVE_GETTIMEOFDAY
-#endif
 
 char ch[27] = "abcdefghijklmnopqrstuvwxyz";
 
 /* This function uses smalloc() to allocate memory.
  * You MUST free the result when you are done with it!
  */
-char *gen_pw(int8_t sz)
+char *gen_pw(int sz)
 {
-	int8_t i;
+	int i;
 	char *buf = smalloc(sz + 1); /* padding */
-
-	srand(CURRTIME);
 
 	for (i = 0; i < sz; i++)
 	{
-		buf[i] = ch[rand() % 26];
+		buf[i] = ch[arc4random() % 26];
 	}
 
 	buf[sz] = 0;
@@ -60,9 +50,9 @@ void e_time(struct timeval sttime, struct timeval *ttime)
 
 #ifdef HAVE_GETTIMEOFDAY
 /* translates microseconds into miliseconds */
-int32_t tv2ms(struct timeval *tv)
+int tv2ms(struct timeval *tv)
 {
-	return (tv->tv_sec * 1000) + (int32_t) (tv->tv_usec / 1000);
+	return (tv->tv_sec * 1000) + (int) (tv->tv_usec / 1000);
 }
 #endif
 
@@ -75,166 +65,6 @@ void tb2sp(char *line)
 		*c = ' ';
 }
 
-/* opens atheme.log */
-void log_open(void)
-{
-	static time_t lastfail = 0;
-
-	if (log_file)
-		return;
-
-	if ((log_file = fopen(log_path, "a")) == NULL)
-	{
-		/* At most one warning per hour */
-		if (me.connected && lastfail + 3600 < CURRTIME)
-		{
-			lastfail = CURRTIME;
-			wallops("Could not open log file (%s), log entries will be missing!", strerror(errno)); 
-		}
-		return;
-	}
-#ifndef _WIN32
-	fcntl(fileno(log_file), F_SETFD, FD_CLOEXEC);
-#endif
-}
-
-/* logs something to shrike.log */
-void slog(uint32_t level, const char *fmt, ...)
-{
-	va_list args;
-	time_t t;
-	struct tm tm;
-	char buf[64];
-	char lbuf[BUFSIZE];
-
-	if (!log_force && (level & me.loglevel) == 0)
-		return;
-
-	va_start(args, fmt);
-
-	time(&t);
-	tm = *localtime(&t);
-	strftime(buf, sizeof(buf) - 1, "[%d/%m/%Y %H:%M:%S]", &tm);
-
-	vsnprintf(lbuf, BUFSIZE, fmt, args);
-
-	if (!log_file)
-		log_open();
-
-	if (log_file)
-	{
-		fprintf(log_file, "%s %s\n", buf, lbuf);
-
-		fflush(log_file);
-	}
-
-	if ((runflags & (RF_LIVE | RF_STARTING)))
-		fprintf(stderr, "%s %s\n", buf, lbuf);
-
-	va_end(args);
-}
-
-void logcommand(sourceinfo_t *si, int level, const char *fmt, ...)
-{
-	va_list args;
-	char lbuf[BUFSIZE];
-
-	va_start(args, fmt);
-	vsnprintf(lbuf, BUFSIZE, fmt, args);
-	va_end(args);
-	if (si->su != NULL)
-		logcommand_user(si->service, si->su, level, "%s", lbuf);
-	else
-		logcommand_external(si->service, si->v != NULL ? si->v->description : "unknown", si->connection, si->sourcedesc, si->smu, level, "%s", lbuf);
-}
-
-void logcommand_user(service_t *svs, user_t *source, int level, const char *fmt, ...)
-{
-	va_list args;
-	time_t t;
-	struct tm tm;
-	char datetime[64];
-	char lbuf[BUFSIZE];
-
-	if (!log_force && (level & me.loglevel) == 0)
-		return;
-
-	va_start(args, fmt);
-
-	time(&t);
-	tm = *localtime(&t);
-	strftime(datetime, sizeof(datetime) - 1, "[%d/%m/%Y %H:%M:%S]", &tm);
-
-	vsnprintf(lbuf, BUFSIZE, fmt, args);
-
-	if (!log_file)
-		log_open();
-
-	if (log_file)
-	{
-		fprintf(log_file, "%s %s %s:%s!%s@%s[%s] %s\n",
-				datetime,
-				svs != NULL ? svs->name : me.name,
-				source->myuser != NULL ? source->myuser->name : "",
-				source->nick, source->user, source->vhost,
-				source->ip[0] != '\0' ? source->ip : source->host,
-				lbuf);
-
-		fflush(log_file);
-	}
-
-#if 0
-	if ((runflags & (RF_LIVE | RF_STARTING)))
-		fprintf(stderr, "%s %s\n", buf, lbuf);
-#endif
-
-	va_end(args);
-}
-
-void logcommand_external(service_t *svs, const char *type, connection_t *source,const char *sourcedesc, myuser_t *login, int level, const char *fmt, ...)
-{
-	va_list args;
-	time_t t;
-	struct tm tm;
-	char datetime[64];
-	char lbuf[BUFSIZE];
-
-	if (!log_force && (level & me.loglevel) == 0)
-		return;
-
-	va_start(args, fmt);
-
-	time(&t);
-	tm = *localtime(&t);
-	strftime(datetime, sizeof(datetime) - 1, "[%d/%m/%Y %H:%M:%S]", &tm);
-
-	vsnprintf(lbuf, BUFSIZE, fmt, args);
-
-	if (!log_file)
-		log_open();
-
-	if (log_file)
-	{
-		fprintf(log_file, "%s %s %s:%s(%s)[%s] %s\n",
-				datetime,
-				svs != NULL ? svs->name : me.name,
-				login != NULL ? login->name : "",
-				type,
-				source != NULL ? source->hbuf : "<noconn>",
-				sourcedesc != NULL ? sourcedesc : "<unknown>",
-				lbuf);
-
-		fflush(log_file);
-	}
-
-#if 0
-	if ((runflags & (RF_LIVE | RF_STARTING)))
-		fprintf(stderr, "%s %s\n", buf, lbuf);
-#endif
-
-	va_end(args);
-}
-
 /*
  * This generates a hash value, based on chongo's hash algo,
  * located at http://www.isthe.com/chongo/tech/comp/fnv/
@@ -243,7 +73,7 @@ void logcommand_external(service_t *svs, const char *type, connection_t *source,
  * that FNV uses a random key for toasting, we just use
  * 16 instead.
  */
-uint32_t shash(const unsigned char *p)
+unsigned int shash(const unsigned char *p)
 {
 	unsigned int hval = HASHINIT;
 
@@ -259,14 +89,14 @@ uint32_t shash(const unsigned char *p)
 }
 
 /* replace all occurances of 'old' with 'new' */
-char *replace(char *s, int32_t size, const char *old, const char *new)
+char *replace(char *s, int size, const char *old, const char *new)
 {
 	char *ptr = s;
-	int32_t left = strlen(s);
-	int32_t avail = size - (left + 1);
-	int32_t oldlen = strlen(old);
-	int32_t newlen = strlen(new);
-	int32_t diff = newlen - oldlen;
+	int left = strlen(s);
+	int avail = size - (left + 1);
+	int oldlen = strlen(old);
+	int newlen = strlen(new);
+	int diff = newlen - oldlen;
 
 	while (left >= oldlen)
 	{
@@ -292,21 +122,12 @@ char *replace(char *s, int32_t size, const char *old, const char *new)
 }
 
 /* reverse of atoi() */
-#ifndef _WIN32
 char *itoa(int num)
 {
 	static char ret[32];
 	sprintf(ret, "%d", num);
 	return ret;
 }
-#else
-char *r_itoa(int num)
-{
-	static char ret[32];
-	sprintf(ret, "%d", num);
-	return ret;
-}
-#endif
 
 /* return the time elapsed since an event */
 char *time_ago(time_t event)
@@ -383,15 +204,9 @@ char *timediff(time_t seconds)
 /* generate a random number, for use as a key */
 unsigned long makekey(void)
 {
-	unsigned long i, j, k;
+	unsigned long k;
 
-	i = rand() % (CURRTIME / cnt.user + 1);
-	j = rand() % (me.start * cnt.chan + 1);
-
-	if (i > j)
-		k = (i - j) + strlen(chansvs.user);
-	else
-		k = (j - i) + strlen(chansvs.host);
+	k = arc4random() & 0x7FFFFFFF;
 
 	/* shorten or pad it to 9 digits */
 	if (k > 1000000000)
@@ -458,23 +273,14 @@ boolean_t validhostmask(char *host)
 
 /* send the specified type of email.
  *
- * what is what we're sending to, a nickname.
- *
- * param is an extra parameter; email, key, etc.
- *
- * assume that we are either using NickServ or UserServ
- *
  * u is whoever caused this to be called, the corresponding service
  *   in case of xmlrpc
  * type is EMAIL_*, see include/tools.h
  * mu is the recipient user
  * param depends on type, also see include/tools.h
- *
- * XXX -- sendemail() is broken on Windows.
  */
 int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 {
-#ifndef _WIN32
 	char *email, *date = NULL;
 	char cmdbuf[512], timebuf[256], to[128], from[128], subject[128];
 	FILE *out;
@@ -523,7 +329,7 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 	{
 		if (CURRTIME - lastwallops > 60)
 		{
-			wallops("Rejecting email for %s[%s@%s] due to too high load (type %d to %s <%s>)",
+			wallops(_("Rejecting email for %s[%s@%s] due to too high load (type %d to %s <%s>)"),
 					u->nick, u->user, u->vhost,
 					type, mu->name, email);
 			slog(LG_ERROR, "sendemail(): rejecting email for %s[%s@%s] (%s) due to too high load (type %d to %s <%s>)",
@@ -557,7 +363,7 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 			strlcat(subject, "Account Registration", sizeof subject);
 		else
 			strlcat(subject, "Nickname Registration", sizeof subject);
-	else if (type == EMAIL_SENDPASS)
+	else if (type == EMAIL_SENDPASS || type == EMAIL_SETPASS)
 		strlcat(subject, "Password Retrieval", sizeof subject);
 	else if (type == EMAIL_SETEMAIL)
 		strlcat(subject, "Change Email Confirmation", sizeof subject);
@@ -603,7 +409,7 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 		fprintf(out, "In order to complete your registration, you must send the following\ncommand on IRC:\n");
 		fprintf(out, "/MSG %s VERIFY REGISTER %s %s\n\n", nicksvs.nick, mu->name, param);
 		fprintf(out, "Thank you for registering your %s on the %s IRC " "network!\n\n",
-				(nicksvs.nick ? "nickname" : "account"), me.netname);
+				(nicksvs.no_nick_ownership ? "account" : "nickname"), me.netname);
 	}
 	else if (type == EMAIL_SENDPASS)
 	{
@@ -615,7 +421,7 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 		fprintf(out, "In order to complete your email change, you must send\n" "the following command on IRC:\n");
 		fprintf(out, "/MSG %s VERIFY EMAILCHG %s %s\n\n", nicksvs.nick, mu->name, param);
 	}
-	if (type == EMAIL_MEMO)
+	else if (type == EMAIL_MEMO)
 	{
 		if (u->myuser != NULL)
 			fprintf(out,"You have a new memo from %s.\n\n", u->myuser->name);
@@ -623,6 +429,11 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 			/* shouldn't happen */
 			fprintf(out,"You have a new memo from %s (unregistered?).\n\n", u->nick);
 		fprintf(out,"%s\n\n", param);
+	}
+	else if (type == EMAIL_SETPASS)
+	{
+		fprintf(out, "In order to set a new password, you must send\n" "the following command on IRC:\n");
+		fprintf(out, "/MSG %s SETPASS %s %s <password>\nwhere <password> is your desired new password.\n\n", nicksvs.nick, mu->name, param);
 	}
 
 	fprintf(out, "Thank you for your interest in the %s IRC network.\n", me.netname);
@@ -639,9 +450,6 @@ int sendemail(user_t *u, int type, myuser_t *mu, const char *param)
 	if (rc == 0)
 		slog(LG_ERROR, "sendemail(): mta failure");
 	return rc;
-#else
-	return 0;
-#endif
 }
 
 /* various access level checkers */
@@ -768,3 +576,9 @@ float bytes(float x)
 
 	return x;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

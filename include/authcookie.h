@@ -4,7 +4,7 @@
  *
  * Remote authentication ticket management.
  *
- * $Id: authcookie.h 3847 2005-11-11 12:39:20Z jilles $
+ * $Id: authcookie.h 7779 2007-03-03 13:55:42Z pippijn $
  */
 
 #ifndef AUTHCOOKIE_H
@@ -28,3 +28,9 @@ E boolean_t authcookie_validate(char *ticket, myuser_t *myuser);
 E void authcookie_expire(void *arg);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

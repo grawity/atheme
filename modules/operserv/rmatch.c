@@ -4,7 +4,7 @@
  *
  * Regex usersearch feature.
  *
- * $Id: rmatch.c 7277 2006-11-25 01:41:18Z jilles $
+ * $Id: rmatch.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 /*
@@ -16,7 +16,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/rmatch", FALSE, _modinit, _moddeinit,
-	"$Id: rmatch.c 7277 2006-11-25 01:41:18Z jilles $",
+	"$Id: rmatch.c 8027 2007-04-02 10:47:18Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -25,7 +25,7 @@ list_t *os_helptree;
 
 static void os_cmd_rmatch(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_rmatch = { "RMATCH", "Scans the network for users based on a specific regex pattern.", PRIV_USER_AUSPEX, 1, os_cmd_rmatch };
+command_t os_rmatch = { "RMATCH", N_("Scans the network for users based on a specific regex pattern."), PRIV_USER_AUSPEX, 1, os_cmd_rmatch };
 
 void _modinit(module_t *m)
 {
@@ -46,7 +46,7 @@ static void os_cmd_rmatch(sourceinfo_t *si, int parc, char *parv[])
 {
 	regex_t *regex;
 	char usermask[512];
-	uint32_t matches = 0;
+	unsigned int matches = 0;
 	dictionary_iteration_state_t state;
 	user_t *u;
 	char *args = parv[0];
@@ -56,7 +56,7 @@ static void os_cmd_rmatch(sourceinfo_t *si, int parc, char *parv[])
 	if (args == NULL)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RMATCH");
-		command_fail(si, fault_needmoreparams, "Syntax: RMATCH /<regex>/[i]");
+		command_fail(si, fault_needmoreparams, _("Syntax: RMATCH /<regex>/[i]"));
 		return;
 	}
 
@@ -64,7 +64,7 @@ static void os_cmd_rmatch(sourceinfo_t *si, int parc, char *parv[])
 	if (pattern == NULL)
 	{
 		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "RMATCH");
-		command_fail(si, fault_badparams, "Syntax: RMATCH /<regex>/[i]");
+		command_fail(si, fault_badparams, _("Syntax: RMATCH /<regex>/[i]"));
 		return;
 	}
 
@@ -72,7 +72,7 @@ static void os_cmd_rmatch(sourceinfo_t *si, int parc, char *parv[])
 	
 	if (regex == NULL)
 	{
-		command_fail(si, fault_badparams, "The provided regex \2%s\2 is invalid.", pattern);
+		command_fail(si, fault_badparams, _("The provided regex \2%s\2 is invalid."), pattern);
 		return;
 	}
 		
@@ -83,13 +83,19 @@ static void os_cmd_rmatch(sourceinfo_t *si, int parc, char *parv[])
 		if (regex_match(regex, usermask) == TRUE)
 		{
 			/* match */
-			command_success_nodata(si, "\2Match:\2  %s!%s@%s %s", u->nick, u->user, u->host, u->gecos);
+			command_success_nodata(si, _("\2Match:\2  %s!%s@%s %s"), u->nick, u->user, u->host, u->gecos);
 			matches++;
 		}
 	}
 	
 	regex_destroy(regex);
-	command_success_nodata(si, "\2%d\2 matches for %s", matches, pattern);
+	command_success_nodata(si, _("\2%d\2 matches for %s"), matches, pattern);
 	logcommand(si, CMDLOG_ADMIN, "RMATCH %s (%d matches)", pattern, matches);
 	snoop("RMATCH: \2%s\2 by \2%s\2", pattern, get_oper_name(si));
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

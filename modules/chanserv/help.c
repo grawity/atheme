@@ -4,7 +4,7 @@
  *
  * This file contains routines to handle the CService HELP command.
  *
- * $Id: help.c 7205 2006-11-18 14:02:11Z jilles $
+ * $Id: help.c 8253 2007-05-12 21:38:58Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/help", FALSE, _modinit, _moddeinit,
-	"$Id: help.c 7205 2006-11-18 14:02:11Z jilles $",
+	"$Id: help.c 8253 2007-05-12 21:38:58Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_help(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_help = { "HELP", "Displays contextual help information.",
+command_t cs_help = { "HELP", N_("Displays contextual help information."),
                         AC_NONE, 1, cs_cmd_help };
 
 list_t *cs_cmdtree, *cs_helptree;
@@ -53,54 +53,60 @@ static void cs_cmd_help(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!command)
 	{
-		command_success_nodata(si, "***** \2%s Help\2 *****", chansvs.nick);
-		command_success_nodata(si, "\2%s\2 gives normal users the ability to maintain control", chansvs.nick);
-		command_success_nodata(si, "of a channel, without the need of a bot. Channel takeovers are");
-		command_success_nodata(si, "virtually impossible when a channel is registered with \2%s\2.", chansvs.nick);
-		command_success_nodata(si, "Registration is a quick and painless process. Once registered,");
-		command_success_nodata(si, "the founder can maintain complete and total control over the channel.");
+		command_success_nodata(si, _("***** \2%s Help\2 *****"), chansvs.nick);
+		command_success_nodata(si, _("\2%s\2 gives normal users the ability to maintain control"), chansvs.nick);
+		command_success_nodata(si, _("of a channel, without the need of a bot. Channel takeovers are"));
+		command_success_nodata(si, _("virtually impossible when a channel is registered with \2%s\2."), chansvs.nick);
+		command_success_nodata(si, _("Registration is a quick and painless process. Once registered,"));
+		command_success_nodata(si, _("the founder can maintain complete and total control over the channel."));
 		if (config_options.expire > 0)
 		{
-			command_success_nodata(si, "Please note that channels will expire after %d days of inactivity,", (config_options.expire / 86400));
-			command_success_nodata(si, "or if there are no eligible channel successors.");
-			command_success_nodata(si, "Activity is defined as a user with one of +vhHoOsrRf being on the channel.");
+			command_success_nodata(si, _("Please note that channels will expire after %d days of inactivity,"), (config_options.expire / 86400));
+			command_success_nodata(si, _("or if there are no eligible channel successors."));
+			command_success_nodata(si, _("Activity is defined as a user with one of %s being on the channel."), bitmask_to_flags2(CA_USEDUPDATE & ca_all, 0, chanacs_flags));
 		}
 		else
 		{
-			command_success_nodata(si, "Please note that channels will expire if there are no eligible channel successors.");
+			command_success_nodata(si, _("Please note that channels will expire if there are no eligible channel successors."));
 		}
-		command_success_nodata(si, "Successors are primarily those who have the +R flag");
-		command_success_nodata(si, "set on their account in the channel, although other");
-		command_success_nodata(si, "people may be chosen depending on their access");
-		command_success_nodata(si, "level and activity.");
+		command_success_nodata(si, _("Successors are primarily those who have the +R flag"));
+		command_success_nodata(si, _("set on their account in the channel, although other"));
+		command_success_nodata(si, _("people may be chosen depending on their access"));
+		command_success_nodata(si, _("level and activity."));
 		command_success_nodata(si, " ");
 		if (chansvs.fantasy && config_options.join_chans && chansvs.trigger != '\0')
 		{
-			command_success_nodata(si, "Commands can also be given on channel by prefixing with '%c'", chansvs.trigger);
-			command_success_nodata(si, "and omitting the channel name. These are called \"fantasy\"");
-			command_success_nodata(si, "commands and can also be disabled on a per-channel basis.");
+			command_success_nodata(si, _("Commands can also be given on channel by prefixing one of '%s'"), chansvs.trigger);
+			command_success_nodata(si, _("and omitting the channel name. These are called \"fantasy\""));
+			command_success_nodata(si, _("commands and can also be disabled on a per-channel basis."));
 			command_success_nodata(si, " ");
 		}
-		command_success_nodata(si, "For more information on a command, type:");
+		command_success_nodata(si, _("For more information on a command, type:"));
 		command_success_nodata(si, "\2/%s%s help <command>\2", (ircd->uses_rcommand == FALSE) ? "msg " : "", chansvs.disp);
 		command_success_nodata(si, " ");
-		command_success_nodata(si, "For a verbose listing of all commands, type:");
+		command_success_nodata(si, _("For a verbose listing of all commands, type:"));
 		command_success_nodata(si, "\2/%s%s help commands\2", (ircd->uses_rcommand == FALSE) ? "msg " : "", chansvs.disp);
 		command_success_nodata(si, " ");
 
 		command_help_short(si, cs_cmdtree, "REGISTER OP INVITE UNBAN FLAGS RECOVER SET");
 
-		command_success_nodata(si, "***** \2End of Help\2 *****");
+		command_success_nodata(si, _("***** \2End of Help\2 *****"));
 		return;
 	}
 
 	if (!strcasecmp("COMMANDS", command))
 	{
-		command_success_nodata(si, "***** \2%s Help\2 *****", chansvs.nick);
+		command_success_nodata(si, _("***** \2%s Help\2 *****"), chansvs.nick);
 		command_help(si, cs_cmdtree);
-		command_success_nodata(si, "***** \2End of Help\2 *****");
+		command_success_nodata(si, _("***** \2End of Help\2 *****"));
 		return;
 	}
 
 	help_display(si, command, cs_helptree);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

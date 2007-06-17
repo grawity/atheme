@@ -4,7 +4,7 @@
  *
  * Module listing.
  *
- * $Id: modlist.c 6927 2006-10-24 15:22:05Z jilles $
+ * $Id: modlist.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modlist", FALSE, _modinit, _moddeinit,
-	"$Id: modlist.c 6927 2006-10-24 15:22:05Z jilles $",
+	"$Id: modlist.c 8027 2007-04-02 10:47:18Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_modlist(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_modlist = { "MODLIST", "Lists loaded modules.", PRIV_SERVER_AUSPEX, 0, os_cmd_modlist };
+command_t os_modlist = { "MODLIST", N_("Lists loaded modules."), PRIV_SERVER_AUSPEX, 0, os_cmd_modlist };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -42,17 +42,23 @@ void _moddeinit()
 static void os_cmd_modlist(sourceinfo_t *si, int parc, char *parv[])
 {
 	node_t *n;
-	uint16_t i = 0;
-	command_success_nodata(si, "Loaded modules:");
+	unsigned int i = 0;
+	command_success_nodata(si, _("Loaded modules:"));
 
 	LIST_FOREACH(n, modules.head)
 	{
 		module_t *m = n->data;
 
-		command_success_nodata(si, "%2d: %-20s [loaded at 0x%lx]",
+		command_success_nodata(si, _("%2d: %-20s [loaded at 0x%lx]"),
 			++i, m->header->name, m->address);
 	}
 
-	command_success_nodata(si, "\2%d\2 modules loaded.", i);
+	command_success_nodata(si, _("\2%d\2 modules loaded."), i);
 	logcommand(si, CMDLOG_GET, "MODLIST");
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

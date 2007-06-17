@@ -4,7 +4,7 @@
  *
  * IRC packet handling.
  *
- * $Id: packet.c 6931 2006-10-24 16:53:07Z jilles $
+ * $Id: packet.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -40,7 +40,7 @@ static void irc_recvq_handler(connection_t *cptr)
 
 static void ping_uplink(void *arg)
 {
-	uint32_t diff;
+	unsigned int diff;
 
 	if (me.connected)
 	{
@@ -103,3 +103,9 @@ void init_ircpacket(void)
 	hook_add_event("connected");
 	hook_add_hook("connected", irc_handle_connect);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

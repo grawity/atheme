@@ -4,7 +4,7 @@
  *
  * Account-related functions.
  *
- * $Id: account.c 7395 2006-12-25 16:32:51Z jilles $
+ * $Id: account.c 8367 2007-06-02 22:26:48Z jilles $
  */
 
 #include "atheme.h"
@@ -55,7 +55,7 @@ void init_accounts(void)
 }
 
 /*
- * myuser_add(char *name, char *pass, char *email, uint32_t flags)
+ * myuser_add(char *name, char *pass, char *email, unsigned int flags)
  *
  * Creates an account and adds it to the accounts DTree.
  *
@@ -77,26 +77,22 @@ void init_accounts(void)
  *      - if nicksvs.no_nick_ownership is not enabled, the caller is
  *        responsible for adding a nick with the same name
  */
-myuser_t *myuser_add(char *name, char *pass, char *email, uint32_t flags)
+myuser_t *myuser_add(char *name, char *pass, char *email, unsigned int flags)
 {
 	myuser_t *mu;
 	soper_t *soper;
 
-	mu = myuser_find(name);
+	return_val_if_fail((mu = myuser_find(name)) == NULL, mu);
 
-	if (mu)
-	{
-		slog(LG_DEBUG, "myuser_add(): myuser already exists: %s", name);
-		return mu;
-	}
-
-	slog(LG_DEBUG, "myuser_add(): %s -> %s", name, email);
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "myuser_add(): %s -> %s", name, email);
 
 	mu = BlockHeapAlloc(myuser_heap);
+	object_init(object(mu), NULL, (destructor_t) myuser_delete);
 
-	/* set the password later */
 	strlcpy(mu->name, name, NICKLEN);
 	strlcpy(mu->email, email, EMAILLEN);
+
 	mu->registered = CURRTIME;
 	mu->flags = flags;
 
@@ -143,21 +139,16 @@ void myuser_delete(myuser_t *mu)
 {
 	myuser_t *successor;
 	mychan_t *mc;
-	mynick_t *mn;
-	chanacs_t *ca;
 	user_t *u;
 	node_t *n, *tn;
 	metadata_t *md;
 	mymemo_t *memo;
 	dictionary_iteration_state_t state;
 
-	if (!mu)
-	{
-		slog(LG_DEBUG, "myuser_delete(): called for NULL myuser");
-		return;
-	}
+	return_if_fail(mu != NULL);
 
-	slog(LG_DEBUG, "myuser_delete(): %s", mu->name);
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "myuser_delete(): %s", mu->name);
 
 	/* log them out */
 	LIST_FOREACH_SAFE(n, tn, mu->logins.head)
@@ -181,11 +172,16 @@ void myuser_delete(myuser_t *mu)
 		/* attempt succession */
 		if (mc->founder == mu && (successor = mychan_pick_successor(mc)) != NULL)
 		{
-			snoop("SUCCESSION: \2%s\2 -> \2%s\2 from \2%s\2", successor->name, mc->name, mc->founder->name);
+			snoop(_("SUCCESSION: \2%s\2 -> \2%s\2 from \2%s\2"), successor->name, mc->name, mc->founder->name);
+			slog(LG_INFO, "myuser_delete(): giving channel %s to %s (unused %ds, founder %s, chanacs %d)",
+					mc->name, successor->name,
+					CURRTIME - mc->used,
+					mc->founder->name,
+					LIST_LENGTH(&mc->chanacs));
 			if (chansvs.me != NULL)
 				verbose(mc, "Foundership changed to \2%s\2 because \2%s\2 was dropped.", successor->name, mc->founder->name);
 
-			chanacs_change_simple(mc, successor, NULL, CA_FOUNDER_0, 0, CA_ALL);
+			chanacs_change_simple(mc, successor, NULL, CA_FOUNDER_0, 0);
 			mc->founder = successor;
 
 			if (chansvs.me != NULL)
@@ -195,22 +191,22 @@ void myuser_delete(myuser_t *mu)
 		/* no successor found */
 		if (mc->founder == mu)
 		{
-			snoop("DELETE: \2%s\2 from \2%s\2", mc->name, mu->name);
+			snoop(_("DELETE: \2%s\2 from \2%s\2"), mc->name, mu->name);
+			slog(LG_INFO, "myuser_delete(): deleting channel %s (unused %ds, founder %s, chanacs %d)",
+					mc->name, CURRTIME - mc->used,
+					mc->founder->name,
+					LIST_LENGTH(&mc->chanacs));
 
 			hook_call_event("channel_drop", mc);
 			if ((config_options.chan && irccasecmp(mc->name, config_options.chan)) || !config_options.chan)
 				part(mc->name, chansvs.nick);
-			mychan_delete(mc->name);
+			object_unref(mc);
 		}
 	}
 
 	/* remove their chanacs shiz */
 	LIST_FOREACH_SAFE(n, tn, mu->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		chanacs_delete(ca->mychan, ca->myuser, ca->level);
-	}
+		object_unref(n->data);
 
 	/* remove them from the soper list */
 	if (soper_find(mu))
@@ -242,10 +238,7 @@ void myuser_delete(myuser_t *mu)
 
 	/* delete their nicks */
 	LIST_FOREACH_SAFE(n, tn, mu->nicks.head)
-	{
-		mn = (mynick_t *)n->data;
-		mynick_delete(mn);
-	}
+		object_unref(n->data);
 
 	/* mu->name is the index for this dtree */
 	dictionary_delete(mulist, mu->name);
@@ -539,16 +532,13 @@ mynick_t *mynick_add(myuser_t *mu, const char *name)
 {
 	mynick_t *mn;
 
-	mn = mynick_find(name);
-	if (mn)
-	{
-		slog(LG_DEBUG, "mynick_add(): mynick already exists: %s", name);
-		return mn;
-	}
+	return_val_if_fail((mn = mynick_find(name)) == NULL, mn);
 
-	slog(LG_DEBUG, "mynick_add(): %s -> %s", name, mu->name);
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "mynick_add(): %s -> %s", name, mu->name);
 
 	mn = BlockHeapAlloc(mynick_heap);
+	object_init(object(mn), NULL, (destructor_t) mynick_delete);
 
 	strlcpy(mn->nick, name, NICKLEN);
 	mn->owner = mu;
@@ -578,13 +568,10 @@ mynick_t *mynick_add(myuser_t *mu, const char *name)
  */
 void mynick_delete(mynick_t *mn)
 {
-	if (!mn)
-	{
-		slog(LG_DEBUG, "mynick_delete(): called for NULL myuser");
-		return;
-	}
+	return_if_fail(mn != NULL);
 
-	slog(LG_DEBUG, "mynick_delete(): %s", mn->nick);
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "mynick_delete(): %s", mn->nick);
 
 	dictionary_delete(nicklist, mn->nick);
 	node_del(&mn->node, &mn->owner->nicks);
@@ -617,59 +604,20 @@ mynick_t *mynick_find(const char *name)
  * M Y C H A N *
  ***************/
 
-mychan_t *mychan_add(char *name)
+/* private destructor for mychan_t. */
+static void mychan_delete(mychan_t *mc)
 {
-	mychan_t *mc;
-
-	mc = mychan_find(name);
-
-	if (mc)
-	{
-		slog(LG_DEBUG, "mychan_add(): mychan already exists: %s", name);
-		return mc;
-	}
-
-	slog(LG_DEBUG, "mychan_add(): %s", name);
-
-	mc = BlockHeapAlloc(mychan_heap);
-
-	strlcpy(mc->name, name, CHANNELLEN);
-	mc->founder = NULL;
-	mc->registered = CURRTIME;
-	mc->chan = channel_find(name);
-
-	dictionary_add(mclist, mc->name, mc);
-
-	cnt.mychan++;
-
-	return mc;
-}
-
-void mychan_delete(char *name)
-{
-	mychan_t *mc = mychan_find(name);
-	chanacs_t *ca;
 	metadata_t *md;
 	node_t *n, *tn;
 
-	if (!mc)
-	{
-		slog(LG_DEBUG, "mychan_delete(): called for nonexistant mychan: %s", name);
-		return;
-	}
+	return_if_fail(mc != NULL);
 
-	slog(LG_DEBUG, "mychan_delete(): %s", mc->name);
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "mychan_delete(): %s", mc->name);
 
 	/* remove the chanacs shiz */
 	LIST_FOREACH_SAFE(n, tn, mc->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		if (ca->myuser)
-			chanacs_delete(ca->mychan, ca->myuser, ca->level);
-		else
-			chanacs_delete_host(ca->mychan, ca->host, ca->level);
-	}
+		object_unref(n->data);
 
 	/* delete the metadata */
 	LIST_FOREACH_SAFE(n, tn, mc->metadata.head)
@@ -683,6 +631,30 @@ void mychan_delete(char *name)
 	BlockHeapFree(mychan_heap, mc);
 
 	cnt.mychan--;
+}
+
+mychan_t *mychan_add(char *name)
+{
+	mychan_t *mc;
+
+	return_val_if_fail((mc = mychan_find(name)) == NULL, mc);
+
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "mychan_add(): %s", name);
+
+	mc = BlockHeapAlloc(mychan_heap);
+
+	object_init(object(mc), NULL, (destructor_t) mychan_delete);
+	strlcpy(mc->name, name, CHANNELLEN);
+	mc->founder = NULL;
+	mc->registered = CURRTIME;
+	mc->chan = channel_find(name);
+
+	dictionary_add(mclist, mc->name, mc);
+
+	cnt.mychan++;
+
+	return mc;
 }
 
 mychan_t *mychan_find(const char *name)
@@ -712,7 +684,7 @@ boolean_t mychan_isused(mychan_t *mc)
 }
 
 /* Find a user fulfilling the conditions who can take another channel */
-myuser_t *mychan_pick_candidate(mychan_t *mc, uint32_t minlevel, int maxtime)
+myuser_t *mychan_pick_candidate(mychan_t *mc, unsigned int minlevel, int maxtime)
 {
 	int tcnt;
 	node_t *n, *n2;
@@ -756,10 +728,10 @@ myuser_t *mychan_pick_successor(mychan_t *mc)
 	myuser_t *mu;
 
 	/* full privs? */
-	mu = mychan_pick_candidate(mc, CA_FOUNDER_0, 7*86400);
+	mu = mychan_pick_candidate(mc, CA_FOUNDER_0 & ca_all, 7*86400);
 	if (mu != NULL)
 		return mu;
-	mu = mychan_pick_candidate(mc, CA_FOUNDER_0, 0);
+	mu = mychan_pick_candidate(mc, CA_FOUNDER_0 & ca_all, 0);
 	if (mu != NULL)
 		return mu;
 	/* someone with +R then? (old successor has this, but not sop) */
@@ -788,17 +760,63 @@ myuser_t *mychan_pick_successor(mychan_t *mc)
  * C H A N A C S *
  *****************/
 
-chanacs_t *chanacs_add(mychan_t *mychan, myuser_t *myuser, uint32_t level)
+/* private destructor for chanacs_t */
+static void chanacs_delete(chanacs_t *ca)
+{
+	node_t *n, *tn;
+
+	return_if_fail(ca != NULL);
+	return_if_fail(ca->mychan != NULL);
+
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "chanacs_delete(): %s -> %s", ca->mychan->name,
+			ca->myuser != NULL ? ca->myuser->name : ca->host);
+	n = node_find(ca, &ca->mychan->chanacs);
+	node_del(n, &ca->mychan->chanacs);
+	node_free(n);
+
+	if (ca->myuser != NULL)
+	{
+		n = node_find(ca, &ca->myuser->chanacs);
+		node_del(n, &ca->myuser->chanacs);
+		node_free(n);
+	}
+
+	LIST_FOREACH_SAFE(n, tn, ca->metadata.head)
+	{
+		metadata_t *md = n->data;
+		metadata_delete(ca, METADATA_CHANACS, md->name);
+	}
+
+	BlockHeapFree(chanacs_heap, ca);
+
+	cnt.chanacs--;
+}
+
+/*
+ * chanacs_add(mychan_t *mychan, myuser_t *myuser, unsigned int level, time_t ts)
+ *
+ * Creates an access entry mapping between a user and channel.
+ *
+ * Inputs:
+ *       - a channel to create a mapping for
+ *       - a user to create a mapping for
+ *       - a bitmask which describes the access entry's privileges
+ *       - a timestamp for this access entry
+ *
+ * Outputs:
+ *       - a chanacs_t object which describes the mapping
+ *
+ * Side Effects:
+ *       - the channel access list is updated for mychan.
+ */
+chanacs_t *chanacs_add(mychan_t *mychan, myuser_t *myuser, unsigned int level, time_t ts)
 {
 	chanacs_t *ca;
 	node_t *n1;
 	node_t *n2;
 
-	if (!mychan || !myuser)
-	{
-		slog(LG_DEBUG, "chanacs_add(): got mychan == NULL or myuser == NULL, ignoring");
-		return NULL;
-	}
+	return_val_if_fail(mychan != NULL && myuser != NULL, NULL);
 
 	if (*mychan->name != '#')
 	{
@@ -806,16 +824,19 @@ chanacs_t *chanacs_add(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 		return NULL;
 	}
 
-	slog(LG_DEBUG, "chanacs_add(): %s -> %s", mychan->name, myuser->name);
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "chanacs_add(): %s -> %s", mychan->name, myuser->name);
 
 	n1 = node_create();
 	n2 = node_create();
 
 	ca = BlockHeapAlloc(chanacs_heap);
 
+	object_init(object(ca), NULL, (destructor_t) chanacs_delete);
 	ca->mychan = mychan;
 	ca->myuser = myuser;
-	ca->level = level & CA_ALL;
+	ca->level = level & ca_all;
+	ca->ts = ts;
 
 	node_add(ca, n1, &mychan->chanacs);
 	node_add(ca, n2, &myuser->chanacs);
@@ -825,16 +846,29 @@ chanacs_t *chanacs_add(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 	return ca;
 }
 
-chanacs_t *chanacs_add_host(mychan_t *mychan, char *host, uint32_t level)
+/*
+ * chanacs_add_host(mychan_t *mychan, char *host, unsigned int level, time_t ts)
+ *
+ * Creates an access entry mapping between a hostmask and channel.
+ *
+ * Inputs:
+ *       - a channel to create a mapping for
+ *       - a hostmask to create a mapping for
+ *       - a bitmask which describes the access entry's privileges
+ *       - a timestamp for this access entry
+ *
+ * Outputs:
+ *       - a chanacs_t object which describes the mapping
+ *
+ * Side Effects:
+ *       - the channel access list is updated for mychan.
+ */
+chanacs_t *chanacs_add_host(mychan_t *mychan, const char *host, unsigned int level, time_t ts)
 {
 	chanacs_t *ca;
 	node_t *n;
 
-	if (!mychan || !host)
-	{
-		slog(LG_DEBUG, "chanacs_add_host(): got mychan == NULL or host == NULL, ignoring");
-		return NULL;
-	}
+	return_val_if_fail(mychan != NULL && host != NULL, NULL);
 
 	if (*mychan->name != '#')
 	{
@@ -842,16 +876,19 @@ chanacs_t *chanacs_add_host(mychan_t *mychan, char *host, uint32_t level)
 		return NULL;
 	}
 
-	slog(LG_DEBUG, "chanacs_add_host(): %s -> %s", mychan->name, host);
+	if (!(runflags & RF_STARTING))
+		slog(LG_DEBUG, "chanacs_add_host(): %s -> %s", mychan->name, host);
 
 	n = node_create();
 
 	ca = BlockHeapAlloc(chanacs_heap);
 
+	object_init(object(ca), NULL, (destructor_t) chanacs_delete);
 	ca->mychan = mychan;
 	ca->myuser = NULL;
 	strlcpy(ca->host, host, HOSTLEN);
 	ca->level |= level;
+	ca->ts = ts;
 
 	node_add(ca, n, &mychan->chanacs);
 
@@ -860,92 +897,12 @@ chanacs_t *chanacs_add_host(mychan_t *mychan, char *host, uint32_t level)
 	return ca;
 }
 
-void chanacs_delete(mychan_t *mychan, myuser_t *myuser, uint32_t level)
-{
-	chanacs_t *ca;
-	node_t *n, *tn, *n2, *tn2;
-	metadata_t *md;
-
-	if (!mychan || !myuser)
-	{
-		slog(LG_DEBUG, "chanacs_delete(): got mychan == NULL or myuser == NULL, ignoring");
-		return;
-	}
-
-	LIST_FOREACH_SAFE(n, tn, mychan->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		if ((ca->myuser == myuser) && (ca->level == level))
-		{
-			slog(LG_DEBUG, "chanacs_delete(): %s -> %s", ca->mychan->name, ca->myuser->name);
-			node_del(n, &mychan->chanacs);
-			node_free(n);
-
-			n2 = node_find(ca, &myuser->chanacs);
-			node_del(n2, &myuser->chanacs);
-			node_free(n2);
-
-			LIST_FOREACH_SAFE(n2, tn2, ca->metadata.head)
-			{
-				md = n2->data;
-				metadata_delete(ca, METADATA_CHANACS, md->name);
-			}
-
-			BlockHeapFree(chanacs_heap, ca);
-
-			cnt.chanacs--;
-
-			return;
-		}
-	}
-}
-
-void chanacs_delete_host(mychan_t *mychan, char *host, uint32_t level)
-{
-	chanacs_t *ca;
-	node_t *n, *tn, *n2, *tn2;
-	metadata_t *md;
-
-	if (!mychan || !host)
-	{
-		slog(LG_DEBUG, "chanacs_delete_host(): got mychan == NULL or myuser == NULL, ignoring");
-		return;
-	}
-
-	LIST_FOREACH_SAFE(n, tn, mychan->chanacs.head)
-	{
-		ca = (chanacs_t *)n->data;
-
-		if ((ca->myuser == NULL) && (!irccasecmp(host, ca->host)) && (ca->level == level))
-		{
-			slog(LG_DEBUG, "chanacs_delete_host(): %s -> %s", ca->mychan->name, ca->host);
-
-			node_del(n, &mychan->chanacs);
-			node_free(n);
-
-			LIST_FOREACH_SAFE(n2, tn2, ca->metadata.head)
-			{
-				md = n2->data;
-				metadata_delete(ca, METADATA_CHANACS, md->name);
-			}
-
-			BlockHeapFree(chanacs_heap, ca);
-
-			cnt.chanacs--;
-
-			return;
-		}
-	}
-}
-
-chanacs_t *chanacs_find(mychan_t *mychan, myuser_t *myuser, uint32_t level)
+chanacs_t *chanacs_find(mychan_t *mychan, myuser_t *myuser, unsigned int level)
 {
 	node_t *n;
 	chanacs_t *ca;
 
-	if ((!mychan) || (!myuser))
-		return NULL;
+	return_val_if_fail(mychan != NULL && myuser != NULL, NULL);
 
 	LIST_FOREACH(n, mychan->chanacs.head)
 	{
@@ -963,13 +920,12 @@ chanacs_t *chanacs_find(mychan_t *mychan, myuser_t *myuser, uint32_t level)
 	return NULL;
 }
 
-chanacs_t *chanacs_find_host(mychan_t *mychan, char *host, uint32_t level)
+chanacs_t *chanacs_find_host(mychan_t *mychan, const char *host, unsigned int level)
 {
 	node_t *n;
 	chanacs_t *ca;
 
-	if ((!mychan) || (!host))
-		return NULL;
+	return_val_if_fail(mychan != NULL && host != NULL, NULL);
 
 	LIST_FOREACH(n, mychan->chanacs.head)
 	{
@@ -987,14 +943,13 @@ chanacs_t *chanacs_find_host(mychan_t *mychan, char *host, uint32_t level)
 	return NULL;
 }
 
-uint32_t chanacs_host_flags(mychan_t *mychan, char *host)
+unsigned int chanacs_host_flags(mychan_t *mychan, const char *host)
 {
 	node_t *n;
 	chanacs_t *ca;
-	uint32_t result = 0;
+	unsigned int result = 0;
 
-	if ((!mychan) || (!host))
-		return 0;
+	return_val_if_fail(mychan != NULL && host != NULL, 0);
 
 	LIST_FOREACH(n, mychan->chanacs.head)
 	{
@@ -1007,7 +962,7 @@ uint32_t chanacs_host_flags(mychan_t *mychan, char *host)
 	return result;
 }
 
-chanacs_t *chanacs_find_host_literal(mychan_t *mychan, char *host, uint32_t level)
+chanacs_t *chanacs_find_host_literal(mychan_t *mychan, const char *host, unsigned int level)
 {
 	node_t *n;
 	chanacs_t *ca;
@@ -1031,12 +986,11 @@ chanacs_t *chanacs_find_host_literal(mychan_t *mychan, char *host, uint32_t leve
 	return NULL;
 }
 
-chanacs_t *chanacs_find_host_by_user(mychan_t *mychan, user_t *u, uint32_t level)
+chanacs_t *chanacs_find_host_by_user(mychan_t *mychan, user_t *u, unsigned int level)
 {
 	char host[BUFSIZE];
 
-	if ((!mychan) || (!u))
-		return NULL;
+	return_val_if_fail(mychan != NULL && u != NULL, NULL);
 
 	/* construct buffer for user's host */
 	strlcpy(host, u->nick, BUFSIZE);
@@ -1048,12 +1002,11 @@ chanacs_t *chanacs_find_host_by_user(mychan_t *mychan, user_t *u, uint32_t level
 	return chanacs_find_host(mychan, host, level);
 }
 
-uint32_t chanacs_host_flags_by_user(mychan_t *mychan, user_t *u)
+unsigned int chanacs_host_flags_by_user(mychan_t *mychan, user_t *u)
 {
 	char host[BUFSIZE];
 
-	if ((!mychan) || (!u))
-		return 0;
+	return_val_if_fail(mychan != NULL && u != NULL, 0);
 
 	/* construct buffer for user's host */
 	strlcpy(host, u->nick, BUFSIZE);
@@ -1065,16 +1018,18 @@ uint32_t chanacs_host_flags_by_user(mychan_t *mychan, user_t *u)
 	return chanacs_host_flags(mychan, host);
 }
 
-chanacs_t *chanacs_find_by_mask(mychan_t *mychan, char *mask, uint32_t level)
+chanacs_t *chanacs_find_by_mask(mychan_t *mychan, const char *mask, unsigned int level)
 {
-	myuser_t *mu = myuser_find(mask);
+	myuser_t *mu;
+	chanacs_t *ca;
 
-	if (!mychan || !mask)
-		return NULL;
+	return_val_if_fail(mychan != NULL && mask != NULL, NULL);
 
-	if (mu)
+	mu = myuser_find(mask);
+
+	if (mu != NULL)
 	{
-		chanacs_t *ca = chanacs_find(mychan, mu, level);
+		ca = chanacs_find(mychan, mu, level);
 
 		if (ca)
 			return ca;
@@ -1083,12 +1038,11 @@ chanacs_t *chanacs_find_by_mask(mychan_t *mychan, char *mask, uint32_t level)
 	return chanacs_find_host_literal(mychan, mask, level);
 }
 
-boolean_t chanacs_user_has_flag(mychan_t *mychan, user_t *u, uint32_t level)
+boolean_t chanacs_user_has_flag(mychan_t *mychan, user_t *u, unsigned int level)
 {
 	myuser_t *mu;
 
-	if (!mychan || !u)
-		return FALSE;
+	return_val_if_fail(mychan != NULL && u != NULL, FALSE);
 
 	mu = u->myuser;
 	if (mu != NULL)
@@ -1103,14 +1057,13 @@ boolean_t chanacs_user_has_flag(mychan_t *mychan, user_t *u, uint32_t level)
 	return FALSE;
 }
 
-uint32_t chanacs_user_flags(mychan_t *mychan, user_t *u)
+unsigned int chanacs_user_flags(mychan_t *mychan, user_t *u)
 {
 	myuser_t *mu;
 	chanacs_t *ca;
-	uint32_t result = 0;
+	unsigned int result = 0;
 
-	if (!mychan || !u)
-		return FALSE;
+	return_val_if_fail(mychan != NULL && u != NULL, 0);
 
 	mu = u->myuser;
 	if (mu != NULL)
@@ -1125,13 +1078,13 @@ uint32_t chanacs_user_flags(mychan_t *mychan, user_t *u)
 	return result;
 }
 
-boolean_t chanacs_source_has_flag(mychan_t *mychan, sourceinfo_t *si, uint32_t level)
+boolean_t chanacs_source_has_flag(mychan_t *mychan, sourceinfo_t *si, unsigned int level)
 {
 	return si->su != NULL ? chanacs_user_has_flag(mychan, si->su, level) :
 		chanacs_find(mychan, si->smu, level) != NULL;
 }
 
-uint32_t chanacs_source_flags(mychan_t *mychan, sourceinfo_t *si)
+unsigned int chanacs_source_flags(mychan_t *mychan, sourceinfo_t *si)
 {
 	chanacs_t *ca;
 
@@ -1146,6 +1099,44 @@ uint32_t chanacs_source_flags(mychan_t *mychan, sourceinfo_t *si)
 	}
 }
 
+/* Look for the chanacs exactly matching mu or host (exactly one of mu and
+ * host must be non-NULL). If not found, and create is TRUE, create a new
+ * chanacs with no flags.
+ */
+chanacs_t *chanacs_open(mychan_t *mychan, myuser_t *mu, const char *hostmask, boolean_t create)
+{
+	chanacs_t *ca;
+
+	/* wrt the second assert: only one of mu or hostmask can be not-NULL --nenolod */
+	return_val_if_fail(mychan != NULL, FALSE);
+	return_val_if_fail((mu != NULL && hostmask == NULL) || (mu == NULL && hostmask != NULL), FALSE); 
+
+	if (mu != NULL)
+	{
+		ca = chanacs_find(mychan, mu, 0);
+		if (ca != NULL)
+			return ca;
+		else if (create)
+			return chanacs_add(mychan, mu, 0, CURRTIME);
+	}
+	else
+	{
+		ca = chanacs_find_host_literal(mychan, hostmask, 0);
+		if (ca != NULL)
+			return ca;
+		else if (create)
+			return chanacs_add_host(mychan, hostmask, 0, CURRTIME);
+	}
+	return NULL;
+}
+
+/* Destroy a chanacs if it has no flags */
+void chanacs_close(chanacs_t *ca)
+{
+	if (ca->level == 0)
+		object_unref(ca);
+}
+
 /* Change channel access
  *
  * Either mu or hostmask must be specified.
@@ -1153,22 +1144,57 @@ uint32_t chanacs_source_flags(mychan_t *mychan, sourceinfo_t *si)
  * these to reflect the actual change. Only allow changes to restrictflags.
  * Returns true if successful, false if an unallowed change was attempted.
  * -- jilles */
-boolean_t chanacs_change(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_t *addflags, uint32_t *removeflags, uint32_t restrictflags)
+boolean_t chanacs_modify(chanacs_t *ca, unsigned int *addflags, unsigned int *removeflags, unsigned int restrictflags)
+{
+	return_val_if_fail(ca != NULL, FALSE);
+	return_val_if_fail(addflags != NULL && removeflags != NULL, FALSE);
+
+	*addflags &= ~ca->level;
+	*removeflags &= ca->level & ~*addflags;
+	/* no change? */
+	if ((*addflags | *removeflags) == 0)
+		return TRUE;
+	/* attempting to add bad flag? */
+	if (~restrictflags & *addflags)
+		return FALSE;
+	/* attempting to remove bad flag? */
+	if (~restrictflags & *removeflags)
+		return FALSE;
+	/* attempting to manipulate user with more privs? */
+	if (~restrictflags & ca->level)
+		return FALSE;
+	ca->level = (ca->level | *addflags) & ~*removeflags;
+	ca->ts = CURRTIME;
+
+	return TRUE;
+}
+
+/* version that doesn't return the changes made */
+boolean_t chanacs_modify_simple(chanacs_t *ca, unsigned int addflags, unsigned int removeflags)
+{
+	unsigned int a, r;
+
+	a = addflags & ca_all;
+	r = removeflags & ca_all;
+	return chanacs_modify(ca, &a, &r, ca_all);
+}
+
+/* Change channel access
+ *
+ * Either mu or hostmask must be specified.
+ * Add the flags in *addflags and remove the flags in *removeflags, updating
+ * these to reflect the actual change. Only allow changes to restrictflags.
+ * Returns true if successful, false if an unallowed change was attempted.
+ * -- jilles */
+boolean_t chanacs_change(mychan_t *mychan, myuser_t *mu, const char *hostmask, unsigned int *addflags, unsigned int *removeflags, unsigned int restrictflags)
 {
 	chanacs_t *ca;
 
-	if (mychan == NULL)
-		return FALSE;
-	if (mu == NULL && hostmask == NULL)
-	{
-		slog(LG_DEBUG, "chanacs_change(): [%s] mu and hostmask both NULL", mychan->name);
-		return FALSE;
-	}
-	if (mu != NULL && hostmask != NULL)
-	{
-		slog(LG_DEBUG, "chanacs_change(): [%s] mu and hostmask both not NULL", mychan->name);
-		return FALSE;
-	}
+	/* wrt the second assert: only one of mu or hostmask can be not-NULL --nenolod */
+	return_val_if_fail(mychan != NULL, FALSE);
+	return_val_if_fail((mu != NULL && hostmask == NULL) || (mu == NULL && hostmask != NULL), FALSE); 
+	return_val_if_fail(addflags != NULL && removeflags != NULL, FALSE);
+
 	if (mu != NULL)
 	{
 		ca = chanacs_find(mychan, mu, 0);
@@ -1181,7 +1207,7 @@ boolean_t chanacs_change(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_
 			/* attempting to add bad flag? */
 			if (~restrictflags & *addflags)
 				return FALSE;
-			chanacs_add(mychan, mu, *addflags);
+			chanacs_add(mychan, mu, *addflags, CURRTIME);
 		}
 		else
 		{
@@ -1200,8 +1226,9 @@ boolean_t chanacs_change(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_
 			if (~restrictflags & ca->level)
 				return FALSE;
 			ca->level = (ca->level | *addflags) & ~*removeflags;
+			ca->ts = CURRTIME;
 			if (ca->level == 0)
-				chanacs_delete(mychan, mu, ca->level);
+				object_unref(ca);
 		}
 	}
 	else /* hostmask != NULL */
@@ -1216,7 +1243,7 @@ boolean_t chanacs_change(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_
 			/* attempting to add bad flag? */
 			if (~restrictflags & *addflags)
 				return FALSE;
-			chanacs_add_host(mychan, hostmask, *addflags);
+			chanacs_add_host(mychan, hostmask, *addflags, CURRTIME);
 		}
 		else
 		{
@@ -1235,28 +1262,29 @@ boolean_t chanacs_change(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_
 			if (~restrictflags & ca->level)
 				return FALSE;
 			ca->level = (ca->level | *addflags) & ~*removeflags;
+			ca->ts = CURRTIME;
 			if (ca->level == 0)
-				chanacs_delete_host(mychan, hostmask, ca->level);
+				object_unref(ca);
 		}
 	}
 	return TRUE;
 }
 
 /* version that doesn't return the changes made */
-boolean_t chanacs_change_simple(mychan_t *mychan, myuser_t *mu, char *hostmask, uint32_t addflags, uint32_t removeflags, uint32_t restrictflags)
+boolean_t chanacs_change_simple(mychan_t *mychan, myuser_t *mu, const char *hostmask, unsigned int addflags, unsigned int removeflags)
 {
-	uint32_t a, r;
+	unsigned int a, r;
 
-	a = addflags;
-	r = removeflags;
-	return chanacs_change(mychan, mu, hostmask, &a, &r, restrictflags);
+	a = addflags & ca_all;
+	r = removeflags & ca_all;
+	return chanacs_change(mychan, mu, hostmask, &a, &r, ca_all);
 }
 
 /*******************
  * M E T A D A T A *
  *******************/
 
-metadata_t *metadata_add(void *target, int32_t type, const char *name, const char *value)
+metadata_t *metadata_add(void *target, int type, const char *name, const char *value)
 {
 	myuser_t *mu = NULL;
 	mychan_t *mc = NULL;
@@ -1312,7 +1340,7 @@ metadata_t *metadata_add(void *target, int32_t type, const char *name, const cha
 	return md;
 }
 
-void metadata_delete(void *target, int32_t type, const char *name)
+void metadata_delete(void *target, int type, const char *name)
 {
 	node_t *n;
 	myuser_t *mu;
@@ -1356,7 +1384,7 @@ void metadata_delete(void *target, int32_t type, const char *name)
 	BlockHeapFree(metadata_heap, md);
 }
 
-metadata_t *metadata_find(void *target, int32_t type, const char *name)
+metadata_t *metadata_find(void *target, int type, const char *name)
 {
 	node_t *n;
 	myuser_t *mu;
@@ -1426,8 +1454,12 @@ static int expire_myuser_cb(dictionary_elem_t *delem, void *unused)
 		if (is_conf_soper(mu))
 			return 0;
 
-		snoop("EXPIRE: \2%s\2 from \2%s\2 ", mu->name, mu->email);
-		myuser_delete(mu);
+		snoop(_("EXPIRE: \2%s\2 from \2%s\2 "), mu->name, mu->email);
+		slog(LG_INFO, "expire_check(): expiring account %s (unused %ds, email %s, nicks %d, chanacs %d)",
+				mu->name, (int)(CURRTIME - mu->lastlogin),
+				mu->email, LIST_LENGTH(&mu->nicks),
+				LIST_LENGTH(&mu->chanacs));
+		object_unref(mu);
 	}
 
 	return 0;
@@ -1469,8 +1501,11 @@ void expire_check(void *arg)
 				continue;
 			}
 
-			snoop("EXPIRE: \2%s\2 from \2%s\2", mn->nick, mn->owner->name);
-			mynick_delete(mn);
+			snoop(_("EXPIRE: \2%s\2 from \2%s\2"), mn->nick, mn->owner->name);
+			slog(LG_INFO, "expire_check(): expiring nick %s (unused %ds, account %s)",
+					mn->nick, CURRTIME - mn->lastseen,
+					mn->owner->name);
+			object_unref(mn);
 		}
 	}
 
@@ -1498,13 +1533,17 @@ void expire_check(void *arg)
 			if (MC_HOLD & mc->flags)
 				continue;
 
-			snoop("EXPIRE: \2%s\2 from \2%s\2", mc->name, mc->founder->name);
+			snoop(_("EXPIRE: \2%s\2 from \2%s\2"), mc->name, mc->founder->name);
+			slog(LG_INFO, "expire_check(): expiring channel %s (unused %ds, founder %s, chanacs %d)",
+					mc->name, CURRTIME - mc->used,
+					mc->founder->name,
+					LIST_LENGTH(&mc->chanacs));
 
 			hook_call_event("channel_drop", mc);
 			if ((config_options.chan && irccasecmp(mc->name, config_options.chan)) || !config_options.chan)
 				part(mc->name, chansvs.nick);
 
-			mychan_delete(mc->name);
+			object_unref(mc);
 		}
 	}
 }
@@ -1534,7 +1573,7 @@ static int check_myuser_cb(dictionary_elem_t *delem, void *unused)
 		else if (mn->owner != mu)
 		{
 			slog(LG_INFO, "db_check(): replacing nick %s owned by %s with %s", mn->nick, mn->owner->name, mu->name);
-			mynick_delete(mn);
+			object_unref(mn);
 			mn = mynick_add(mu, mu->name);
 			mn->registered = mu->registered;
 			mn->lastseen = mu->lastlogin;
@@ -1556,7 +1595,13 @@ void db_check()
 		if (!chanacs_find(mc, mc->founder, CA_FLAGS))
 		{
 			slog(LG_INFO, "db_check(): adding access for founder on channel %s", mc->name);
-			chanacs_change_simple(mc, mc->founder, NULL, CA_FOUNDER_0, 0, CA_ALL);
+			chanacs_change_simple(mc, mc->founder, NULL, CA_FOUNDER_0, 0);
 		}
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

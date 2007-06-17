@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService KICK functions.
  *
- * $Id: clear_bans.c 6577 2006-09-30 21:17:34Z jilles $
+ * $Id: clear_bans.c 7969 2007-03-23 19:19:38Z jilles $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/clear_bans", FALSE, _modinit, _moddeinit,
-	"$Id: clear_bans.c 6577 2006-09-30 21:17:34Z jilles $",
+	"$Id: clear_bans.c 7969 2007-03-23 19:19:38Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_clear_bans(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_clear_bans = { "BANS", "Clears bans or other lists of a channel.",
+command_t cs_clear_bans = { "BANS", N_("Clears bans or other lists of a channel."),
 	AC_NONE, 2, cs_cmd_clear_bans };
 
 list_t *cs_clear_cmds;
@@ -59,37 +59,37 @@ static void cs_cmd_clear_bans(sourceinfo_t *si, int parc, char *parv[])
 	{
 		if (!strchr(ircd->ban_like_modes, *p))
 		{
-			command_fail(si, fault_badparams, "Invalid mode; valid ones are %s.", ircd->ban_like_modes);
+			command_fail(si, fault_badparams, _("Invalid mode; valid ones are %s."), ircd->ban_like_modes);
 			return;
 		}
 	}
 	if (*item == '\0')
 	{
-		command_fail(si, fault_badparams, "Invalid mode; valid ones are %s.", ircd->ban_like_modes);
-		return;
-	}
-
-	if (!(c = channel_find(parv[0])))
-	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 does not exist.", parv[0]);
+		command_fail(si, fault_badparams, _("Invalid mode; valid ones are %s."), ircd->ban_like_modes);
 		return;
 	}
 
 	if (!mc)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", c->name);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), parv[0]);
+		return;
+	}
+
+	if (!(c = channel_find(parv[0])))
+	{
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is currently empty."), parv[0]);
 		return;
 	}
 
 	if (!chanacs_source_has_flag(mc, si, CA_RECOVER))
 	{
-		command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+		command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
 		return;
 	}
 	
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		command_fail(si, fault_noprivs, "\2%s\2 is closed.", parv[0]);
+		command_fail(si, fault_noprivs, _("\2%s\2 is closed."), parv[0]);
 		return;
 	}
 
@@ -99,7 +99,7 @@ static void cs_cmd_clear_bans(sourceinfo_t *si, int parc, char *parv[])
 		cb = n->data;
 		if (!strchr(item, cb->type))
 			continue;
-		modestack_mode_param(chansvs.nick, c->name, MTYPE_DEL, cb->type, cb->mask);
+		modestack_mode_param(chansvs.nick, c, MTYPE_DEL, cb->type, cb->mask);
 		chanban_delete(cb);
 		hits++;
 	}
@@ -107,6 +107,12 @@ static void cs_cmd_clear_bans(sourceinfo_t *si, int parc, char *parv[])
 	logcommand(si, CMDLOG_DO, "%s CLEAR BANS %s",
 			mc->name, item);
 
-	command_success_nodata(si, "Cleared %s modes on \2%s\2 (%d removed).",
+	command_success_nodata(si, _("Cleared %s modes on \2%s\2 (%d removed)."),
 			item, parv[0], hits);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

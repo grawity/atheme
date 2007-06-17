@@ -1,4 +1,4 @@
-$Id: IRCD 7145 2006-11-14 23:29:46Z jilles $
+$Id: IRCD 8175 2007-04-08 22:00:18Z jilles $
 
 IRCD-specific notes
 -------------------
@@ -175,6 +175,13 @@ before -h.
 Ban exceptions are supported, although some Nefarious versions have bugs where
 they are not sent properly.
 
+officeirc
+---------
+
+Unlike other IRCds, OfficeIRC server names do not necessarily have a period in
+them; this may cause some warnings about the config file which can safely be
+ignored.
+
 plexus
 ------
 
@@ -287,7 +294,12 @@ protocol). IPs of IPv6 clients will not be stored or logged.
 
 Atheme does not support oplevels; they should be disabled.
 
+chanserv::changets can be used with ircu version 2.10.12.06 or newer; if any
+server on the network is 2.10.11.x, netsplits will occur whenever Atheme tries
+to lower TS.
+
 unreal
 ------
 
-You need ulines{} for services on all servers on the network.
+You need ulines{} for services on all servers on the network. If a server lacks
+U:lines, a storm of mode changes may result.

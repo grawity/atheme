@@ -4,7 +4,7 @@
  *
  * Commandlist manipulation routines.
  *
- * $Id: commandtree.h 6727 2006-10-20 18:48:53Z jilles $
+ * $Id: commandtree.h 7779 2007-03-03 13:55:42Z pippijn $
  */
 
 #ifndef COMMANDLIST_H
@@ -48,3 +48,9 @@ E void help_addentry(list_t *list, char *topic, char *fname,
 E void help_delentry(list_t *list, char *name);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

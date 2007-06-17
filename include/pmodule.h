@@ -5,7 +5,7 @@
  * Protocol module stuff.
  * Modules usually do not need this.
  *
- * $Id: pmodule.h 6795 2006-10-21 18:37:52Z jilles $
+ * $Id: pmodule.h 8263 2007-05-17 22:31:56Z jilles $
  */
 
 #ifndef PMODULE_H
@@ -24,6 +24,8 @@ struct pcommand_ {
 #define MSRC_UNREG	1 /* before SERVER is sent */
 #define MSRC_USER	2 /* from users */
 #define MSRC_SERVER	4 /* from servers */
+
+#define MAXPARC		35 /* max # params to protocol command */
 
 /* pmodule.c */
 E BlockHeap *pcommand_heap;
@@ -47,10 +49,13 @@ E void handle_stats(user_t *, char);
 E void handle_whois(user_t *, char *);
 E void handle_trace(user_t *, char *, char *);
 E void handle_motd(user_t *);
+E void handle_away(user_t *, const char *);
 E void handle_message(sourceinfo_t *, char *, boolean_t, char *);
 E void handle_topic_from(sourceinfo_t *, channel_t *, char *, time_t, char *);
 E void handle_kill(sourceinfo_t *, char *, char *);
+E server_t *handle_server(sourceinfo_t *, const char *, const char *, int, const char *);
 E void handle_eob(server_t *);
+E boolean_t should_reg_umode(user_t *);
 
 /* services.c */
 E void services_init(void);
@@ -59,3 +64,9 @@ E void handle_nickchange(user_t *u);
 E void handle_burstlogin(user_t *u, char *login);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

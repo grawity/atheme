@@ -4,7 +4,7 @@
  *
  * This file contains code for the ChanServ WHY function.
  *
- * $Id: why.c 7215 2006-11-18 16:43:46Z jilles $
+ * $Id: why.c 8209 2007-04-30 00:14:52Z jilles $
  */
 
 #include "atheme.h"
@@ -12,19 +12,14 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/why", FALSE, _modinit, _moddeinit,
-	"$Id: why.c 7215 2006-11-18 16:43:46Z jilles $",
+	"$Id: why.c 8209 2007-04-30 00:14:52Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_why = {
-	"WHY",
-	"Explains channel access logic.",
-	AC_NONE,
-	2,
-	cs_cmd_why
-};
+command_t cs_why = { "WHY", N_("Explains channel access logic."),
+		     AC_NONE, 2, cs_cmd_why };
 
 list_t *cs_cmdtree;
 list_t *cs_helptree;
@@ -54,13 +49,14 @@ static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[])
 	myuser_t *mu;
 	node_t *n;
 	chanacs_t *ca;
+	metadata_t *md;
 	int operoverride = 0;
-	int32_t fl = 0;
+	int fl = 0;
 
 	if (!chan || !targ)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "WHY");
-		command_fail(si, fault_needmoreparams, "Syntax: WHY <channel> <user>");
+		command_fail(si, fault_needmoreparams, _("Syntax: WHY <channel> <user>"));
 		return;
 	}
 
@@ -69,7 +65,7 @@ static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[])
 
 	if (u == NULL)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not online.",
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not online."),
 			targ);
 		return;
 	}
@@ -78,7 +74,7 @@ static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[])
 
 	if (mc == NULL)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.",
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."),
 			chan);
 		return;
 	}
@@ -89,14 +85,14 @@ static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[])
 			operoverride = 1;
 		else
 		{
-			command_fail(si, fault_noprivs, "You are not authorized to perform this operation.");
+			command_fail(si, fault_noprivs, _("You are not authorized to perform this operation."));
 			return;
 		}
 	}
 
 	if (metadata_find(mc, METADATA_CHANNEL, "private:close:closer"))
 	{
-		command_fail(si, fault_noprivs, "\2%s\2 is closed.", chan);
+		command_fail(si, fault_noprivs, _("\2%s\2 is closed."), chan);
 		return;
 	}
 
@@ -107,6 +103,12 @@ static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[])
 
 	snprintf(host, BUFSIZE, "%s!%s@%s", u->nick, u->user, u->vhost);
 
+	if (is_founder(mc, mu))
+	{
+		command_success_nodata(si,
+			"\2%s\2 has founder access to \2%s\2 because they are logged in as \2%s\2.",
+			u->nick, mc->name, mu->name);
+	}
 	LIST_FOREACH(n, mc->chanacs.head)
 	{
        	        ca = (chanacs_t *)n->data;
@@ -117,6 +119,12 @@ static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[])
 			command_success_nodata(si,
 				"\2%s\2 has flags \2%s\2 in \2%s\2 because they are logged in as \2%s\2.",
 				u->nick, bitmask_to_flags2(ca->level, 0, chanacs_flags), mc->name, mu->name);
+			if (ca->level & CA_AKICK)
+			{
+				md = metadata_find(ca, METADATA_CHANACS, "reason");
+				if (md != NULL)
+					command_success_nodata(si, "Ban reason: %s", md->value);
+			}
 		}
 		else if (ca->myuser == NULL && !match(ca->host, host))
 		{
@@ -124,11 +132,23 @@ static void cs_cmd_why(sourceinfo_t *si, int parc, char *parv[])
 			command_success_nodata(si,
 				"\2%s\2 has flags \2%s\2 in \2%s\2 because they match the mask \2%s\2.",
 				u->nick, bitmask_to_flags2(ca->level, 0, chanacs_flags), mc->name, ca->host);
+			if (ca->level & CA_AKICK)
+			{
+				md = metadata_find(ca, METADATA_CHANACS, "reason");
+				if (md != NULL)
+					command_success_nodata(si, "Ban reason: %s", md->value);
+			}
 		}
 	}
 	if ((fl & (CA_AKICK | CA_REMOVE)) == (CA_AKICK | CA_REMOVE))
-		command_success_nodata(si, "+r exempts from +b.");
+		command_success_nodata(si, _("+r exempts from +b."));
 	else if (fl == 0)
-		command_success_nodata(si, "\2%s\2 has no special access to \2%s\2.",
+		command_success_nodata(si, _("\2%s\2 has no special access to \2%s\2."),
 				u->nick, mc->name);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

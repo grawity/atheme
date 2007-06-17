@@ -4,7 +4,7 @@
  *
  * See doc/LICENSE for licensing information.
  *
- * $Id: template.c 4175 2005-12-21 19:23:17Z jilles $
+ * $Id: template.c 8319 2007-05-24 20:09:37Z jilles $
  */
 
 #include "atheme.h"
@@ -39,11 +39,21 @@ char *getitem(char *str, char *name)
 	}
 }
 
-uint32_t get_template_flags(mychan_t *mc, char *name)
+unsigned int get_template_flags(mychan_t *mc, char *name)
 {
 	metadata_t *md;
 	char *d;
 
+	if (mc != NULL)
+	{
+		md = metadata_find(mc, METADATA_CHANNEL, "private:templates");
+		if (md != NULL)
+		{
+			d = getitem(md->value, name);
+			if (d != NULL)
+				return flags_to_bitmask(d, chanacs_flags, 0);
+		}
+	}
 	if (*name != '\0' && !strcasecmp(name + 1, "op"))
 	{
 		switch (*name)
@@ -54,12 +64,11 @@ uint32_t get_template_flags(mychan_t *mc, char *name)
 			case 'v': case 'V': return chansvs.ca_vop;
 		}
 	}
-	md = metadata_find(mc, METADATA_CHANNEL, "private:templates");
-	if (md != NULL)
-	{
-		d = getitem(md->value, name);
-		if (d != NULL)
-			return flags_to_bitmask(d, chanacs_flags, 0);
-	}
 	return 0;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

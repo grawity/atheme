@@ -4,7 +4,7 @@
  *
  * XMLRPC account management functions.
  *
- * $Id: account.c 6989 2006-10-27 23:12:55Z jilles $
+ * $Id: account.c 7907 2007-03-06 23:10:26Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"xmlrpc/account", FALSE, _modinit, _moddeinit,
-	"$Id: account.c 6989 2006-10-27 23:12:55Z jilles $",
+	"$Id: account.c 7907 2007-03-06 23:10:26Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -139,7 +139,7 @@ static int account_register(void *conn, int parc, char *parv[])
 
 	snoop("REGISTER: \2%s\2 to \2%s\2 (via \2xmlrpc\2)", parv[0], parv[2]);
 
-	mu = myuser_add(parv[0], parv[1], parv[2], config_options.defuflags);
+	mu = myuser_add(parv[0], parv[1], parv[2], config_options.defuflags | MU_NOBURSTLOGIN);
 	mu->registered = CURRTIME;
 	mu->lastlogin = CURRTIME;
 
@@ -152,7 +152,7 @@ static int account_register(void *conn, int parc, char *parv[])
 		if (!sendemail(nicksvs.me->me, EMAIL_REGISTER, mu, key))
 		{
 			xmlrpc_generic_error(10, "Sending email failed.");
-			myuser_delete(mu);
+			object_unref(mu);
 			free(key);
 			return 0;
 		}
@@ -283,8 +283,6 @@ static int account_verify(void *conn, int parc, char *parv[])
 		xmlrpc_generic_error(2, "Invalid verification operation requested.");
 		return 0;
 	}
-
-	return 0;
 }
 
 /*
@@ -601,3 +599,8 @@ void _moddeinit(void)
 	xmlrpc_unregister_method("atheme.account.set_password");
 }
 
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

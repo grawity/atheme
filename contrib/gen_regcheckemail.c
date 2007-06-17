@@ -4,7 +4,7 @@
  *
  * Rejects account registrations with certain email addresses.
  *
- * $Id: gen_regcheckemail.c 7383 2006-12-23 22:54:17Z jilles $
+ * $Id: gen_regcheckemail.c 7785 2007-03-03 15:54:32Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"contrib/gen_regcheckemail", FALSE, _modinit, _moddeinit,
-	"$Revision: 7383 $",
+	"$Revision: 7785 $",
 	"Jilles Tjoelker <jilles -at- stack.nl>"
 );
 
@@ -51,3 +51,9 @@ static void check_registration(void *vptr)
 		i++;
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

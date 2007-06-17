@@ -4,7 +4,7 @@
  *
  * See doc/LICENSE for licensing information.
  *
- * $Id: privs.c 7225 2006-11-19 15:44:42Z jilles $
+ * $Id: privs.c 7839 2007-03-06 00:09:30Z pippijn $
  */
 
 #include "atheme.h"
@@ -357,3 +357,9 @@ boolean_t has_all_operclass(sourceinfo_t *si, operclass_t *operclass)
 	free(privs2);
 	return TRUE;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

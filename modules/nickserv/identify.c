@@ -4,7 +4,7 @@
  *
  * This file contains code for the NickServ IDENTIFY and LOGIN functions.
  *
- * $Id: identify.c 7199 2006-11-18 05:10:57Z nenolod $
+ * $Id: identify.c 7969 2007-03-23 19:19:38Z jilles $
  */
 
 #include "atheme.h"
@@ -21,17 +21,17 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/" COMMAND_LC, FALSE, _modinit, _moddeinit,
-	"$Id: identify.c 7199 2006-11-18 05:10:57Z nenolod $",
+	"$Id: identify.c 7969 2007-03-23 19:19:38Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[]);
 
 #ifdef NICKSERV_LOGIN
-command_t ns_login = { "LOGIN", "Authenticates to a services account.", AC_NONE, 2, ns_cmd_login };
+command_t ns_login = { "LOGIN", N_("Authenticates to a services account."), AC_NONE, 2, ns_cmd_login };
 #else
-command_t ns_identify = { "IDENTIFY", "Identifies to services for a nickname.", AC_NONE, 2, ns_cmd_login };
-command_t ns_id = { "ID", "Alias for IDENTIFY", AC_NONE, 2, ns_cmd_login };
+command_t ns_identify = { "IDENTIFY", N_("Identifies to services for a nickname."), AC_NONE, 2, ns_cmd_login };
+command_t ns_id = { "ID", N_("Alias for IDENTIFY"), AC_NONE, 2, ns_cmd_login };
 #endif
 
 list_t *ns_cmdtree, *ns_helptree, *ms_cmdtree;
@@ -82,7 +82,7 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 
 	if (si->su == NULL)
 	{
-		command_fail(si, fault_noprivs, "\2%s\2 can only be executed via IRC.", COMMAND_UC);
+		command_fail(si, fault_noprivs, _("\2%s\2 can only be executed via IRC."), COMMAND_UC);
 		return;
 	}
 
@@ -111,7 +111,7 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!mu)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not a registered nickname.", target);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not a registered nickname."), target);
 		return;
 	}
 
@@ -124,7 +124,12 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 
 	if (u->myuser == mu)
 	{
-		command_fail(si, fault_authfail, "You are already logged in as \2%s\2.", mu->name);
+		command_fail(si, fault_nochange, _("You are already logged in as \2%s\2."), u->myuser->name);
+		return;
+	}
+	else if (u->myuser != NULL && !command_find(si->service->cmdtree, "LOGOUT"))
+	{
+		command_fail(si, fault_alreadyexists, _("You are already logged in as \2%s\2."), u->myuser->name);
 		return;
 	}
 	else if (u->myuser != NULL && ircd_on_logout(u->nick, u->myuser->name, NULL))
@@ -138,7 +143,7 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 	{
 		if (LIST_LENGTH(&mu->logins) >= me.maxlogins)
 		{
-			command_fail(si, fault_toomany, "There are already \2%d\2 sessions logged in to \2%s\2 (maximum allowed: %d).", LIST_LENGTH(&mu->logins), mu->name, me.maxlogins);
+			command_fail(si, fault_toomany, _("There are already \2%d\2 sessions logged in to \2%s\2 (maximum allowed: %d)."), LIST_LENGTH(&mu->logins), mu->name, me.maxlogins);
 			logcommand(si, CMDLOG_LOGIN, "failed " COMMAND_UC " to %s (too many logins)", mu->name);
 			return;
 		}
@@ -195,7 +200,7 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 			tm = *localtime(&mu->lastlogin);
 			strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &tm);
 
-			command_success_nodata(si, "\2%d\2 failed %s since %s.",
+			command_success_nodata(si, _("\2%d\2 failed %s since %s."),
 				atoi(md_failnum->value), (atoi(md_failnum->value) == 1) ? "login" : "logins", strfbuf);
 
 			md_failtime = metadata_find(mu, METADATA_USER, "private:loginfail:lastfailtime");
@@ -205,7 +210,7 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 			tm = *localtime(&ts);
 			strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &tm);
 
-			command_success_nodata(si, "Last failed attempt from: \2%s\2 on %s.",
+			command_success_nodata(si, _("Last failed attempt from: \2%s\2 on %s."),
 				md_failaddr->value, strfbuf);
 
 			metadata_delete(mu, METADATA_USER, "private:loginfail:failnum");	/* md_failnum now invalid */
@@ -257,33 +262,33 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 				if (ca->mychan->flags & MC_NOOP || mu->flags & MU_NOOP)
 					continue;
 
-				if (ircd->uses_owner && !(cu->modes & ircd->owner_mode) && should_owner(ca->mychan, ca->myuser))
+				if (ircd->uses_owner && !(cu->modes & ircd->owner_mode) && ca->level & CA_AUTOOP && should_owner(ca->mychan, ca->myuser))
 				{
-					modestack_mode_param(chansvs.nick, ca->mychan->name, MTYPE_ADD, ircd->owner_mchar[1], CLIENT_NAME(u));
+					modestack_mode_param(chansvs.nick, ca->mychan->chan, MTYPE_ADD, ircd->owner_mchar[1], CLIENT_NAME(u));
 					cu->modes |= ircd->owner_mode;
 				}
 
-				if (ircd->uses_protect && !(cu->modes & ircd->protect_mode) && should_protect(ca->mychan, ca->myuser))
+				if (ircd->uses_protect && !(cu->modes & ircd->protect_mode) && ca->level & CA_AUTOOP && should_protect(ca->mychan, ca->myuser))
 				{
-					modestack_mode_param(chansvs.nick, ca->mychan->name, MTYPE_ADD, ircd->protect_mchar[1], CLIENT_NAME(u));
+					modestack_mode_param(chansvs.nick, ca->mychan->chan, MTYPE_ADD, ircd->protect_mchar[1], CLIENT_NAME(u));
 					cu->modes |= ircd->protect_mode;
 				}
 
 				if (!(cu->modes & CMODE_OP) && ca->level & CA_AUTOOP)
 				{
-					modestack_mode_param(chansvs.nick, ca->mychan->name, MTYPE_ADD, 'o', CLIENT_NAME(u));
+					modestack_mode_param(chansvs.nick, ca->mychan->chan, MTYPE_ADD, 'o', CLIENT_NAME(u));
 					cu->modes |= CMODE_OP;
 				}
 
 				if (ircd->uses_halfops && !(cu->modes & (CMODE_OP | ircd->halfops_mode)) && ca->level & CA_AUTOHALFOP)
 				{
-					modestack_mode_param(chansvs.nick, ca->mychan->name, MTYPE_ADD, 'h', CLIENT_NAME(u));
+					modestack_mode_param(chansvs.nick, ca->mychan->chan, MTYPE_ADD, 'h', CLIENT_NAME(u));
 					cu->modes |= ircd->halfops_mode;
 				}
 
 				if (!(cu->modes & (CMODE_OP | ircd->halfops_mode | CMODE_VOICE)) && ca->level & CA_AUTOVOICE)
 				{
-					modestack_mode_param(chansvs.nick, ca->mychan->name, MTYPE_ADD, 'v', CLIENT_NAME(u));
+					modestack_mode_param(chansvs.nick, ca->mychan->chan, MTYPE_ADD, 'v', CLIENT_NAME(u));
 					cu->modes |= CMODE_VOICE;
 				}
 			}
@@ -294,7 +299,7 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 
 	logcommand(si, CMDLOG_LOGIN, "failed " COMMAND_UC " to %s (bad password)", mu->name);
 
-	command_fail(si, fault_authfail, "Invalid password for \2%s\2.", mu->name);
+	command_fail(si, fault_authfail, _("Invalid password for \2%s\2."), mu->name);
 
 	/* record the failed attempts */
 	/* note that we reuse this buffer later when warning opers about failed logins */
@@ -318,3 +323,9 @@ static void ns_cmd_login(sourceinfo_t *si, int parc, char *parv[])
 		wallops("Warning: Numerous failed login attempts to \2%s\2. Last attempt received from \2%s\2 on %s.", mu->name, buf, strfbuf);
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

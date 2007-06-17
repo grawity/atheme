@@ -4,7 +4,7 @@
  *
  * Data structures for SASL plugin use.
  *
- * $Id: sasl.h 6077 2006-08-16 16:07:10Z jilles $
+ * $Id: sasl.h 8243 2007-05-10 20:18:42Z jilles $
  */
 
 #ifndef SASL_H
@@ -43,5 +43,12 @@ struct sasl_mechanism_ {
 #define ASASL_DONE 2 /* client successfully authenticated */
 
 #define ASASL_MARKED_FOR_DELETION   1 /* see delete_stale() in saslserv/main.c */
+#define ASASL_NEED_LOG              2 /* user auth success needs to be logged still */
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

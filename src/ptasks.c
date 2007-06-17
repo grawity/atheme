@@ -4,7 +4,7 @@
  *
  * Protocol tasks, such as handle_stats().
  *
- * $Id: ptasks.c 7317 2006-12-05 00:14:26Z jilles $
+ * $Id: ptasks.c 8263 2007-05-17 22:31:56Z jilles $
  */
 
 #include "atheme.h"
@@ -13,7 +13,7 @@
 
 void handle_info(user_t *u)
 {
-	uint8_t i;
+	unsigned int i;
 
 	if (u == NULL)
 		return;
@@ -37,7 +37,7 @@ void handle_version(user_t *u)
 	numeric_sts(me.name, 351, u->nick, ":atheme-%s. %s %s%s%s%s%s%s%s%s%s%s [%s]",
 		    version, me.name, 
 		    (match_mapping) ? "A" : "",
-		    (log_force || me.loglevel & (LG_DEBUG | LG_RAWDATA)) ? "d" : "",
+		    log_debug_enabled() ? "d" : "",
 		    (me.auth) ? "e" : "",
 		    (config_options.flood_msgs) ? "F" : "",
 		    (config_options.leave_chans) ? "l" : "", 
@@ -204,6 +204,7 @@ void handle_stats(user_t *u, char req)
 		  numeric_sts(me.name, 249, u->nick, "T :server     %7d", cnt.server);
 		  numeric_sts(me.name, 249, u->nick, "T :user       %7d", cnt.user);
 		  numeric_sts(me.name, 249, u->nick, "T :chan       %7d", cnt.chan);
+		  numeric_sts(me.name, 249, u->nick, "T :chanuser   %7d", cnt.chanuser);
 		  numeric_sts(me.name, 249, u->nick, "T :myuser     %7d", cnt.myuser);
 		  numeric_sts(me.name, 249, u->nick, "T :myuser_acc %7d", cnt.myuser_access);
 		  numeric_sts(me.name, 249, u->nick, "T :mynick     %7d", cnt.mynick);
@@ -251,6 +252,8 @@ void handle_whois(user_t *u, char *target)
 		numeric_sts(me.name, 311, u->nick, "%s %s %s * :%s", t->nick, t->user, t->vhost, t->gecos);
 		/* channels purposely omitted */
 		numeric_sts(me.name, 312, u->nick, "%s %s :%s", t->nick, t->server->name, t->server->desc);
+		if (t->flags & UF_AWAY)
+			numeric_sts(me.name, 301, u->nick, "%s :Gone", t->nick);
 		if (is_ircop(t))
 			numeric_sts(me.name, 313, u->nick, "%s :%s", t->nick, is_internal_client(t) ? "is a Network Service" : "is an IRC Operator");
 		if (t->myuser)
@@ -353,6 +356,26 @@ void handle_motd(user_t *u)
 	fclose(f);
 }
 
+void handle_away(user_t *u, const char *message)
+{
+	if (message == NULL || *message == '\0')
+	{
+		if (u->flags & UF_AWAY)
+		{
+			u->flags &= ~UF_AWAY;
+			hook_call_event("user_away", u);
+		}
+	}
+	else
+	{
+		if (!(u->flags & UF_AWAY))
+		{
+			u->flags |= UF_AWAY;
+			hook_call_event("user_away", u);
+		}
+	}
+}
+
 void handle_message(sourceinfo_t *si, char *target, boolean_t is_notice, char *message)
 {
 	char *vec[3];
@@ -429,12 +452,6 @@ void handle_topic_from(sourceinfo_t *si, channel_t *c, char *setter, time_t ts, 
 	hdata.ts = ts;
 	hdata.topic = topic;
 	hdata.approved = 0;
-	if (hdata.s != NULL && hdata.s->uplink == me.me &&
-			!(hdata.s->flags & SF_EOB) && c->topic != NULL)
-		/* Our uplink is trying to change the topic during burst,
-		 * and we have already set a topic. Assume our change won.
-		 * -- jilles */
-		return;
 	if (topic != NULL ? c->topic == NULL || strcmp(topic, c->topic) : c->topic != NULL)
 	{
 		/* Only call the hook if the topic actually changed */
@@ -442,27 +459,25 @@ void handle_topic_from(sourceinfo_t *si, channel_t *c, char *setter, time_t ts, 
 	}
 	if (hdata.approved == 0)
 	{
-		if (topic == hdata.topic)
+		if (topic == hdata.topic || !strcmp(topic, hdata.topic))
 			/* Allowed, process the change further */
 			handle_topic(c, setter, ts, topic);
 		else
 		{
 			/* Allowed, but topic tweaked */
-			ts -= 60; /* for TS6, use TB and hopefully ensure
-				     it's accepted -- jilles */
 			handle_topic(c, setter, ts, hdata.topic);
-			topic_sts(c->name, setter, ts, hdata.topic);
+			topic_sts(c, setter, ts, ts, hdata.topic);
 		}
 	}
 	else
 	{
 		/* Not allowed, change it back */
 		if (c->topic != NULL)
-			topic_sts(c->name, c->topic_setter, c->topicts, c->topic);
+			topic_sts(c, c->topic_setter, c->topicts, ts, c->topic);
 		else
 		{
 			/* Ick, there was no topic */
-			topic_sts(c->name, chansvs.nick != NULL ? chansvs.nick : me.name, ts - 1, "");
+			topic_sts(c, chansvs.nick != NULL ? chansvs.nick : me.name, ts - 1, ts, "");
 		}
 	}
 }
@@ -524,8 +539,8 @@ void handle_kill(sourceinfo_t *si, char *victim, char *reason)
 		else
 		{
 			slog(LG_ERROR, "handle_kill(): services kill fight (%s -> %s), shutting down", source, u->nick);
-			wallops("Services kill fight (%s -> %s), shutting down!", source, u->nick);
-			snoop("ERROR: Services kill fight (%s -> %s), shutting down!", source, u->nick);
+			wallops(_("Services kill fight (%s -> %s), shutting down!"), source, u->nick);
+			snoop(_("ERROR: Services kill fight (%s -> %s), shutting down!"), source, u->nick);
 			runflags |= RF_SHUTDOWN;
 		}
 	}
@@ -534,6 +549,30 @@ void handle_kill(sourceinfo_t *si, char *victim, char *reason)
 		slog(LG_DEBUG, "handle_kill(): %s killed user %s (%s)", source, u->nick, reason);
 		user_delete(u);
 	}
+}
+
+server_t *handle_server(sourceinfo_t *si, const char *name, const char *sid,
+		int hops, const char *desc)
+{
+	server_t *s = NULL;
+
+	if (si->s != NULL)
+	{
+		/* A server introducing another server */
+		s = server_add(name, hops, si->s->name, sid, desc);
+	}
+	else if (cnt.server == 1)
+	{
+		/* Our uplink introducing itself */
+		if (irccasecmp(name, curr_uplink->name))
+			slog(LG_ERROR, "handle_server(): uplink %s actually has name %s, continuing anyway", curr_uplink->name, name);
+		s = server_add(name, hops, me.name, sid, desc);
+		me.actual = s->name;
+		me.recvsvr = TRUE;
+	}
+	else
+		slog(LG_ERROR, "handle_server(): unregistered/unknown server attempting to introduce another server %s", name);
+	return s;
 }
 
 void handle_eob(server_t *s)
@@ -556,6 +595,9 @@ void handle_eob(server_t *s)
 		if (s2->flags & SF_EOB2)
 			handle_eob(s2);
 	}
+	/* Reseed RNG now we have a little more data to seed with */
+	if (s->uplink == me.me)
+		srand(rand() ^ ((CURRTIME << 20) + cnt.user + (cnt.chanuser << 12)) ^ (cnt.chan << 17) ^ ~cnt.bin);
 }
 
 /* Received a message from a user, check if they are flooding
@@ -664,3 +706,19 @@ int floodcheck(user_t *u, user_t *t)
 	return 0;
 }
 
+boolean_t should_reg_umode(user_t *u)
+{
+	mynick_t *mn;
+
+	if (nicksvs.me == NULL || nicksvs.no_nick_ownership ||
+			u->myuser == NULL || u->myuser->flags & MU_WAITAUTH)
+		return FALSE;
+	mn = mynick_find(u->nick);
+	return mn != NULL && mn->owner == u->myuser;
+}
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

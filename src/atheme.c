@@ -4,12 +4,13 @@
  *
  * This file contains the main() routine.
  *
- * $Id: atheme.c 7589 2007-02-07 23:24:26Z jilles $
+ * $Id: atheme.c 8303 2007-05-20 13:27:40Z jilles $
  */
 
 #include "atheme.h"
 #include "uplink.h"
 #include "pmodule.h" /* pcommand_init */
+#include "internal.h"
 
 chansvs_t chansvs;
 globsvs_t globsvs;
@@ -17,17 +18,20 @@ opersvs_t opersvs;
 memosvs_t memosvs;
 nicksvs_t nicksvs;
 saslsvs_t saslsvs;
+gamesvs_t gamesvs;
 
 me_t me;
 struct cnt cnt;
+
+/* XXX */
+claro_state_t claro_state;
+int runflags;
 
 char *config_file;
 char *log_path;
 boolean_t cold_start = FALSE;
 
-#ifndef _WIN32
 extern char **environ;
-#endif
 
 /* *INDENT-OFF* */
 static void print_help(void)
@@ -52,6 +56,12 @@ static void print_version(void)
 }
 /* *INDENT-ON* */
 
+static void rng_reseed(void *unused)
+{
+	(void)unused;
+	arc4random_addrandom((uint8_t *)&cnt, sizeof cnt);
+}
+
 int main(int argc, char *argv[])
 {
 	boolean_t have_conf = FALSE;
@@ -60,10 +70,17 @@ int main(int argc, char *argv[])
 	int i, pid, r;
 	FILE *pid_file;
 	char *pidfilename = RUNDIR "/atheme.pid";
-#ifndef _WIN32
+#ifdef HAVE_GETRLIMIT
 	struct rlimit rlim;
 #endif
 	curr_uplink = NULL;
+
+	/* Prepare gettext */
+#ifdef ENABLE_NLS
+	setlocale(LC_ALL, "");
+	bindtextdomain(PACKAGE_NAME, LOCALEDIR);
+	textdomain(PACKAGE_NAME);
+#endif
 
 	/* change to our local directory */
 	if (chdir(PREFIX) < 0)
@@ -72,7 +89,7 @@ int main(int argc, char *argv[])
 		return 20;
 	}
 
-#ifndef _WIN32
+#ifdef HAVE_GETRLIMIT
 	/* it appears certian systems *ahem*linux*ahem*
 	 * don't dump cores by default, so we do this here.
 	 */
@@ -132,37 +149,14 @@ int main(int argc, char *argv[])
 
 	me.start = time(NULL);
 	CURRTIME = me.start;
+	srand(arc4random());
 	me.execname = argv[0];
 
-	/* set signal handlers, first part */
-	signal(SIGFPE, sighandler);
-	signal(SIGILL, sighandler);
-#ifndef _WIN32
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGQUIT, sighandler);
-	/* on daemonizing, we may get a SIGHUP if the parent exits,
-	 * and it's a controlling process -- jilles */
-	signal(SIGHUP, SIG_IGN);
-	signal(SIGTRAP, sighandler);
-	signal(SIGIOT, sighandler);
-	signal(SIGALRM, SIG_IGN);
-	signal(SIGCHLD, SIG_IGN);
-	signal(SIGWINCH, SIG_IGN);
-	signal(SIGTTIN, SIG_IGN);
-	signal(SIGTTOU, SIG_IGN);
-	signal(SIGTSTP, SIG_IGN);
-	signal(SIGUSR1, sighandler);
-#endif
+	/* set signal handlers */
+	init_signal_handlers();
 
 	/* open log */
 	log_open();
-	if (log_file == NULL)
-		fprintf(stderr, "atheme: unable to open log file!\n");
-
-	/* since me.loglevel isn't there until after the
-	 * config routines run, we set the default here
-	 */
-	me.loglevel |= LG_ERROR;
 
 	printf("atheme: version atheme-%s\n", version);
 
@@ -188,7 +182,12 @@ int main(int argc, char *argv[])
 	umask(077);
 #endif
 
-	libclaro_init(slog);
+        event_init();
+        initBlockHeap();
+        init_dlink_nodes();
+        hooks_init();
+        init_netio();
+        init_socket_queues();
 
 	translation_init();
 	init_nodes();
@@ -217,6 +216,7 @@ int main(int argc, char *argv[])
 
 	authcookie_init();
 	common_ctcp_init();
+	update_chanacs_flags();
 
 	if (!backend_loaded)
 	{
@@ -242,7 +242,7 @@ int main(int argc, char *argv[])
 	}
 	db_check();
 
-#ifndef _WIN32
+#ifdef HAVE_FORK
 	/* fork into the background */
 	if (!(runflags & RF_LIVE))
 	{
@@ -284,7 +284,7 @@ int main(int argc, char *argv[])
 	printf("atheme: running in foreground mode from %s\n", PREFIX);
 #endif
 
-#ifndef _WIN32
+#ifdef HAVE_GETPID
 	/* write pid */
 	if ((pid_file = fopen(pidfilename, "w")))
 	{
@@ -297,14 +297,6 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 #endif
-	/* rest of signal handlers now we're started more fully -- jilles */
-	signal(SIGINT, sighandler);
-	signal(SIGTERM, sighandler);
-#ifndef _WIN32
-	signal(SIGHUP, sighandler);
-	signal(SIGUSR2, sighandler);
-#endif
-
 	/* no longer starting */
 	runflags &= ~RF_STARTING;
 
@@ -323,6 +315,9 @@ int main(int argc, char *argv[])
 	/* check authcookie expires every ten minutes */
 	event_add("authcookie_expire", authcookie_expire, NULL, 600);
 
+	/* reseed rng a little every five minutes */
+	event_add("rng_reseed", rng_reseed, NULL, 293);
+
 	me.connected = FALSE;
 	uplink_connect();
 
@@ -336,7 +331,8 @@ int main(int argc, char *argv[])
 
 	remove(pidfilename);
 	errno = 0;
-	sendq_flush(curr_uplink->conn);
+	if (curr_uplink != NULL && curr_uplink->conn != NULL)
+		sendq_flush(curr_uplink->conn);
 	connection_close_all();
 
 	me.connected = FALSE;
@@ -346,15 +342,20 @@ int main(int argc, char *argv[])
 	{
 		slog(LG_INFO, "main(): restarting");
 
-#ifndef _WIN32
-		execve("bin/atheme", argv, environ);
+#ifdef HAVE_EXECVE
+		execve(BINDIR "/atheme-services", argv, environ);
 #endif
 	}
 
 	slog(LG_INFO, "main(): shutting down");
 
-	if (log_file != NULL)
-		fclose(log_file);
+	log_shutdown();
 
 	return 0;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

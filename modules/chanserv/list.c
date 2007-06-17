@@ -4,7 +4,7 @@
  *
  * This file contains code for the ChanServ LIST function.
  *
- * $Id: list.c 6895 2006-10-22 21:07:24Z jilles $
+ * $Id: list.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/list", FALSE, _modinit, _moddeinit,
-	"$Id: list.c 6895 2006-10-22 21:07:24Z jilles $",
+	"$Id: list.c 8027 2007-04-02 10:47:18Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void cs_cmd_list(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t cs_list = { "LIST", "Lists channels registered matching a given pattern.", PRIV_CHAN_AUSPEX, 1, cs_cmd_list };
+command_t cs_list = { "LIST", N_("Lists channels registered matching a given pattern."), PRIV_CHAN_AUSPEX, 1, cs_cmd_list };
 
 list_t *cs_cmdtree;
 list_t *cs_helptree;
@@ -43,18 +43,18 @@ static void cs_cmd_list(sourceinfo_t *si, int parc, char *parv[])
 	mychan_t *mc;
 	char *chanpattern = parv[0];
 	char buf[BUFSIZE];
-	uint32_t matches = 0;
+	unsigned int matches = 0;
 	dictionary_iteration_state_t state;
 
 	if (!chanpattern)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "LIST");
-		command_fail(si, fault_needmoreparams, "Syntax: LIST <channel pattern>");
+		command_fail(si, fault_needmoreparams, _("Syntax: LIST <channel pattern>"));
 		return;
 	}
 
 	snoop("LIST:CHANNELS: \2%s\2 by \2%s\2", chanpattern, get_oper_name(si));
-	command_success_nodata(si, "Channels matching pattern \2%s\2:", chanpattern);
+	command_success_nodata(si, _("Channels matching pattern \2%s\2:"), chanpattern);
 
 	DICTIONARY_FOREACH(mc, &state, mclist)
 	{
@@ -72,6 +72,12 @@ static void cs_cmd_list(sourceinfo_t *si, int parc, char *parv[])
 
 				strlcat(buf, "\2[closed]\2", BUFSIZE);
 			}
+			if (mc->flags & MC_HOLD) {
+				if (*buf)
+					strlcat(buf, " ", BUFSIZE);
+
+				strlcat(buf, "\2[held]\2", BUFSIZE);
+			}
 
 			command_success_nodata(si, "- %s (%s) %s", mc->name, mc->founder->name, buf);
 			matches++;
@@ -80,7 +86,13 @@ static void cs_cmd_list(sourceinfo_t *si, int parc, char *parv[])
 
 	logcommand(si, CMDLOG_ADMIN, "LIST %s (%d matches)", chanpattern, matches);
 	if (matches == 0)
-		command_success_nodata(si, "No channel matched pattern \2%s\2", chanpattern);
+		command_success_nodata(si, _("No channel matched pattern \2%s\2"), chanpattern);
 	else
-		command_success_nodata(si, "\2%d\2 match%s for pattern \2%s\2", matches, matches != 1 ? "es" : "", chanpattern);
+		command_success_nodata(si, ngettext(N_("\2%d\2 match for pattern \2%s\2"), N_("\2%d\2 matches for pattern \2%s\2"), matches), matches, chanpattern);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

@@ -4,7 +4,7 @@
  *
  * Fine grained services operator privileges
  *
- * $Id: privs.h 7225 2006-11-19 15:44:42Z jilles $
+ * $Id: privs.h 7795 2007-03-04 15:54:18Z jilles $
  */
 
 #ifndef PRIVS_H
@@ -15,7 +15,9 @@
 /* nickserv/userserv */
 #define PRIV_USER_AUSPEX     "user:auspex"
 #define PRIV_USER_ADMIN      "user:admin"
+#define PRIV_USER_SENDPASS   "user:sendpass"
 #define PRIV_USER_VHOST      "user:vhost"
+#define PRIV_USER_FREGISTER  "user:fregister"
 /* chanserv */
 #define PRIV_CHAN_AUSPEX     "chan:auspex"
 #define PRIV_CHAN_ADMIN      "chan:admin"
@@ -100,3 +102,9 @@ E boolean_t has_priv_operclass(operclass_t *, const char *);
 E boolean_t has_all_operclass(sourceinfo_t *, operclass_t *);
 
 #endif /* PRIVS_H */
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

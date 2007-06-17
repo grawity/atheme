@@ -4,7 +4,7 @@
  *
  * Meow!
  *
- * $Id: ircd_catserv.c 6593 2006-10-01 18:51:45Z jilles $
+ * $Id: ircd_catserv.c 7785 2007-03-03 15:54:32Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"contrib/ircd_catserv", FALSE, _modinit, _moddeinit,
-	"$Id: ircd_catserv.c 6593 2006-10-01 18:51:45Z jilles $",
+	"$Id: ircd_catserv.c 7785 2007-03-03 15:54:32Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -78,10 +78,16 @@ static void catserv_handler(sourceinfo_t *si, int parc, char *parv[])
 		return;
 	if (*cmd == '\001')
 	{
-		handle_ctcp_common(cmd, text, si->su->nick, catserv->name);
+		handle_ctcp_common(si, cmd, text);
 		return;
 	}
 
         /* take the command through the hash table */
         command_exec_split(catserv, si, cmd, text, &catserv_cmdtree);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

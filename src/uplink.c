@@ -4,7 +4,7 @@
  *
  * Uplink management stuff.
  *
- * $Id: uplink.c 7253 2006-11-23 16:40:10Z jilles $
+ * $Id: uplink.c 8223 2007-05-05 12:58:06Z jilles $
  */
 
 #include "atheme.h"
@@ -155,6 +155,9 @@ void uplink_connect(void)
  */
 static void uplink_close(connection_t *cptr)
 {
+	channel_t *c;
+	dictionary_iteration_state_t state;
+
 	event_add_once("reconn", reconn, NULL, me.recontime);
 
 	me.connected = FALSE;
@@ -171,4 +174,27 @@ static void uplink_close(connection_t *cptr)
 		curr_uplink = uplinks.head->data;
 	}
 	curr_uplink->conn = NULL;
+
+	slog(LG_DEBUG, "uplink_close(): ----------------------- clearing -----------------------");
+
+	/* we have to kill everything.
+	 * we do not clear users here because when you delete a server,
+	 * it deletes its users
+	 */
+	server_delete(me.actual);
+	me.actual = NULL;
+	/* remove all the channels left */
+	DICTIONARY_FOREACH(c, &state, chanlist)
+	{
+		channel_delete(c);
+	}
+	/* this leaves me.me and all users on it (i.e. services) */
+
+	slog(LG_DEBUG, "uplink_close(): ------------------------- done -------------------------");
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

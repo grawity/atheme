@@ -4,7 +4,7 @@
  *
  * Data structures related to network servers.
  *
- * $Id: servers.h 6901 2006-10-22 21:33:00Z jilles $
+ * $Id: servers.h 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #ifndef SERVERS_H
@@ -19,15 +19,15 @@ struct server_
 	char *desc;
 	char *sid;
 
-	uint8_t hops;
-	uint32_t users;
-	uint32_t invis;
-	uint32_t opers;
-	uint32_t away;
+	unsigned int hops;
+	unsigned int users;
+	unsigned int invis;
+	unsigned int opers;
+	unsigned int away;
 
 	time_t connected_since;
 
-	uint32_t flags;
+	unsigned int flags;
 
 	server_t *uplink; /* uplink server */
 	list_t children;  /* children linked to me */
@@ -37,6 +37,7 @@ struct server_
 #define SF_HIDE        0x00000001
 #define SF_EOB         0x00000002 /* Burst finished (we have all users/channels) -- jilles */
 #define SF_EOB2        0x00000004 /* Is EOB but an uplink is not (for P10) */
+#define SF_JUPE_PENDING 0x00000008 /* Sent SQUIT request, will introduce jupe when it dies (unconnect semantics) */
 
 /* tld list struct */
 struct tld_ {
@@ -56,8 +57,14 @@ E tld_t *tld_add(const char *name);
 E void tld_delete(const char *name);
 E tld_t *tld_find(const char *name);
 
-E server_t *server_add(const char *name, uint8_t hops, const char *uplink, const char *id, const char *desc);
+E server_t *server_add(const char *name, unsigned int hops, const char *uplink, const char *id, const char *desc);
 E void server_delete(const char *name);
 E server_t *server_find(const char *name);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

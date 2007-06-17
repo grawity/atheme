@@ -4,7 +4,7 @@
  *
  * Marking for nicknames.
  *
- * $Id: mark.c 6639 2006-10-02 15:44:53Z jilles $
+ * $Id: mark.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/mark", FALSE, _modinit, _moddeinit,
-	"$Id: mark.c 6639 2006-10-02 15:44:53Z jilles $",
+	"$Id: mark.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_mark(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_mark = { "MARK", "Adds a note to a user.", PRIV_MARK, 3, ns_cmd_mark };
+command_t ns_mark = { "MARK", N_("Adds a note to a user."), PRIV_MARK, 3, ns_cmd_mark };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -47,13 +47,13 @@ static void ns_cmd_mark(sourceinfo_t *si, int parc, char *parv[])
 	if (!target || !action)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MARK");
-		command_fail(si, fault_needmoreparams, "Usage: MARK <target> <ON|OFF> [note]");
+		command_fail(si, fault_needmoreparams, _("Usage: MARK <target> <ON|OFF> [note]"));
 		return;
 	}
 
 	if (!(mu = myuser_find_ext(target)))
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not registered.", target);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not registered."), target);
 		return;
 	}
 
@@ -62,13 +62,13 @@ static void ns_cmd_mark(sourceinfo_t *si, int parc, char *parv[])
 		if (!info)
 		{
 			command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "MARK");
-			command_fail(si, fault_needmoreparams, "Usage: MARK <target> ON <note>");
+			command_fail(si, fault_needmoreparams, _("Usage: MARK <target> ON <note>"));
 			return;
 		}
 
 		if (metadata_find(mu, METADATA_USER, "private:mark:setter"))
 		{
-			command_fail(si, fault_badparams, "\2%s\2 is already marked.", target);
+			command_fail(si, fault_badparams, _("\2%s\2 is already marked."), target);
 			return;
 		}
 
@@ -78,13 +78,13 @@ static void ns_cmd_mark(sourceinfo_t *si, int parc, char *parv[])
 
 		wallops("%s marked the nickname \2%s\2.", get_oper_name(si), target);
 		logcommand(si, CMDLOG_ADMIN, "MARK %s ON (reason: %s)", target, info);
-		command_success_nodata(si, "\2%s\2 is now marked.", target);
+		command_success_nodata(si, _("\2%s\2 is now marked."), target);
 	}
 	else if (!strcasecmp(action, "OFF"))
 	{
 		if (!metadata_find(mu, METADATA_USER, "private:mark:setter"))
 		{
-			command_fail(si, fault_badparams, "\2%s\2 is not marked.", target);
+			command_fail(si, fault_badparams, _("\2%s\2 is not marked."), target);
 			return;
 		}
 
@@ -94,11 +94,17 @@ static void ns_cmd_mark(sourceinfo_t *si, int parc, char *parv[])
 
 		wallops("%s unmarked the nickname \2%s\2.", get_oper_name(si), target);
 		logcommand(si, CMDLOG_ADMIN, "MARK %s OFF", target);
-		command_success_nodata(si, "\2%s\2 is now unmarked.", target);
+		command_success_nodata(si, _("\2%s\2 is now unmarked."), target);
 	}
 	else
 	{
 		command_fail(si, fault_needmoreparams, STR_INVALID_PARAMS, "MARK");
-		command_fail(si, fault_needmoreparams, "Usage: MARK <target> <ON|OFF> [note]");
+		command_fail(si, fault_needmoreparams, _("Usage: MARK <target> <ON|OFF> [note]"));
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

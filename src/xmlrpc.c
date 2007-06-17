@@ -41,7 +41,7 @@ XMLRPCCmd *next_xmlrpccmd(void);
 XMLRPCCmdHash *first_xmlrpchash(void);
 XMLRPCCmdHash *next_xmlrpchash(void);
 int destroyxmlrpchash(XMLRPCCmdHash * mh);
-char *xmlrcp_strnrepl(char *s, int32_t size, const char *old, const char *new);
+char *xmlrcp_strnrepl(char *s, int size, const char *old, const char *new);
 int xmlrpc_myNumToken(const char *str, const char dilim);
 
 /*************************************************************************/
@@ -817,23 +817,10 @@ static char *xmlrpc_strdup(const char *src)
 
 	if (src)
 	{
-#ifdef __STRICT_ANSI__
-		if ((ret = (char *)malloc(strlen(src) + 1)))
-		{
+		if ((ret = (char *)malloc(strlen(src) + 1)) != NULL)
 			strcpy(ret, src);
-		}
-#else
-		if ((ret = (char *)malloc(strlen(src) + 1)))
-		{
-			strcpy(ret, src);
-		}
-#endif
-		if (!ret)
-#ifndef _WIN32
+		else
 			raise(SIGUSR1);
-#else
-			abort();
-#endif
 	}
 	return ret;
 }
@@ -1236,14 +1223,14 @@ char *xmlrpc_decode_string(char *buf)
 	return buf;
 }
 
-char *xmlrcp_strnrepl(char *s, int32_t size, const char *old, const char *new)
+char *xmlrcp_strnrepl(char *s, int size, const char *old, const char *new)
 {
 	char *ptr = s;
-	int32_t left = strlen(s);
-	int32_t avail = size - (left + 1);
-	int32_t oldlen = strlen(old);
-	int32_t newlen = strlen(new);
-	int32_t diff = newlen - oldlen;
+	int left = strlen(s);
+	int avail = size - (left + 1);
+	int oldlen = strlen(old);
+	int newlen = strlen(new);
+	int diff = newlen - oldlen;
 
 	while (left >= oldlen)
 	{
@@ -1283,3 +1270,9 @@ int xmlrpc_myNumToken(const char *str, const char dilim)
 	}
 	return counter;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

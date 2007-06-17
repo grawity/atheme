@@ -4,7 +4,7 @@
  *
  * Channel stuff.
  *
- * $Id: channels.c 7341 2006-12-08 00:01:54Z jilles $
+ * $Id: channels.c 8227 2007-05-05 15:19:38Z jilles $
  */
 
 #include "atheme.h"
@@ -45,13 +45,14 @@ void init_channels(void)
 }
 
 /*
- * channel_add(const char *name, uint32_t ts)
+ * channel_add(const char *name, unsigned int ts, server_t *creator)
  *
  * Channel object factory.
  *
  * Inputs:
  *     - channel name
  *     - timestamp of channel creation
+ *     - server that is creating the channel
  *
  * Outputs:
  *     - on success, a channel object
@@ -59,10 +60,13 @@ void init_channels(void)
  *
  * Side Effects:
  *     - the channel is automatically inserted into the channel DTree
- *     - channel_add hook is called
- *     - all services are joined if this is the snoop channel
+ *     - if the creator is not me.me:
+ *       - channel_add hook is called
+ *       - all services are joined if this is the snoop channel
+ *     - if the creator is me.me these actions must be performed by the
+ *       caller (i.e. join()) after joining the service
  */
-channel_t *channel_add(const char *name, uint32_t ts)
+channel_t *channel_add(const char *name, unsigned int ts, server_t *creator)
 {
 	channel_t *c;
 	mychan_t *mc;
@@ -81,7 +85,7 @@ channel_t *channel_add(const char *name, uint32_t ts)
 		return c;
 	}
 
-	slog(LG_DEBUG, "channel_add(): %s", name);
+	slog(LG_DEBUG, "channel_add(): %s by %s", name, creator->name);
 
 	c = BlockHeapAlloc(chan_heap);
 
@@ -102,21 +106,24 @@ channel_t *channel_add(const char *name, uint32_t ts)
 
 	cnt.chan++;
 
-	hook_call_event("channel_add", c);
+	if (creator != me.me)
+	{
+		hook_call_event("channel_add", c);
 
-	if (config_options.chan != NULL && !irccasecmp(config_options.chan, name))
-		joinall(config_options.chan);
+		if (config_options.chan != NULL && !irccasecmp(config_options.chan, name))
+			joinall(config_options.chan);
+	}
 
 	return c;
 }
 
 /*
- * channel_delete(const char *name)
+ * channel_delete(channel_t *c)
  *
  * Destroys a channel object and its children member objects.
  *
  * Inputs:
- *     - name of channel object to find and destroy
+ *     - channel object to destroy
  *
  * Outputs:
  *     - nothing
@@ -126,32 +133,29 @@ channel_t *channel_add(const char *name, uint32_t ts)
  *     - a channel and all attached structures are destroyed
  *     - no protocol messages are sent for any remaining members
  */
-void channel_delete(const char *name)
+void channel_delete(channel_t *c)
 {
-	channel_t *c = channel_find(name);
 	mychan_t *mc;
 	node_t *n, *tn, *n2;
 	user_t *u;
 	chanuser_t *cu;
 
-	if (!c)
-	{
-		slog(LG_DEBUG, "channel_delete(): called for nonexistant channel: %s", name);
-		return;
-	}
+	return_if_fail(c != NULL);
 
 	slog(LG_DEBUG, "channel_delete(): %s", c->name);
+	
+	modestack_finalize_channel(c);
 
-	/* channels with services may not be empty, kick them out -- jilles */
+	/* If this is called from uplink_close(), there may still be services
+	 * in the channel. Remove them. Calling chanuser_delete() could lead
+	 * to a recursive call, so don't do that.
+	 * -- jilles */
 	LIST_FOREACH_SAFE(n, tn, c->members.head)
 	{
 		cu = n->data;
-		u = cu->user;
-		node_del(n, &c->members);
-		node_free(n);
-		n2 = node_find(cu, &u->channels);
-		node_del(n2, &u->channels);
-		node_free(n2);
+		soft_assert(is_internal_client(cu->user) && !me.connected);
+		node_del(&cu->cnode, &c->members);
+		node_del(&cu->unode, &cu->user->channels);
 		BlockHeapFree(chanuser_heap, cu);
 		cnt.chanuser--;
 	}
@@ -219,6 +223,18 @@ chanban_t *chanban_add(channel_t *chan, const char *mask, int type)
 {
 	chanban_t *c;
 	node_t *n;
+
+	if (mask == NULL)
+	{
+		slog(LG_ERROR, "chanban_add(): NULL +%c mask", type);
+		return NULL;
+	}
+	/* this would break protocol and/or cause crashes */
+	if (*mask == '\0' || *mask == ':' || strchr(mask, ' '))
+	{
+		slog(LG_ERROR, "chanban_add(): trying to add invalid +%c %s to channel %s", type, mask, chan->name);
+		return NULL;
+	}
 
 	c = chanban_find(chan, mask, type);
 
@@ -367,10 +383,8 @@ void chanban_clear(channel_t *chan)
 chanuser_t *chanuser_add(channel_t *chan, const char *nick)
 {
 	user_t *u;
-	node_t *n1;
-	node_t *n2;
 	chanuser_t *cu, *tcu;
-	uint32_t flags = 0;
+	unsigned int flags = 0;
 	int i = 0;
 	hook_channel_joinpart_t hdata;
 
@@ -416,9 +430,6 @@ chanuser_t *chanuser_add(channel_t *chan, const char *nick)
 
 	slog(LG_DEBUG, "chanuser_add(): %s -> %s", chan->name, u->nick);
 
-	n1 = node_create();
-	n2 = node_create();
-
 	cu = BlockHeapAlloc(chanuser_heap);
 
 	cu->chan = chan;
@@ -427,8 +438,8 @@ chanuser_t *chanuser_add(channel_t *chan, const char *nick)
 
 	chan->nummembers++;
 
-	node_add(cu, n1, &chan->members);
-	node_add(cu, n2, &u->channels);
+	node_add(cu, &cu->cnode, &chan->members);
+	node_add(cu, &cu->unode, &u->channels);
 
 	cnt.chanuser++;
 
@@ -462,7 +473,7 @@ chanuser_t *chanuser_add(channel_t *chan, const char *nick)
 void chanuser_delete(channel_t *chan, user_t *user)
 {
 	chanuser_t *cu;
-	node_t *n, *tn, *n2;
+	node_t *n, *tn;
 	hook_channel_joinpart_t hdata;
 
 	if (!chan)
@@ -477,39 +488,30 @@ void chanuser_delete(channel_t *chan, user_t *user)
 		return;
 	}
 
-	LIST_FOREACH_SAFE(n, tn, chan->members.head)
+	cu = chanuser_find(chan, user);
+	if (cu == NULL)
+		return;
+
+	/* this is called BEFORE we remove the user */
+	hdata.cu = cu;
+	hook_call_event("channel_part", &hdata);
+
+	slog(LG_DEBUG, "chanuser_delete(): %s -> %s (%d)", cu->chan->name, cu->user->nick, cu->chan->nummembers - 1);
+
+	node_del(&cu->cnode, &chan->members);
+	node_del(&cu->unode, &user->channels);
+
+	BlockHeapFree(chanuser_heap, cu);
+
+	chan->nummembers--;
+	cnt.chanuser--;
+
+	if (chan->nummembers == 0 && !(chan->modes & ircd->perm_mode))
 	{
-		cu = (chanuser_t *)n->data;
+		/* empty channels die */
+		slog(LG_DEBUG, "chanuser_delete(): `%s' is empty, removing", chan->name);
 
-		if (cu->user == user)
-		{
-			/* this is called BEFORE we remove the user */
-			hdata.cu = cu;
-			hook_call_event("channel_part", &hdata);
-
-			slog(LG_DEBUG, "chanuser_delete(): %s -> %s (%d)", cu->chan->name, cu->user->nick, cu->chan->nummembers - 1);
-			node_del(n, &chan->members);
-			node_free(n);
-
-			n2 = node_find(cu, &user->channels);
-			node_del(n2, &user->channels);
-			node_free(n2);
-
-			BlockHeapFree(chanuser_heap, cu);
-
-			chan->nummembers--;
-			cnt.chanuser--;
-
-			if (chan->nummembers == 0 && !(chan->modes & ircd->perm_mode))
-			{
-				/* empty channels die */
-				slog(LG_DEBUG, "chanuser_delete(): `%s' is empty, removing", chan->name);
-
-				channel_delete(chan->name);
-			}
-
-			return;
-		}
+		channel_delete(chan);
 	}
 }
 
@@ -537,13 +539,33 @@ chanuser_t *chanuser_find(channel_t *chan, user_t *user)
 	if ((!chan) || (!user))
 		return NULL;
 
-	LIST_FOREACH(n, chan->members.head)
+	/* choose shortest list to search -- jilles */
+	if (LIST_LENGTH(&user->channels) < LIST_LENGTH(&chan->members))
 	{
-		cu = (chanuser_t *)n->data;
+		LIST_FOREACH(n, user->channels.head)
+		{
+			cu = (chanuser_t *)n->data;
 
-		if (cu->user == user)
-			return cu;
+			if (cu->chan == chan)
+				return cu;
+		}
+	}
+	else
+	{
+		LIST_FOREACH(n, chan->members.head)
+		{
+			cu = (chanuser_t *)n->data;
+
+			if (cu->user == user)
+				return cu;
+		}
 	}
 
 	return NULL;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

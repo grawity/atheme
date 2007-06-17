@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2005-2006 Robin Burchell, et al.
+ * Copyright (c) 2005-2007 Robin Burchell, et al.
  * Rights to this code are as documented in doc/LICENSE.
  *
  * This file contains code for the NickServ LIST function.
  * Based on Alex Lambert's LISTEMAIL.
  *
- * $Id: list.c 7289 2006-11-25 19:18:57Z jilles $
+ * $Id: list.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -13,13 +13,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/list", FALSE, _modinit, _moddeinit,
-	"$Id: list.c 7289 2006-11-25 19:18:57Z jilles $",
+	"$Id: list.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_list(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_list = { "LIST", "Lists nicknames registered matching a given pattern.", PRIV_USER_AUSPEX, 1, ns_cmd_list };
+command_t ns_list = { "LIST", N_("Lists nicknames registered matching a given pattern."), PRIV_USER_AUSPEX, 1, ns_cmd_list };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -38,7 +38,7 @@ void _moddeinit()
 	help_delentry(ns_helptree, "LIST");
 }
 
-static int list_one(sourceinfo_t *si, myuser_t *mu, mynick_t *mn)
+static void list_one(sourceinfo_t *si, myuser_t *mu, mynick_t *mn)
 {
 	char buf[BUFSIZE];
 
@@ -58,6 +58,18 @@ static int list_one(sourceinfo_t *si, myuser_t *mu, mynick_t *mn)
 
 		strlcat(buf, "\2[marked]\2", BUFSIZE);
 	}
+	if (mu->flags & MU_HOLD) {
+		if (*buf)
+			strlcat(buf, " ", BUFSIZE);
+
+		strlcat(buf, "\2[held]\2", BUFSIZE);
+	}
+	if (mu->flags & MU_WAITAUTH) {
+		if (*buf)
+			strlcat(buf, " ", BUFSIZE);
+
+		strlcat(buf, "\2[unverified]\2", BUFSIZE);
+	}
 
 	if (mn == NULL || !irccasecmp(mn->nick, mu->name))
 		command_success_nodata(si, "- %s (%s) %s", mu->name, mu->email, buf);
@@ -67,47 +79,94 @@ static int list_one(sourceinfo_t *si, myuser_t *mu, mynick_t *mn)
 
 static void ns_cmd_list(sourceinfo_t *si, int parc, char *parv[])
 {
-	char *nickpattern = parv[0];
+	char pat[512], *nickpattern = NULL, *hostpattern = NULL, *p;
+	boolean_t hostmatch;
 	dictionary_iteration_state_t state;
 	myuser_t *mu;
 	mynick_t *mn;
+	metadata_t *md;
 	int matches = 0;
 
-	if (!nickpattern)
+	if (parc < 1)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "LIST");
-		command_fail(si, fault_needmoreparams, "Syntax: LIST <pattern>");
+		command_fail(si, fault_needmoreparams, _("Syntax: LIST <pattern>[!<user@host>]"));
 		return;
 	}
+	strlcpy(pat, parv[0], sizeof pat);
+	p = strrchr(pat, ' ');
+	if (p == NULL)
+		p = strrchr(pat, '!');
+	if (p != NULL)
+	{
+		*p++ = '\0';
+		nickpattern = pat;
+		hostpattern = p;
+	}
+	else if (strchr(pat, '@'))
+		hostpattern = pat;
+	else
+		nickpattern = pat;
+	if (nickpattern && !strcmp(nickpattern, "*"))
+		nickpattern = NULL;
 
 	if (nicksvs.no_nick_ownership)
 	{
-		snoop("LIST:ACCOUNTS: \2%s\2 by \2%s\2", nickpattern, get_oper_name(si));
+		snoop("LIST:ACCOUNTS: \2%s\2 by \2%s\2", parv[0], get_oper_name(si));
 		DICTIONARY_FOREACH(mu, &state, mulist)
 		{
-			if (!match(nickpattern, mu->name))
+			if (nickpattern && match(nickpattern, mu->name))
+				continue;
+			if (hostpattern)
 			{
-				list_one(si, mu, NULL);
-				matches++;
+				hostmatch = FALSE;
+				md = metadata_find(mu, METADATA_USER, "private:host:actual");
+				if (md != NULL && !match(hostpattern, md->value))
+					hostmatch = TRUE;
+				md = metadata_find(mu, METADATA_USER, "private:host:vhost");
+				if (md != NULL && !match(hostpattern, md->value))
+					hostmatch = TRUE;
+				if (!hostmatch)
+					continue;
 			}
+			list_one(si, mu, NULL);
+			matches++;
 		}
 	}
 	else
 	{
-		snoop("LIST:NICKS: \2%s\2 by \2%s\2", nickpattern, get_oper_name(si));
+		snoop("LIST:NICKS: \2%s\2 by \2%s\2", parv[0], get_oper_name(si));
 		DICTIONARY_FOREACH(mn, &state, nicklist)
 		{
-			if (!match(nickpattern, mn->nick))
+			if (nickpattern && match(nickpattern, mn->nick))
+				continue;
+			mu = mn->owner;
+			if (hostpattern)
 			{
-				list_one(si, NULL, mn);
-				matches++;
+				hostmatch = FALSE;
+				md = metadata_find(mu, METADATA_USER, "private:host:actual");
+				if (md != NULL && !match(hostpattern, md->value))
+					hostmatch = TRUE;
+				md = metadata_find(mu, METADATA_USER, "private:host:vhost");
+				if (md != NULL && !match(hostpattern, md->value))
+					hostmatch = TRUE;
+				if (!hostmatch)
+					continue;
 			}
+			list_one(si, NULL, mn);
+			matches++;
 		}
 	}
 
-	logcommand(si, CMDLOG_ADMIN, "LIST %s (%d matches)", nickpattern, matches);
+	logcommand(si, CMDLOG_ADMIN, "LIST %s (%d matches)", parv[0], matches);
 	if (matches == 0)
-		command_success_nodata(si, "No nicknames matched pattern \2%s\2", nickpattern);
+		command_success_nodata(si, _("No nicknames matched pattern \2%s\2"), parv[0]);
 	else
-		command_success_nodata(si, "\2%d\2 match%s for pattern \2%s\2", matches, matches != 1 ? "es" : "", nickpattern);
+		command_success_nodata(si, ngettext(N_("\2%d\2 match for pattern \2%s\2"), N_("\2%d\2 matches for pattern \2%s\2"), matches), matches, parv[0]);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

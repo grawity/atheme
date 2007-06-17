@@ -4,7 +4,7 @@
  *
  * Module restart.
  *
- * $Id: modrestart.c 6927 2006-10-24 15:22:05Z jilles $
+ * $Id: modrestart.c 8079 2007-04-02 17:37:39Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,21 +12,17 @@
 DECLARE_MODULE_V1
 (
 	"operserv/modrestart", TRUE, _modinit, _moddeinit,
-	"$Id: modrestart.c 6927 2006-10-24 15:22:05Z jilles $",
+	"$Id: modrestart.c 8079 2007-04-02 17:37:39Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void os_cmd_modrestart(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_modrestart = { "MODRESTART", "Restarts loaded modules.", PRIV_ADMIN, 0, os_cmd_modrestart };
+command_t os_modrestart = { "MODRESTART", N_("Restarts loaded modules."), PRIV_ADMIN, 0, os_cmd_modrestart };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
-#ifdef _WIN32
-extern __declspec (dllimport) list_t modules;
-#else
 extern list_t modules;
-#endif
 
 void _modinit(module_t *m)
 {
@@ -94,11 +90,17 @@ static void os_cmd_modrestart(sourceinfo_t *si, int parc, char *parv[])
 	if (fail1)
 	{
 		wallops("Module restart failed, functionality will be very limited");
-		command_fail(si, fault_nosuch_target, "Module restart failed, fix it and try again or restart");
+		command_fail(si, fault_nosuch_target, _("Module restart failed, fix it and try again or restart"));
 	}
 	else
 	{
 		wallops("Module restart: %d modules unloaded; %d kept; %d modules now loaded", loadedbefore - kept, kept, modules.count);
-		command_success_nodata(si, "Module restart: %d modules unloaded; %d kept; %d modules now loaded", loadedbefore - kept, kept, modules.count);
+		command_success_nodata(si, _("Module restart: %d modules unloaded; %d kept; %d modules now loaded"), loadedbefore - kept, kept, modules.count);
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

@@ -4,7 +4,7 @@
  *
  * This file contains functionality which implements the OService IGNORE command.
  *
- * $Id: ignore.c 6927 2006-10-24 15:22:05Z jilles $
+ * $Id: ignore.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/ignore", FALSE, _modinit, _moddeinit,
-	"$Id: ignore.c 6927 2006-10-24 15:22:05Z jilles $",
+	"$Id: ignore.c 8027 2007-04-02 10:47:18Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -22,11 +22,11 @@ static void os_cmd_ignore_del(sourceinfo_t *si, int parc, char *parv[]);
 static void os_cmd_ignore_list(sourceinfo_t *si, int parc, char *parv[]);
 static void os_cmd_ignore_clear(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_ignore = { "IGNORE", "Ignore a mask from services.", PRIV_ADMIN, 3, os_cmd_ignore };
-command_t os_ignore_add = { "ADD", "Add services ignore", PRIV_ADMIN, 2, os_cmd_ignore_add };
-command_t os_ignore_del = { "DEL", "Delete services ignore", PRIV_ADMIN, 1, os_cmd_ignore_del };
-command_t os_ignore_list = { "LIST", "List services ignores", PRIV_ADMIN, 0, os_cmd_ignore_list };
-command_t os_ignore_clear = { "CLEAR", "Clear all services ignores", PRIV_ADMIN, 0, os_cmd_ignore_clear };
+command_t os_ignore = { "IGNORE", N_("Ignore a mask from services."), PRIV_ADMIN, 3, os_cmd_ignore };
+command_t os_ignore_add = { "ADD", N_("Add services ignore"), PRIV_ADMIN, 2, os_cmd_ignore_add };
+command_t os_ignore_del = { "DEL", N_("Delete services ignore"), PRIV_ADMIN, 1, os_cmd_ignore_del };
+command_t os_ignore_list = { "LIST", N_("List services ignores"), PRIV_ADMIN, 0, os_cmd_ignore_list };
+command_t os_ignore_clear = { "CLEAR", N_("Clear all services ignores"), PRIV_ADMIN, 0, os_cmd_ignore_clear };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -73,14 +73,14 @@ static void os_cmd_ignore(sourceinfo_t *si, int parc, char *parv[])
 	if (!cmd)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "IGNORE");
-		command_fail(si, fault_needmoreparams, "Syntax: IGNORE ADD|DEL|LIST|CLEAR <mask>");
+		command_fail(si, fault_needmoreparams, _("Syntax: IGNORE ADD|DEL|LIST|CLEAR <mask>"));
 		return;
 	}
 
         c = command_find(&os_ignore_cmds, cmd);
 	if (c == NULL)
 	{
-		command_fail(si, fault_badparams, "Invalid command. Use \2/%s%s help\2 for a command listing.", (ircd->uses_rcommand == FALSE) ? "msg " : "", opersvs.me->disp);
+		command_fail(si, fault_badparams, _("Invalid command. Use \2/%s%s help\2 for a command listing."), (ircd->uses_rcommand == FALSE) ? "msg " : "", opersvs.me->disp);
 		return;
 	}
 
@@ -98,13 +98,13 @@ static void os_cmd_ignore_add(sourceinfo_t *si, int parc, char *parv[])
 	if (target == NULL)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "IGNORE");
-		command_fail(si, fault_needmoreparams, "Syntax: IGNORE ADD|DEL|LIST|CLEAR <mask>");
+		command_fail(si, fault_needmoreparams, _("Syntax: IGNORE ADD|DEL|LIST|CLEAR <mask>"));
 		return;
 	}
 
 	if (!validhostmask(target))
 	{
-		command_fail(si, fault_badparams, "Invalid host mask, %s", target);
+		command_fail(si, fault_badparams, _("Invalid host mask, %s"), target);
 		return;
 	}
 
@@ -116,7 +116,7 @@ static void os_cmd_ignore_add(sourceinfo_t *si, int parc, char *parv[])
 		/* We're here */
 		if (!strcasecmp(svsignore->mask, target))
 		{
-			command_fail(si, fault_nochange, "The mask \2%s\2 already exists on the services ignore list.", svsignore->mask);
+			command_fail(si, fault_nochange, _("The mask \2%s\2 already exists on the services ignore list."), svsignore->mask);
 			return;
 		}
 	}
@@ -125,7 +125,7 @@ static void os_cmd_ignore_add(sourceinfo_t *si, int parc, char *parv[])
 	svsignore->setby = sstrdup(get_oper_name(si));
 	svsignore->settime = CURRTIME;
 
-	command_success_nodata(si, "\2%s\2 has been added to the services ignore list.", target);
+	command_success_nodata(si, _("\2%s\2 has been added to the services ignore list."), target);
 
 	logcommand(si, CMDLOG_ADMIN, "IGNORE ADD %s %s", target, reason);
 	wallops("%s added a services ignore for \2%s\2 (%s).", get_oper_name(si), target, reason);
@@ -143,7 +143,7 @@ static void os_cmd_ignore_del(sourceinfo_t *si, int parc, char *parv[])
 	if (target == NULL)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "IGNORE");
-		command_fail(si, fault_needmoreparams, "Syntax: IGNORE ADD|DEL|LIST|CLEAR <mask>");
+		command_fail(si, fault_needmoreparams, _("Syntax: IGNORE ADD|DEL|LIST|CLEAR <mask>"));
 		return;
 	}
 
@@ -153,7 +153,7 @@ static void os_cmd_ignore_del(sourceinfo_t *si, int parc, char *parv[])
 
 		if (!strcasecmp(svsignore->mask,target))
 		{
-			command_success_nodata(si, "\2%s\2 has been removed from the services ignore list.", svsignore->mask);
+			command_success_nodata(si, _("\2%s\2 has been removed from the services ignore list."), svsignore->mask);
 
 			svsignore_delete(svsignore);
 
@@ -165,7 +165,7 @@ static void os_cmd_ignore_del(sourceinfo_t *si, int parc, char *parv[])
 		}
 	}
 
-	command_fail(si, fault_nosuch_target, "\2%s\2 was not found on the services ignore list.", target);
+	command_fail(si, fault_nosuch_target, _("\2%s\2 was not found on the services ignore list."), target);
 	return;
 }
 
@@ -176,7 +176,7 @@ static void os_cmd_ignore_clear(sourceinfo_t *si, int parc, char *parv[])
 
 	if (LIST_LENGTH(&svs_ignore_list) == 0)
 	{
-		command_success_nodata(si, "Services ignore list is empty.");
+		command_success_nodata(si, _("Services ignore list is empty."));
 		return;
 	}
 
@@ -184,7 +184,7 @@ static void os_cmd_ignore_clear(sourceinfo_t *si, int parc, char *parv[])
 	{
 		svsignore = (svsignore_t *)n->data;
 
-		command_success_nodata(si, "\2%s\2 has been removed from the services ignore list.", svsignore->mask);
+		command_success_nodata(si, _("\2%s\2 has been removed from the services ignore list."), svsignore->mask);
 		node_del(n,&svs_ignore_list);
 		node_free(n);
 		free(svsignore->mask);
@@ -193,7 +193,7 @@ static void os_cmd_ignore_clear(sourceinfo_t *si, int parc, char *parv[])
 
 	}
 
-	command_success_nodata(si, "Services ignore list has been wiped!");
+	command_success_nodata(si, _("Services ignore list has been wiped!"));
 
 	wallops("\2%s\2 wiped the services ignore list.", get_oper_name(si));
 	snoop("IGNORE:CLEAR: by \2%s\2", get_oper_name(si));
@@ -206,18 +206,18 @@ static void os_cmd_ignore_clear(sourceinfo_t *si, int parc, char *parv[])
 static void os_cmd_ignore_list(sourceinfo_t *si, int parc, char *parv[])
 {
 	node_t *n;
-	uint8_t i = 1;
+	unsigned int i = 1;
 	svsignore_t *svsignore;
 	char strfbuf[32];
 	struct tm tm;
 
 	if (LIST_LENGTH(&svs_ignore_list) == 0)
 	{
-		command_success_nodata(si, "The services ignore list is empty.");
+		command_success_nodata(si, _("The services ignore list is empty."));
 		return;
 	}
 
-	command_success_nodata(si, "Current Ignore list entries:");
+	command_success_nodata(si, _("Current Ignore list entries:"));
 	command_success_nodata(si, "-------------------------");
 
 	LIST_FOREACH(n, svs_ignore_list.head)
@@ -227,7 +227,7 @@ static void os_cmd_ignore_list(sourceinfo_t *si, int parc, char *parv[])
 		tm = *localtime(&svsignore->settime);
 		strftime(strfbuf, sizeof(strfbuf) - 1, "%b %d %H:%M:%S %Y", &tm);
 
-		command_success_nodata(si, "%d: %s by %s on %s (Reason: %s)", i, svsignore->mask, svsignore->setby, strfbuf, svsignore->reason);
+		command_success_nodata(si, _("%d: %s by %s on %s (Reason: %s)"), i, svsignore->mask, svsignore->setby, strfbuf, svsignore->reason);
 		i++;
 	}
 
@@ -237,3 +237,9 @@ static void os_cmd_ignore_list(sourceinfo_t *si, int parc, char *parv[])
 
 	return;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

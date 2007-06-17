@@ -4,7 +4,7 @@
  *
  * New xmlrpc implementation
  *
- * $Id: main.c 7277 2006-11-25 01:41:18Z jilles $
+ * $Id: main.c 8297 2007-05-20 08:56:59Z nenolod $
  */
 
 #include "atheme.h"
@@ -15,7 +15,7 @@
 DECLARE_MODULE_V1
 (
 	"xmlrpc/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 7277 2006-11-25 01:41:18Z jilles $",
+	"$Id: main.c 8297 2007-05-20 08:56:59Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -40,7 +40,7 @@ struct xmlrpc_configuration
 	int port;
 } xmlrpc_config;
 
-static int conf_xmlrpc_host(CONFIGENTRY *ce)
+static int conf_xmlrpc_host(config_entry_t *ce)
 {
 	if (!ce->ce_vardata)
 		return -1;
@@ -50,7 +50,7 @@ static int conf_xmlrpc_host(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int conf_xmlrpc_port(CONFIGENTRY *ce)
+static int conf_xmlrpc_port(config_entry_t *ce)
 {
 	if (!ce->ce_vardata)
 		return -1;
@@ -60,7 +60,7 @@ static int conf_xmlrpc_port(CONFIGENTRY *ce)
 	return 0;
 }
 
-static int conf_xmlrpc(CONFIGENTRY *ce)
+static int conf_xmlrpc(config_entry_t *ce)
 {
 	subblock_handler(ce, &conf_xmlrpc_table);
 	return 0;
@@ -155,7 +155,7 @@ static void send_error(connection_t *cptr, int errorcode, const char *text, bool
 	snprintf(buf1, sizeof buf1, "HTTP/1.1 %d %s\r\n"
 			"Server: Atheme/%s\r\n"
 			"Content-Type: text/plain\r\n"
-			"Content-Length: %d\r\n\r\n%s",
+			"Content-Length: %ld\r\n\r\n%s",
 			errorcode, text, version, strlen(buf2),
 			sendentity ? buf2 : "");
 	sendq_add(cptr, buf1, strlen(buf1));
@@ -666,3 +666,9 @@ static int xmlrpcmethod_command(void *conn, int parc, char *parv[])
 
 	return 0;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

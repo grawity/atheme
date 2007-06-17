@@ -4,7 +4,7 @@
  *
  * This file contains the main() routine.
  *
- * $Id: main.c 6625 2006-10-02 09:29:08Z jilles $
+ * $Id: main.c 8435 2007-06-15 21:29:58Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"saslserv/main", FALSE, _modinit, _moddeinit,
-	"$Id: main.c 6625 2006-10-02 09:29:08Z jilles $",
+	"$Id: main.c 8435 2007-06-15 21:29:58Z jilles $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -22,6 +22,7 @@ list_t sasl_mechanisms;
 sasl_session_t *find_session(char *uid);
 sasl_session_t *make_session(char *uid);
 void destroy_session(sasl_session_t *p);
+static void sasl_logcommand(sasl_session_t *p, myuser_t *login, int level, const char *fmt, ...);
 static void sasl_input(void *vptr);
 static void sasl_packet(sasl_session_t *p, char *buf, int len);
 static void sasl_write(char *target, char *data, int length);
@@ -54,7 +55,7 @@ static void saslserv(sourceinfo_t *si, int parc, char *parv[])
 		return;
 	if (*cmd == '\001')
 	{
-		handle_ctcp_common(cmd, text, si->su->nick, saslsvs.nick);
+		handle_ctcp_common(si, cmd, text);
 		return;
 	}
 
@@ -82,7 +83,7 @@ void _modinit(module_t *m)
 	hook_add_hook("sasl_input", sasl_input);
 	hook_add_event("user_add");
 	hook_add_hook("user_add", sasl_newuser);
-	event_add("sasl_delete_stale", delete_stale, NULL, 15);
+	event_add("sasl_delete_stale", delete_stale, NULL, 30);
 
         if (!cold_start)
         {
@@ -111,13 +112,6 @@ void _moddeinit(void)
 	{
 		destroy_session(n->data);
 		node_del(n, &sessions);
-		node_free(n);
-	}
-
-	LIST_FOREACH_SAFE(n, tn, saslsvs.pending.head)
-	{
-		free(n->data);
-		node_del(n, &saslsvs.pending);
 		node_free(n);
 	}
 }
@@ -165,6 +159,14 @@ sasl_session_t *make_session(char *uid)
 void destroy_session(sasl_session_t *p)
 {
 	node_t *n, *tn;
+	myuser_t *mu;
+
+	if (p->flags & ASASL_NEED_LOG && p->username != NULL)
+	{
+		mu = myuser_find(p->username);
+		if (mu != NULL)
+			sasl_logcommand(p, mu, CMDLOG_LOGIN, "LOGIN (session timed out)");
+	}
 
 	LIST_FOREACH_SAFE(n, tn, sessions.head)
 	{
@@ -265,7 +267,6 @@ static void sasl_packet(sasl_session_t *p, char *buf, int len)
 	char mech[21];
 	int out_len = 0;
 	metadata_t *md;
-	node_t *n;
 
 	/* First piece of data in a session is the name of
 	 * the SASL mechanism that will be used.
@@ -288,6 +289,7 @@ static void sasl_packet(sasl_session_t *p, char *buf, int len)
 /*			
 			char temp[400], *ptr = temp;
 			int l = 0;
+			node_t *n;
 
 			LIST_FOREACH(n, sasl_mechanisms.head)
 			{
@@ -334,9 +336,6 @@ static void sasl_packet(sasl_session_t *p, char *buf, int len)
 
 			svslogin_sts(p->uid, "*", "*", cloak, mu->name);
 			sasl_sts(p->uid, 'D', "S");
-
-            n = node_create();
-            node_add(strdup(p->uid), n, &saslsvs.pending);
 		}
 		else
 			sasl_sts(p->uid, 'D', "F");
@@ -395,7 +394,7 @@ static void sasl_write(char *target, char *data, int length)
 		sasl_sts(target, 'C', "+");
 }
 
-static void sasl_logcommand(char *source, int level, const char *fmt, ...)
+static void sasl_logcommand(sasl_session_t *p, myuser_t *login, int level, const char *fmt, ...)
 {
 	va_list args;
 	time_t t;
@@ -403,27 +402,10 @@ static void sasl_logcommand(char *source, int level, const char *fmt, ...)
 	char datetime[64];
 	char lbuf[BUFSIZE];
 
-	/* XXX use level */
-
 	va_start(args, fmt);
-
-	time(&t);
-	tm = *localtime(&t);
-	strftime(datetime, sizeof(datetime) - 1, "[%d/%m/%Y %H:%M:%S]", &tm);
-
 	vsnprintf(lbuf, BUFSIZE, fmt, args);
-
-	if (!log_file)
-		log_open();
-
-	if (log_file)
-	{
-		fprintf(log_file, "%s sasl_agent %s %s\n",
-				datetime, source, lbuf);
-
-		fflush(log_file);
-	}
-
+	slog(level, "%s %s:%s %s", saslsvs.nick, login ? login->name : "",
+			p->uid, lbuf);
 	va_end(args);
 }
 
@@ -432,24 +414,24 @@ int login_user(sasl_session_t *p)
 {
 	myuser_t *mu = myuser_find(p->username);
 	metadata_t *md;
-	char *target = p->uid;
 
 	if(mu == NULL) /* WTF? */
 		return 0;
 
  	if ((md = metadata_find(mu, METADATA_USER, "private:freeze:freezer")))
 	{
-		sasl_logcommand(target, CMDLOG_LOGIN, "failed IDENTIFY to %s (frozen)", mu->name);
+		sasl_logcommand(p, NULL, CMDLOG_LOGIN, "failed LOGIN to %s (frozen)", mu->name);
 		return 0;
 	}
 
 	if (LIST_LENGTH(&mu->logins) >= me.maxlogins)
 	{
-		sasl_logcommand(target, CMDLOG_LOGIN, "failed IDENTIFY to %s (too many logins)", mu->name);
+		sasl_logcommand(p, NULL, CMDLOG_LOGIN, "failed LOGIN to %s (too many logins)", mu->name);
 		return 0;
 	}
 
-	sasl_logcommand(target, CMDLOG_LOGIN, "IDENTIFY");
+	/* Log it with the full n!u@h later */
+	p->flags |= ASASL_NEED_LOG;
 
 	return 1;
 }
@@ -466,20 +448,12 @@ static void sasl_newuser(void *vptr)
 	myuser_t *mu;
 	node_t *n, *tn;
 
-	/* Remove any pending login marker. */
-	LIST_FOREACH_SAFE(n, tn, saslsvs.pending.head)
-	{
-		if(!strcmp((char*)n->data, u->uid))
-		{
-			node_del(n, &saslsvs.pending);
-			free(n->data);
-			node_free(n);
-		}
-	}
-
 	/* Not concerned unless it's a SASL login. */
 	if(p == NULL)
 		return;
+
+	/* We will log it ourselves, if needed */
+	p->flags &= ~ASASL_NEED_LOG;
 
 	/* Find the account */
 	mu = p->username ? myuser_find(p->username) : NULL;
@@ -524,6 +498,8 @@ static void sasl_newuser(void *vptr)
 		strlcat(lao, u->host, BUFSIZE);
 	metadata_add(mu, METADATA_USER, "private:host:actual", lao);
 
+	logcommand_user(saslsvs.me, u, CMDLOG_LOGIN, "LOGIN");
+
 	/* check for failed attempts and let them know */
 	if ((md_failnum = metadata_find(mu, METADATA_USER, "private:loginfail:failnum")) && (atoi(md_failnum->value) > 0))
 	{
@@ -555,10 +531,10 @@ static void sasl_newuser(void *vptr)
 	hook_call_event("user_identify", u);
 }
 
-/* This function is run approximately once every 15 seconds.
+/* This function is run approximately once every 30 seconds.
  * It looks for flagged sessions, and deletes them, while
  * flagging all the others. This way stale sessions are deleted
- * after no more than 30 seconds.
+ * after no more than 60 seconds.
  */
 static void delete_stale(void *vptr)
 {
@@ -570,24 +546,16 @@ static void delete_stale(void *vptr)
 		p = n->data;
 		if(p->flags & ASASL_MARKED_FOR_DELETION)
 		{
-			/* Remove any pending login marker. */
-			LIST_FOREACH_SAFE(m, tm, saslsvs.pending.head)
-			{
-				if(!strcmp((char*)m->data, p->uid))
-				{
-					node_del(m, &saslsvs.pending);
-					free(m->data);
-					node_free(m);
-				}
-			}
-
 			node_del(n, &sessions);
 			destroy_session(p);
 			node_free(n);
-		}
-
-		p->flags |= ASASL_MARKED_FOR_DELETION;
+		} else
+			p->flags |= ASASL_MARKED_FOR_DELETION;
 	}
 }
 
-/* vim: set ts=8 sts=8 noexpandtab: */
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

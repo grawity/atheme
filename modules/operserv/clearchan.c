@@ -4,7 +4,7 @@
  *
  * This file contains functionality implementing OperServ CLEARCHAN.
  *
- * $Id: clearchan.c 6639 2006-10-02 15:44:53Z jilles $
+ * $Id: clearchan.c 7913 2007-03-06 23:39:47Z jilles $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/clearchan", FALSE, _modinit, _moddeinit,
-	"$Id: clearchan.c 6639 2006-10-02 15:44:53Z jilles $",
+	"$Id: clearchan.c 7913 2007-03-06 23:39:47Z jilles $",
 	"Robin Burchell <surreal.w00t@gmail.com>"
 );
 
@@ -22,7 +22,7 @@ DECLARE_MODULE_V1
 
 static void os_cmd_clearchan(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t os_clearchan = { "CLEARCHAN", "Clears a channel via KICK, KILL or GLINE", PRIV_CHAN_ADMIN, 3, os_cmd_clearchan };
+command_t os_clearchan = { "CLEARCHAN", N_("Clears a channel via KICK, KILL or GLINE"), PRIV_CHAN_ADMIN, 3, os_cmd_clearchan };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -58,7 +58,7 @@ static void os_cmd_clearchan(sourceinfo_t *si, int parc, char *parv[])
 	if (!actionstr || !targchan || !treason)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "CLEARCHAN");
-		command_fail(si, fault_needmoreparams, "Syntax: CLEARCHAN KICK|KILL|GLINE <#channel> <reason>");
+		command_fail(si, fault_needmoreparams, _("Syntax: CLEARCHAN KICK|KILL|GLINE <#channel> <reason>"));
  		return;
 	}
 
@@ -66,7 +66,7 @@ static void os_cmd_clearchan(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!c)
 	{
-		command_fail(si, fault_nosuch_target, "The channel must exist for CLEARCHAN.");
+                command_fail(si, fault_nosuch_target, _("Channel \2%s\2 does not exist."), targchan);
  		return;
 	}
 
@@ -80,13 +80,13 @@ static void os_cmd_clearchan(sourceinfo_t *si, int parc, char *parv[])
 	else
 	{
 		/* not valid! */
-		command_fail(si, fault_badparams, "\2%s\2 is not a valid action", actionstr);
+		command_fail(si, fault_badparams, _("\2%s\2 is not a valid action"), actionstr);
  		return;				
 	}
 
 	if (action != CLEAR_KICK && !has_priv(si, PRIV_MASS_AKILL))
 	{
-		command_fail(si, fault_noprivs, "You do not have %s privilege.", PRIV_MASS_AKILL);
+		command_fail(si, fault_noprivs, _("You do not have %s privilege."), PRIV_MASS_AKILL);
 		return;
 	}
 
@@ -98,7 +98,7 @@ static void os_cmd_clearchan(sourceinfo_t *si, int parc, char *parv[])
 	wallops("\2%s\2 is clearing channel %s with %s",
 			get_oper_name(si), targchan, actionstr);
 	snoop("CLEARCHAN: %s on \2%s\2 by \2%s\2", actionstr, targchan, get_oper_name(si));
-	command_success_nodata(si, "Clearing \2%s\2 with \2%s\2", targchan, actionstr);
+	command_success_nodata(si, _("Clearing \2%s\2 with \2%s\2"), targchan, actionstr);
 
 	/* iterate over the users in channel */
 	LIST_FOREACH(n, c->members.head)
@@ -109,12 +109,12 @@ static void os_cmd_clearchan(sourceinfo_t *si, int parc, char *parv[])
 			;
 		else if (is_ircop(cu->user))
 		{
-			command_success_nodata(si, "\2CLEARCHAN\2: Ignoring IRC Operator \2%s\2!%s@%s {%s}", cu->user->nick, cu->user->user, cu->user->host, cu->user->gecos);
+			command_success_nodata(si, _("\2CLEARCHAN\2: Ignoring IRC Operator \2%s\2!%s@%s {%s}"), cu->user->nick, cu->user->user, cu->user->host, cu->user->gecos);
 			ignores++;
 		}
 		else
 		{
-			command_success_nodata(si, "\2CLEARCHAN\2: \2%s\2 hit \2%s\2!%s@%s {%s}", actionstr, cu->user->nick, cu->user->user, cu->user->host, cu->user->gecos);
+			command_success_nodata(si, _("\2CLEARCHAN\2: \2%s\2 hit \2%s\2!%s@%s {%s}"), actionstr, cu->user->nick, cu->user->user, cu->user->host, cu->user->gecos);
 			matches++;
 
 			switch (action)
@@ -132,6 +132,12 @@ static void os_cmd_clearchan(sourceinfo_t *si, int parc, char *parv[])
 		}
 	}
 
-	command_success_nodata(si, "\2%d\2 matches, \2%d\2 ignores for \2%s\2 on \2%s\2", matches, ignores, actionstr, targchan);
+	command_success_nodata(si, _("\2%d\2 matches, \2%d\2 ignores for \2%s\2 on \2%s\2"), matches, ignores, actionstr, targchan);
 	logcommand(si, CMDLOG_ADMIN, "CLEARCHAN %s %s %s (%d matches, %d ignores)", actionstr, targchan, treason, matches, ignores);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

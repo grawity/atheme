@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2005 William Pitcock, et al.
+ * Copyright (c) 2005-2007 William Pitcock, et al.
  * Rights to this code are as documented in doc/LICENSE.
  *
  * This file contains code for the NickServ GHOST function.
  *
- * $Id: ghost.c 7179 2006-11-17 19:58:40Z jilles $
+ * $Id: ghost.c 7895 2007-03-06 02:40:03Z pippijn $
  */
 
 #include "atheme.h"
@@ -12,13 +12,13 @@
 DECLARE_MODULE_V1
 (
 	"nickserv/ghost", FALSE, _modinit, _moddeinit,
-	"$Id: ghost.c 7179 2006-11-17 19:58:40Z jilles $",
+	"$Id: ghost.c 7895 2007-03-06 02:40:03Z pippijn $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
 static void ns_cmd_ghost(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_ghost = { "GHOST", "Reclaims use of a nickname.", AC_NONE, 2, ns_cmd_ghost };
+command_t ns_ghost = { "GHOST", N_("Reclaims use of a nickname."), AC_NONE, 2, ns_cmd_ghost };
 
 list_t *ns_cmdtree, *ns_helptree;
 
@@ -48,7 +48,7 @@ void ns_cmd_ghost(sourceinfo_t *si, int parc, char *parv[])
 	if (!target)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "GHOST");
-		command_fail(si, fault_needmoreparams, "Syntax: GHOST <target> [password]");
+		command_fail(si, fault_needmoreparams, _("Syntax: GHOST <target> [password]"));
 		return;
 	}
 
@@ -62,18 +62,18 @@ void ns_cmd_ghost(sourceinfo_t *si, int parc, char *parv[])
 	target_u = user_find_named(target);
 	if (!mu && (!target_u || !target_u->myuser))
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not a registered nickname.", target);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not a registered nickname."), target);
 		return;
 	}
 
 	if (!target_u)
 	{
-		command_fail(si, fault_nosuch_target, "\2%s\2 is not online.", target);
+		command_fail(si, fault_nosuch_target, _("\2%s\2 is not online."), target);
 		return;
 	}
 	else if (target_u == si->su)
 	{
-		command_fail(si, fault_badparams, "You may not ghost yourself.");
+		command_fail(si, fault_badparams, _("You may not ghost yourself."));
 		return;
 	}
 
@@ -89,10 +89,11 @@ void ns_cmd_ghost(sourceinfo_t *si, int parc, char *parv[])
 
 		logcommand(si, CMDLOG_DO, "GHOST %s!%s@%s", target_u->nick, target_u->user, target_u->vhost);
 
-		skill(nicksvs.nick, target, "GHOST command used by %s", get_source_mask(si));
+		skill(nicksvs.nick, target, "GHOST command used by %s",
+				si->su != NULL && !strcmp(si->su->user, target_u->user) && !strcmp(si->su->vhost, target_u->vhost) ? si->su->nick : get_source_mask(si));
 		user_delete(target_u);
 
-		command_success_nodata(si, "\2%s\2 has been ghosted.", target);
+		command_success_nodata(si, _("\2%s\2 has been ghosted."), target);
 
 		/* don't update the nick's last seen time */
 		mu->lastlogin = CURRTIME;
@@ -103,11 +104,17 @@ void ns_cmd_ghost(sourceinfo_t *si, int parc, char *parv[])
 	if (password && mu)
 	{
 		logcommand(si, CMDLOG_DO, "failed GHOST %s (bad password)", target);
-		command_fail(si, fault_authfail, "Invalid password for \2%s\2.", mu->name);
+		command_fail(si, fault_authfail, _("Invalid password for \2%s\2."), mu->name);
 	}
 	else
 	{
 		logcommand(si, CMDLOG_DO, "failed GHOST %s (invalid login)", target);
-		command_fail(si, fault_noprivs, "You may not ghost \2%s\2.", target);
+		command_fail(si, fault_noprivs, _("You may not ghost \2%s\2."), target);
 	}
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

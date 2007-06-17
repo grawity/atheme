@@ -1,11 +1,11 @@
 #!/usr/bin/perl -w
 # Simple example of using Atheme's XMLRPC server with perl RPC::XML.
-# $Id: perlxmlrpc.pl 6669 2006-10-06 00:13:15Z jilles $
+# $Id: perlxmlrpc.pl 8409 2007-06-03 22:47:30Z jilles $
 
 require RPC::XML;
 require RPC::XML::Client;
 
-my $cli = RPC::XML::Client->new('http://127.0.0.1:8080/atheme');
+my $cli = RPC::XML::Client->new('http://127.0.0.1:8080/xmlrpc');
 my $resp;
 my $authcookie = undef;
 my $login;

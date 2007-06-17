@@ -57,8 +57,13 @@ user:auspex
 	os rnc/rmatch/rwatch
 user:admin
 	administer users
+user:sendpass
+	send user passwords to their email addresses
 user:vhost
 	set vhosts
+user:fregister
+	use /ns fregister (contrib module) to register accounts on behalf of
+	someone else
 
 chan:auspex
 	see the invisible about channels and channel registrations,
@@ -111,4 +116,4 @@ operserv:global
 operserv:grant
 	use /os soper add/del
 
-$Id: PRIVILEGES 7225 2006-11-19 15:44:42Z jilles $
+$Id: PRIVILEGES 7795 2007-03-04 15:54:18Z jilles $

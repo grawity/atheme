@@ -4,34 +4,34 @@
  *
  * Generic protocol event handlers.
  *
- * $Id: phandler.c 6931 2006-10-24 16:53:07Z jilles $
+ * $Id: phandler.c 8287 2007-05-20 07:52:31Z nenolod $
  */
 
 #include "atheme.h"
 
-uint8_t(*server_login) (void) = generic_server_login;
+unsigned int(*server_login) (void) = generic_server_login;
 void (*introduce_nick) (user_t *u) = generic_introduce_nick;
 void (*wallops_sts) (const char *text) = generic_wallops_sts;
 void (*join_sts) (channel_t *c, user_t *u, boolean_t isnew, char *modes) = generic_join_sts;
 void (*chan_lowerts) (channel_t *c, user_t *u) = generic_chan_lowerts;
 void (*kick) (char *from, char *channel, char *to, char *reason) = generic_kick;
-void (*msg) (char *from, char *target, char *fmt, ...) = generic_msg;
+void (*msg) (const char *from, const char *target, const char *fmt, ...) = generic_msg;
 void (*notice_user_sts) (user_t *from, user_t *target, const char *text) = generic_notice_user_sts;
 void (*notice_global_sts) (user_t *from, const char *mask, const char *text) = generic_notice_global_sts;
 void (*notice_channel_sts) (user_t *from, channel_t *target, const char *text) = generic_notice_channel_sts;
-void (*wallchops) (user_t *source, channel_t *target, char *message) = generic_wallchops;
+void (*wallchops) (user_t *source, channel_t *target, const char *message) = generic_wallchops;
 void (*numeric_sts) (char *from, int numeric, char *target, char *fmt, ...) = generic_numeric_sts;
 void (*skill) (char *from, char *nick, char *fmt, ...) = generic_skill;
-void (*part) (char *chan, char *nick) = generic_part;
+void (*part_sts) (channel_t *c, user_t *u) = generic_part_sts;
 void (*kline_sts) (char *server, char *user, char *host, long duration, char *reason) = generic_kline_sts;
 void (*unkline_sts) (char *server, char *user, char *host) = generic_unkline_sts;
-void (*topic_sts) (char *channel, char *setter, time_t ts, char *topic) = generic_topic_sts;
-void (*mode_sts) (char *sender, char *target, char *modes) = generic_mode_sts;
+void (*topic_sts) (channel_t *c, const char *setter, time_t ts, time_t prevts, const char *topic) = generic_topic_sts;
+void (*mode_sts) (char *sender, channel_t *target, char *modes) = generic_mode_sts;
 void (*ping_sts) (void) = generic_ping_sts;
-void (*quit_sts) (user_t *u, char *reason) = generic_quit_sts;
+void (*quit_sts) (user_t *u, const char *reason) = generic_quit_sts;
 void (*ircd_on_login) (char *origin, char *user, char *wantedhost) = generic_on_login;
 boolean_t (*ircd_on_logout) (char *origin, char *user, char *wantedhost) = generic_on_logout;
-void (*jupe) (char *server, char *reason) = generic_jupe;
+void (*jupe) (const char *server, const char *reason) = generic_jupe;
 void (*sethost_sts) (char *source, char *target, char *host) = generic_sethost_sts;
 void (*fnc_sts) (user_t *source, user_t *u, char *newnick, int type) = generic_fnc_sts;
 void (*holdnick_sts)(user_t *source, int duration, const char *nick, myuser_t *account) = generic_holdnick_sts;
@@ -39,7 +39,7 @@ void (*invite_sts) (user_t *source, user_t *target, channel_t *channel) = generi
 void (*svslogin_sts) (char *target, char *nick, char *user, char *host, char *login) = generic_svslogin_sts;
 void (*sasl_sts) (char *target, char mode, char *data) = generic_sasl_sts;
 
-uint8_t generic_server_login(void)
+unsigned int generic_server_login(void)
 {
 	/* Nothing to do here. */
 	return 0;
@@ -71,7 +71,7 @@ void generic_kick(char *from, char *channel, char *to, char *reason)
 	/* We can't do anything here. Bail. */
 }
 
-void generic_msg(char *from, char *target, char *fmt, ...)
+void generic_msg(const char *from, const char *target, const char *fmt, ...)
 {
 	va_list ap;
 	char buf[BUFSIZE];
@@ -98,7 +98,7 @@ void generic_notice_channel_sts(user_t *from, channel_t *target, const char *tex
 	slog(LG_INFO, "Cannot send notice to %s (%s): don't know how. Load a protocol module perhaps?", target->name, text);
 }
 
-void generic_wallchops(user_t *sender, channel_t *channel, char *message)	
+void generic_wallchops(user_t *sender, channel_t *channel, const char *message)	
 {
 	/* ugly, but always works -- jilles */
 	node_t *n;
@@ -114,7 +114,14 @@ void generic_wallchops(user_t *sender, channel_t *channel, char *message)
 
 void generic_numeric_sts(char *from, int numeric, char *target, char *fmt, ...)
 {
-	/* cant do anything here. bail. */
+	va_list va;
+	char buf[BUFSIZE];
+
+	va_start(va, fmt);
+	vsnprintf(buf, BUFSIZE, fmt, va);
+	va_end(va);
+
+	sts(":%s %d %s %s", from, numeric, target, buf);
 }
 
 void generic_skill(char *from, char *nick, char *fmt, ...)
@@ -122,7 +129,7 @@ void generic_skill(char *from, char *nick, char *fmt, ...)
 	/* cant do anything here. bail. */
 }
 
-void generic_part(char *chan, char *nick)
+void generic_part_sts(channel_t *c, user_t *u)
 {
 	/* cant do anything here. bail. */
 }
@@ -137,12 +144,12 @@ void generic_unkline_sts(char *server, char *user, char *host)
 	/* cant do anything here. bail. */
 }
 
-void generic_topic_sts(char *channel, char *setter, time_t ts, char *topic)
+void generic_topic_sts(channel_t *c, const char *setter, time_t ts, time_t prevts, const char *topic)
 {
 	/* cant do anything here. bail. */
 }
 
-void generic_mode_sts(char *sender, char *target, char *modes)
+void generic_mode_sts(char *sender, channel_t *target, char *modes)
 {
 	/* cant do anything here. bail. */
 }
@@ -152,7 +159,7 @@ void generic_ping_sts(void)
 	/* cant do anything here. bail. */
 }
 
-void generic_quit_sts(user_t *u, char *reason)
+void generic_quit_sts(user_t *u, const char *reason)
 {
 	/* cant do anything here. bail. */
 }
@@ -168,7 +175,7 @@ boolean_t generic_on_logout(char *origin, char *user, char *wantedhost)
 	return FALSE;
 }
 
-void generic_jupe(char *server, char *reason)
+void generic_jupe(const char *server, const char *reason)
 {
 	/* nothing to do here. */
 }
@@ -184,7 +191,7 @@ void generic_fnc_sts(user_t *source, user_t *u, char *newnick, int type)
 		skill(source->nick, u->nick, "Nickname enforcement (%s)", u->nick);
 }
 
-E void generic_holdnick_sts(user_t *source, int duration, const char *nick, myuser_t *account)
+void generic_holdnick_sts(user_t *source, int duration, const char *nick, myuser_t *account)
 {
 	/* nothing to do here. */	
 }
@@ -203,3 +210,9 @@ void generic_sasl_sts(char *target, char mode, char *data)
 {
 	/* nothing to do here. */
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

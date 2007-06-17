@@ -4,7 +4,7 @@
  *
  * Data structures related to services psuedo-clients.
  *
- * $Id: services.h 7197 2006-11-18 04:03:22Z nenolod $
+ * $Id: services.h 8245 2007-05-10 20:48:23Z jilles $
  */
 
 #ifndef SERVICES_H
@@ -16,6 +16,7 @@ typedef struct opersvs_ opersvs_t;
 typedef struct memosvs_ memosvs_t;
 typedef struct nicksvs_ nicksvs_t;
 typedef struct saslsvs_ saslsvs_t;
+typedef struct gamesvs_ gamesvs_t;
 
 /* core services */
 struct chansvs_
@@ -28,12 +29,12 @@ struct chansvs_
 
   boolean_t fantasy;		/* enable fantasy commands    */
 
-  uint32_t ca_vop;		/* xop access levels */
-  uint32_t ca_hop;
-  uint32_t ca_aop;
-  uint32_t ca_sop;
+  unsigned int ca_vop;		/* xop access levels */
+  unsigned int ca_hop;
+  unsigned int ca_aop;
+  unsigned int ca_sop;
 
-  char trigger;			/* trigger, e.g. !, ` or .    */
+  char *trigger;		/* trigger, e.g. !, ` or .    */
 
   boolean_t changets;		/* use TS to better deop people */
 
@@ -90,8 +91,17 @@ struct nicksvs_
 
 struct saslsvs_
 {
-  list_t pending;
+  char   *nick;
+  char   *user;
+  char   *host;
+  char   *real;
+  char   *disp;			/* the IRC client's dispname  */
 
+  service_t *me;
+};
+
+struct gamesvs_
+{
   char   *nick;
   char   *user;
   char   *host;
@@ -102,8 +112,8 @@ struct saslsvs_
 };
 
 /* help us keep consistent messages */
-#define STR_INSUFFICIENT_PARAMS "Insufficient parameters for \2%s\2."
-#define STR_INVALID_PARAMS "Invalid parameters for \2%s\2."
+#define STR_INSUFFICIENT_PARAMS _("Insufficient parameters for \2%s\2.")
+#define STR_INVALID_PARAMS _("Invalid parameters for \2%s\2.")
 
 /* atheme.c */
 E chansvs_t chansvs;
@@ -112,6 +122,7 @@ E opersvs_t opersvs;
 E memosvs_t memosvs;
 E nicksvs_t nicksvs;
 E saslsvs_t saslsvs;
+E gamesvs_t gamesvs;
 
 /* servtree.c */
 E service_t *fcmd_agent;
@@ -125,6 +136,7 @@ E int ban(user_t *source, channel_t *chan, user_t *target);
 E int remove_ban_exceptions(user_t *source, channel_t *chan, user_t *target);
 E void join(char *chan, char *nick);
 E void joinall(char *name);
+E void part(char *chan, char *nick);
 E void partall(char *name);
 E void verbose(mychan_t *mychan, char *fmt, ...);
 E void snoop(char *fmt, ...);
@@ -132,6 +144,7 @@ E void notice(char *from, char *to, char *message, ...);
 E void command_fail(sourceinfo_t *si, faultcode_t code, const char *fmt, ...);
 E void command_success_nodata(sourceinfo_t *si, const char *fmt, ...);
 E void command_success_string(sourceinfo_t *si, const char *result, const char *fmt, ...);
+E void command_success_table(sourceinfo_t *si, table_t *table);
 E const char *get_source_name(sourceinfo_t *si);
 E const char *get_source_mask(sourceinfo_t *si);
 E const char *get_oper_name(sourceinfo_t *si);
@@ -144,6 +157,12 @@ E int floodcheck(user_t *, user_t *);
 
 /* ctcp-common.c */
 E void common_ctcp_init(void);
-E unsigned int handle_ctcp_common(char *, char *, char *, char *);
+E unsigned int handle_ctcp_common(sourceinfo_t *si, char *, char *);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

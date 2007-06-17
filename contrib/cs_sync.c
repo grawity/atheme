@@ -4,7 +4,7 @@
  *
  * This file contains code for the CService SYNC functions.
  *
- * $Id: cs_sync.c 7199 2006-11-18 05:10:57Z nenolod $
+ * $Id: cs_sync.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -12,7 +12,7 @@
 DECLARE_MODULE_V1
 (
 	"chanserv/sync", FALSE, _modinit, _moddeinit,
-	"$Id: cs_sync.c 7199 2006-11-18 05:10:57Z nenolod $",
+	"$Id: cs_sync.c 8027 2007-04-02 10:47:18Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -45,7 +45,7 @@ static void cs_cmd_sync(sourceinfo_t *si, int parc, char *parv[])
 	mychan_t *mc;
 	node_t *n, *tn;
 	char *name = parv[0];
-	int32_t fl;
+	int fl;
 
 	if (!name)
 	{
@@ -107,13 +107,13 @@ static void cs_cmd_sync(sourceinfo_t *si, int parc, char *parv[])
 			{
 				if (!(ircd->owner_mode & cu->modes))
 				{
-					modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, ircd->owner_mchar[1], CLIENT_NAME(cu->user));
+					modestack_mode_param(chansvs.nick, mc->chan, MTYPE_ADD, ircd->owner_mchar[1], CLIENT_NAME(cu->user));
 					cu->modes |= ircd->owner_mode;
 				}
 			}
 			else if (ircd->owner_mode & cu->modes)
 			{
-				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, ircd->owner_mchar[1], CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, ircd->owner_mchar[1], CLIENT_NAME(cu->user));
 				cu->modes &= ~ircd->owner_mode;
 			}
 		}
@@ -123,13 +123,13 @@ static void cs_cmd_sync(sourceinfo_t *si, int parc, char *parv[])
 			{
 				if (!(ircd->protect_mode & cu->modes))
 				{
-					modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, ircd->protect_mchar[1], CLIENT_NAME(cu->user));
+					modestack_mode_param(chansvs.nick, mc->chan, MTYPE_ADD, ircd->protect_mchar[1], CLIENT_NAME(cu->user));
 					cu->modes |= ircd->protect_mode;
 				}
 			}
 			else if (ircd->protect_mode & cu->modes)
 			{
-				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, ircd->protect_mchar[1], CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, ircd->protect_mchar[1], CLIENT_NAME(cu->user));
 				cu->modes &= ~ircd->protect_mode;
 			}
 		}
@@ -137,14 +137,14 @@ static void cs_cmd_sync(sourceinfo_t *si, int parc, char *parv[])
 		{
 			if (fl & CA_AUTOOP && !(CMODE_OP & cu->modes))
 			{
-				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, 'o', CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_ADD, 'o', CLIENT_NAME(cu->user));
 				cu->modes |= CMODE_OP;
 			}
 			continue;
 		}
 		if ((CMODE_OP & cu->modes))
 		{
-			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, 'o', CLIENT_NAME(cu->user));
+			modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, 'o', CLIENT_NAME(cu->user));
 			cu->modes &= ~CMODE_OP;
 		}
 		if (ircd->uses_halfops)
@@ -153,14 +153,14 @@ static void cs_cmd_sync(sourceinfo_t *si, int parc, char *parv[])
 			{
 				if (fl & CA_AUTOHALFOP && !(ircd->halfops_mode & cu->modes))
 				{
-					modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
+					modestack_mode_param(chansvs.nick, mc->chan, MTYPE_ADD, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
 					cu->modes |= ircd->halfops_mode;
 				}
 				continue;
 			}
 			if (ircd->halfops_mode & cu->modes)
 			{
-				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, ircd->halfops_mchar[1], CLIENT_NAME(cu->user));
 				cu->modes &= ~ircd->halfops_mode;
 			}
 		}
@@ -168,17 +168,23 @@ static void cs_cmd_sync(sourceinfo_t *si, int parc, char *parv[])
 		{
 			if (fl & CA_AUTOVOICE && !(CMODE_VOICE & cu->modes))
 			{
-				modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_ADD, 'v', CLIENT_NAME(cu->user));
+				modestack_mode_param(chansvs.nick, mc->chan, MTYPE_ADD, 'v', CLIENT_NAME(cu->user));
 				cu->modes |= CMODE_VOICE;
 			}
 			continue;
 		}
 		if ((CMODE_VOICE & cu->modes))
 		{
-			modestack_mode_param(chansvs.nick, mc->chan->name, MTYPE_DEL, 'v', CLIENT_NAME(cu->user));
+			modestack_mode_param(chansvs.nick, mc->chan, MTYPE_DEL, 'v', CLIENT_NAME(cu->user));
 			cu->modes &= ~CMODE_VOICE;
 		}
 	}
 
 	command_success_nodata(si, "Sync complete for \2%s\2.", mc->name);
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

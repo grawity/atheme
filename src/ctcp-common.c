@@ -4,7 +4,7 @@
  *
  * This file contains IRC interaction routines.
  *
- * $Id: ctcp-common.c 7299 2006-11-27 10:30:15Z jilles $
+ * $Id: ctcp-common.c 8119 2007-04-05 23:04:06Z jilles $
  */
 
 #include "atheme.h"
@@ -30,7 +30,7 @@ static void ctcp_version_handler(char *cmd, char *args, char *origin, char *svsn
 		"\001VERSION atheme-%s. %s %s %s%s%s%s%s%s%s%s%s%s [%s]\001",
 		version, revision, me.name,
 		(match_mapping) ? "A" : "",
-		(log_force || me.loglevel & (LG_DEBUG | LG_RAWDATA)) ? "d" : "",
+		log_debug_enabled() ? "d" : "",
 		(me.auth) ? "e" : "",
 		(config_options.flood_msgs) ? "F" : "",
 		(config_options.leave_chans) ? "l" : "",
@@ -56,7 +56,7 @@ void common_ctcp_init(void)
 	dictionary_add(ctcptree, "\001CLIENTINFO\001", ctcp_clientinfo_handler);
 }
 
-unsigned int handle_ctcp_common(char *cmd, char *args, char *origin, char *svsnick)
+unsigned int handle_ctcp_common(sourceinfo_t *si, char *cmd, char *args)
 {
 	void (*handler)(char *, char *, char *, char *);
 
@@ -64,9 +64,15 @@ unsigned int handle_ctcp_common(char *cmd, char *args, char *origin, char *svsni
 
 	if (handler != NULL)
 	{
-		handler(cmd, args, origin, svsnick);
+		handler(cmd, args, si->su->nick, si->service->name);
 		return 1;
 	}
 
 	return 0;
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

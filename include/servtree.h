@@ -4,7 +4,7 @@
  *
  * Headers for service selection tree.
  *
- * $Id: servtree.h 6559 2006-09-29 21:15:10Z jilles $
+ * $Id: servtree.h 7779 2007-03-03 13:55:42Z pippijn $
  */
 
 #ifndef SERVTREE_H
@@ -35,3 +35,9 @@ E service_t *find_service(char *name);
 E char *service_name(char *name);
 
 #endif
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

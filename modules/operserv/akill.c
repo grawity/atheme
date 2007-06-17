@@ -6,7 +6,7 @@
  * This file contains functionality which implements
  * the OperServ AKILL command.
  *
- * $Id: akill.c 6927 2006-10-24 15:22:05Z jilles $
+ * $Id: akill.c 8027 2007-04-02 10:47:18Z nenolod $
  */
 
 #include "atheme.h"
@@ -14,7 +14,7 @@
 DECLARE_MODULE_V1
 (
 	"operserv/akill", FALSE, _modinit, _moddeinit,
-	"$Id: akill.c 6927 2006-10-24 15:22:05Z jilles $",
+	"$Id: akill.c 8027 2007-04-02 10:47:18Z nenolod $",
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
@@ -27,12 +27,12 @@ static void os_cmd_akill_list(sourceinfo_t *si, int parc, char *parv[]);
 static void os_cmd_akill_sync(sourceinfo_t *si, int parc, char *parv[]);
 
 
-command_t os_akill = { "AKILL", "Manages network bans.", PRIV_AKILL, 3, os_cmd_akill };
+command_t os_akill = { "AKILL", N_("Manages network bans."), PRIV_AKILL, 3, os_cmd_akill };
 
-command_t os_akill_add = { "ADD", "Adds a network ban", AC_NONE, 2, os_cmd_akill_add };
-command_t os_akill_del = { "DEL", "Deletes a network ban", AC_NONE, 1, os_cmd_akill_del };
-command_t os_akill_list = { "LIST", "Lists all network bans", AC_NONE, 1, os_cmd_akill_list };
-command_t os_akill_sync = { "SYNC", "Synchronises network bans to servers", AC_NONE, 0, os_cmd_akill_sync };
+command_t os_akill_add = { "ADD", N_("Adds a network ban"), AC_NONE, 2, os_cmd_akill_add };
+command_t os_akill_del = { "DEL", N_("Deletes a network ban"), AC_NONE, 1, os_cmd_akill_del };
+command_t os_akill_list = { "LIST", N_("Lists all network bans"), AC_NONE, 1, os_cmd_akill_list };
+command_t os_akill_sync = { "SYNC", N_("Synchronises network bans to servers"), AC_NONE, 0, os_cmd_akill_sync };
 
 list_t *os_cmdtree;
 list_t *os_helptree;
@@ -100,14 +100,14 @@ static void os_cmd_akill(sourceinfo_t *si, int parc, char *parv[])
 	if (!cmd)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "AKILL");
-		command_fail(si, fault_needmoreparams, "Syntax: AKILL ADD|DEL|LIST");
+		command_fail(si, fault_needmoreparams, _("Syntax: AKILL ADD|DEL|LIST"));
 		return;
 	}
 
         c = command_find(&os_akill_cmds, cmd);
 	if (c == NULL)
 	{
-		command_fail(si, fault_badparams, "Invalid command. Use \2/%s%s help\2 for a command listing.", (ircd->uses_rcommand == FALSE) ? "msg " : "", opersvs.me->disp);
+		command_fail(si, fault_badparams, _("Invalid command. Use \2/%s%s help\2 for a command listing."), (ircd->uses_rcommand == FALSE) ? "msg " : "", opersvs.me->disp);
 		return;
 	}
 
@@ -119,6 +119,8 @@ static void os_cmd_akill_add(sourceinfo_t *si, int parc, char *parv[])
 	user_t *u;
         char *target = parv[0];
 	char *token = strtok(parv[1], " ");
+	char star[] = "*";
+	char *kuser, *khost;
 	char *treason, reason[BUFSIZE];
 	long duration;
 	char *s;
@@ -127,7 +129,7 @@ static void os_cmd_akill_add(sourceinfo_t *si, int parc, char *parv[])
 	if (!target || !token)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "AKILL ADD");
-		command_fail(si, fault_needmoreparams, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] <reason>");
+		command_fail(si, fault_needmoreparams, _("Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] <reason>"));
 		return;
 	}
 
@@ -166,14 +168,14 @@ static void os_cmd_akill_add(sourceinfo_t *si, int parc, char *parv[])
 				duration = 0;
 			if (duration == 0)
 			{
-				command_fail(si, fault_badparams, "Invalid duration given.");
-				command_fail(si, fault_badparams, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
+				command_fail(si, fault_badparams, _("Invalid duration given."));
+				command_fail(si, fault_badparams, _("Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] <reason>"));
 				return;
 			}
 		}
 		else {
 			command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "AKILL ADD");
-			command_fail(si, fault_needmoreparams, "Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] " "<reason>");
+			command_fail(si, fault_needmoreparams, _("Syntax: AKILL ADD <nick|hostmask> [!P|!T <minutes>] <reason>"));
 			return;
 		}
 
@@ -193,7 +195,7 @@ static void os_cmd_akill_add(sourceinfo_t *si, int parc, char *parv[])
 
 	if (strchr(target,'!'))
 	{
-		command_fail(si, fault_badparams, "Invalid character '%c' in user@host.", '!');
+		command_fail(si, fault_badparams, _("Invalid character '%c' in user@host."), '!');
 		return;
 	}
 
@@ -201,50 +203,45 @@ static void os_cmd_akill_add(sourceinfo_t *si, int parc, char *parv[])
 	{
 		if (!(u = user_find_named(target)))
 		{
-			command_fail(si, fault_nosuch_target, "\2%s\2 is not on IRC.", target);
+			command_fail(si, fault_nosuch_target, _("\2%s\2 is not on IRC."), target);
 			return;
 		}
 
-		if (is_internal_client(u))
+		if (is_internal_client(u) || u == si->su)
 			return;
 
-		if ((k = kline_find("*", u->host)))
-		{
-			command_fail(si, fault_nochange, "AKILL \2*@%s\2 is already matched in the database.", u->host);
-			return;
-		}
-
-		k = kline_add("*", u->host, reason, duration);
-		k->setby = sstrdup(get_oper_name(si));
+		kuser = star;
+		khost = u->host;
 	}
 	else
 	{
-		char *userbuf = strtok(target, "@");
-		char *hostbuf = strtok(NULL, "");
 		char *p;
 		int i = 0;
 
-		if (!userbuf || !hostbuf)
+		kuser = collapse(strtok(target, "@"));
+		khost = collapse(strtok(NULL, ""));
+
+		if (!kuser || !khost)
 		{
 			command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "AKILL ADD");
-			command_fail(si, fault_needmoreparams, "Syntax: AKILL ADD <user>@<host> [options] <reason>");
+			command_fail(si, fault_needmoreparams, _("Syntax: AKILL ADD <user>@<host> [options] <reason>"));
 			return;
 		}
 
-		if (strchr(hostbuf,'@'))
+		if (strchr(khost,'@'))
 		{
-			command_fail(si, fault_badparams, "Too many '%c' in user@host.", '@');
-			command_fail(si, fault_badparams, "Syntax: AKILL ADD <user>@<host> [options] <reason>");
+			command_fail(si, fault_badparams, _("Too many '%c' in user@host."), '@');
+			command_fail(si, fault_badparams, _("Syntax: AKILL ADD <user>@<host> [options] <reason>"));
 			return;
 		}
 
 		/* make sure there's at least 4 non-wildcards */
-		for (p = userbuf; *p; p++)
+		for (p = kuser; *p; p++)
 		{
 			if (*p != '*' && *p != '?' && *p != '.')
 				i++;
 		}
-		for (p = hostbuf; *p; p++)
+		for (p = khost; *p; p++)
 		{
 			if (*p != '*' && *p != '?' && *p != '.')
 				i++;
@@ -252,24 +249,43 @@ static void os_cmd_akill_add(sourceinfo_t *si, int parc, char *parv[])
 
 		if (i < 4)
 		{
-			command_fail(si, fault_badparams, "Invalid user@host: \2%s@%s\2. At least four non-wildcard characters are required.", userbuf, hostbuf);
+			command_fail(si, fault_badparams, _("Invalid user@host: \2%s@%s\2. At least four non-wildcard characters are required."), kuser, khost);
 			return;
 		}
-
-		if ((k = kline_find(userbuf, hostbuf)))
-		{
-			command_fail(si, fault_nochange, "AKILL \2%s@%s\2 is already matched in the database.", userbuf, hostbuf);
-			return;
-		}
-
-		k = kline_add(userbuf, hostbuf, reason, duration);
-		k->setby = sstrdup(get_oper_name(si));
 	}
 
+	if (!strcmp(kuser, "*"))
+	{
+		boolean_t unsafe = FALSE;
+		char *p;
+
+		if (!match(khost, "127.0.0.1") || !match_ips(khost, "127.0.0.1"))
+			unsafe = TRUE;
+		else if (me.vhost != NULL && (!match(khost, me.vhost) || !match_ips(khost, me.vhost)))
+			unsafe = TRUE;
+		else if ((p = strrchr(khost, '/')) != NULL && IsDigit(p[1]) && atoi(p + 1) < 4)
+			unsafe = TRUE;
+		if (unsafe)
+		{
+			command_fail(si, fault_badparams, _("Invalid user@host: \2%s@%s\2. This mask is unsafe."), kuser, khost);
+			logcommand(si, CMDLOG_ADMIN, "failed AKILL ADD %s@%s (unsafe mask)", kuser, khost);
+			return;
+		}
+	}
+
+	if ((k = kline_find(kuser, khost)))
+	{
+		command_fail(si, fault_nochange, _("AKILL \2%s@%s\2 is already matched in the database."), kuser, khost);
+		return;
+	}
+
+	k = kline_add(kuser, khost, reason, duration);
+	k->setby = sstrdup(get_oper_name(si));
+
 	if (duration)
-		command_success_nodata(si, "Timed AKILL on \2%s@%s\2 was successfully added and will expire in %s.", k->user, k->host, timediff(duration));
+		command_success_nodata(si, _("Timed AKILL on \2%s@%s\2 was successfully added and will expire in %s."), k->user, k->host, timediff(duration));
 	else
-		command_success_nodata(si, "AKILL on \2%s@%s\2 was successfully added.", k->user, k->host);
+		command_success_nodata(si, _("AKILL on \2%s@%s\2 was successfully added."), k->user, k->host);
 
 	snoop("AKILL:ADD: \2%s@%s\2 by \2%s\2 for \2%s\2", k->user, k->host, get_oper_name(si), k->reason);
 
@@ -282,20 +298,20 @@ static void os_cmd_akill_del(sourceinfo_t *si, int parc, char *parv[])
 {
 	char *target = parv[0];
 	char *userbuf, *hostbuf;
-	uint32_t number;
+	unsigned int number;
 	char *s;
 	kline_t *k;
 
 	if (!target)
 	{
 		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "AKILL DEL");
-		command_fail(si, fault_needmoreparams, "Syntax: AKILL DEL <hostmask>");
+		command_fail(si, fault_needmoreparams, _("Syntax: AKILL DEL <hostmask>"));
 		return;
 	}
 
 	if (strchr(target, ','))
 	{
-		uint32_t start = 0, end = 0, i;
+		unsigned int start = 0, end = 0, i;
 		char t[16];
 
 		s = strtok(target, ",");
@@ -322,11 +338,11 @@ static void os_cmd_akill_del(sourceinfo_t *si, int parc, char *parv[])
 				{
 					if (!(k = kline_find_num(i)))
 					{
-						command_fail(si, fault_nosuch_target, "No such AKILL with number \2%d\2.", i);
+						command_fail(si, fault_nosuch_target, _("No such AKILL with number \2%d\2."), i);
 						continue;
 					}
 
-					command_success_nodata(si, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+					command_success_nodata(si, _("AKILL on \2%s@%s\2 has been successfully removed."), k->user, k->host);
 					verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
 						get_oper_name(si), k->user, k->host, k->reason);
 
@@ -342,11 +358,11 @@ static void os_cmd_akill_del(sourceinfo_t *si, int parc, char *parv[])
 
 			if (!(k = kline_find_num(number)))
 			{
-				command_fail(si, fault_nosuch_target, "No such AKILL with number \2%d\2.", number);
+				command_fail(si, fault_nosuch_target, _("No such AKILL with number \2%d\2."), number);
 				return;
 			}
 
-			command_success_nodata(si, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+			command_success_nodata(si, _("AKILL on \2%s@%s\2 has been successfully removed."), k->user, k->host);
 			verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
 				get_oper_name(si), k->user, k->host, k->reason);
 
@@ -360,7 +376,7 @@ static void os_cmd_akill_del(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!strchr(target, '@'))
 	{
-		uint32_t start = 0, end = 0, i;
+		unsigned int start = 0, end = 0, i;
 		char t[16];
 
 		if (strchr(target, ':'))
@@ -383,11 +399,11 @@ static void os_cmd_akill_del(sourceinfo_t *si, int parc, char *parv[])
 			{
 				if (!(k = kline_find_num(i)))
 				{
-					command_fail(si, fault_nosuch_target, "No such AKILL with number \2%d\2.", i);
+					command_fail(si, fault_nosuch_target, _("No such AKILL with number \2%d\2."), i);
 					continue;
 				}
 
-				command_success_nodata(si, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+				command_success_nodata(si, _("AKILL on \2%s@%s\2 has been successfully removed."), k->user, k->host);
 				verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
 					get_oper_name(si), k->user, k->host, k->reason);
 
@@ -402,11 +418,11 @@ static void os_cmd_akill_del(sourceinfo_t *si, int parc, char *parv[])
 
 		if (!(k = kline_find_num(number)))
 		{
-			command_fail(si, fault_nosuch_target, "No such AKILL with number \2%d\2.", number);
+			command_fail(si, fault_nosuch_target, _("No such AKILL with number \2%d\2."), number);
 			return;
 		}
 
-		command_success_nodata(si, "AKILL on \2%s@%s\2 has been successfully removed.", k->user, k->host);
+		command_success_nodata(si, _("AKILL on \2%s@%s\2 has been successfully removed."), k->user, k->host);
 
 		verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
 			get_oper_name(si), k->user, k->host, k->reason);
@@ -422,11 +438,11 @@ static void os_cmd_akill_del(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!(k = kline_find(userbuf, hostbuf)))
 	{
-		command_fail(si, fault_nosuch_target, "No such AKILL: \2%s@%s\2.", userbuf, hostbuf);
+		command_fail(si, fault_nosuch_target, _("No such AKILL: \2%s@%s\2."), userbuf, hostbuf);
 		return;
 	}
 
-	command_success_nodata(si, "AKILL on \2%s@%s\2 has been successfully removed.", userbuf, hostbuf);
+	command_success_nodata(si, _("AKILL on \2%s@%s\2 has been successfully removed."), userbuf, hostbuf);
 
 	verbose_wallops("\2%s\2 is \2removing\2 an \2AKILL\2 for \2%s@%s\2 -- reason: \2%s\2",
 		get_oper_name(si), k->user, k->host, k->reason);
@@ -447,25 +463,25 @@ static void os_cmd_akill_list(sourceinfo_t *si, int parc, char *parv[])
 		full = TRUE;
 	
 	if (full)
-		command_success_nodata(si, "AKILL list (with reasons):");
+		command_success_nodata(si, _("AKILL list (with reasons):"));
 	else
-		command_success_nodata(si, "AKILL list:");
+		command_success_nodata(si, _("AKILL list:"));
 
 	LIST_FOREACH(n, klnlist.head)
 	{
 		k = (kline_t *)n->data;
 
 		if (k->duration && full)
-			command_success_nodata(si, "%d: %s@%s - by \2%s\2 - expires in \2%s\2 - (%s)", k->number, k->user, k->host, k->setby, timediff(k->expires > CURRTIME ? k->expires - CURRTIME : 0), k->reason);
+			command_success_nodata(si, _("%d: %s@%s - by \2%s\2 - expires in \2%s\2 - (%s)"), k->number, k->user, k->host, k->setby, timediff(k->expires > CURRTIME ? k->expires - CURRTIME : 0), k->reason);
 		else if (k->duration && !full)
-			command_success_nodata(si, "%d: %s@%s - by \2%s\2 - expires in \2%s\2", k->number, k->user, k->host, k->setby, timediff(k->expires > CURRTIME ? k->expires - CURRTIME : 0));
+			command_success_nodata(si, _("%d: %s@%s - by \2%s\2 - expires in \2%s\2"), k->number, k->user, k->host, k->setby, timediff(k->expires > CURRTIME ? k->expires - CURRTIME : 0));
 		else if (!k->duration && full)
-			command_success_nodata(si, "%d: %s@%s - by \2%s\2 - \2permanent\2 - (%s)", k->number, k->user, k->host, k->setby, k->reason);
+			command_success_nodata(si, _("%d: %s@%s - by \2%s\2 - \2permanent\2 - (%s)"), k->number, k->user, k->host, k->setby, k->reason);
 		else
-			command_success_nodata(si, "%d: %s@%s - by \2%s\2 - \2permanent\2", k->number, k->user, k->host, k->setby);
+			command_success_nodata(si, _("%d: %s@%s - by \2%s\2 - \2permanent\2"), k->number, k->user, k->host, k->setby);
 	}
 
-	command_success_nodata(si, "Total of \2%d\2 %s in AKILL list.", klnlist.count, (klnlist.count == 1) ? "entry" : "entries");
+	command_success_nodata(si, _("Total of \2%d\2 %s in AKILL list."), klnlist.count, (klnlist.count == 1) ? "entry" : "entries");
 	logcommand(si, CMDLOG_GET, "AKILL LIST%s", full ? " FULL" : "");
 }
 
@@ -487,5 +503,11 @@ static void os_cmd_akill_sync(sourceinfo_t *si, int parc, char *parv[])
 			kline_sts("*", k->user, k->host, k->expires - CURRTIME, k->reason);
 	}
 
-	command_success_nodata(si, "AKILL list synchronized to servers.");
+	command_success_nodata(si, _("AKILL list synchronized to servers."));
 }
+
+/* vim:cinoptions=>s,e0,n0,f0,{0,}0,^0,=s,ps,t0,c3,+s,(2s,us,)20,*30,gs,hs
+ * vim:ts=8
+ * vim:sw=8
+ * vim:noexpandtab
+ */

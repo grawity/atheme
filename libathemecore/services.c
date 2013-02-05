@@ -486,10 +486,15 @@ void handle_setlogin(sourceinfo_t *si, user_t *u, const char *login, time_t ts)
 
 	if (authservice_loaded)
 	{
+#if 0
 		wallops("Ignoring attempt from %s to set login name for %s to %s",
 				get_oper_name(si), u->nick, login);
 		return;
+#else
+		wallops("AUTH: %s has authenticated %s as %s", get_oper_name(si), u->nick, login);
+#endif
 	}
+
 
 	if (u->myuser != NULL)
 	{
@@ -545,9 +550,13 @@ void handle_clearlogin(sourceinfo_t *si, user_t *u)
 
 	if (authservice_loaded)
 	{
+#if 0
 		wallops("Ignoring attempt from %s to clear login name for %s",
 				get_oper_name(si), u->nick);
 		return;
+#else
+		wallops("AUTH: %s has deauthenticated %s", get_oper_name(si), u->nick);
+#endif
 	}
 
 	if (u->myuser == NULL)

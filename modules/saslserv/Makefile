@@ -13,6 +13,7 @@ SRCS = \
 	dh-blowfish.c	\
 	dh-aes.c	\
 	ecdsa-nist256p-challenge.c \
+	gssapi.c	\
 	external.c	\
 	main.c		\
 	plain.c
@@ -24,5 +25,6 @@ include ../../buildsys.module.mk
 CPPFLAGS	+= -I../../include
 # Only dh-blowfish.so needs this, oh well.
 LIBS		+= ${SSL_LIBS}
+LIBS		+= -lgsasl
 LIBS		+= -L../../libathemecore -lathemecore ${LDFLAGS_RPATH}
 

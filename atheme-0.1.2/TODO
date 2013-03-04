@@ -1,0 +1,28 @@
+CService: complete (for now)
+GService: complete
+OService: complete
+DroneMon: 0%
+
+* GService (Global) todo:
+
+    - nothing
+
+* CService (X) todo:
+
+    - nothing
+
+* OService (O) todo:
+
+    - nothing
+    - Oper/Server specific NOOP lists. Kills users who either oper on a server or if their hostmask matches.
+
+* Core todo:
+
+    - SQLite export/import
+
+* DroneMon todo:
+
+    - Version clients on connect, and kill/akill clients matching certain versions.
+    - Version statistics dumping to database
+
+*** More stuff is available on the wiki! ***

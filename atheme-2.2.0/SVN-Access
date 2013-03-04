@@ -1,0 +1,10 @@
+The stable version can be checked out using the following command:
+	svn co http://svn.atheme.org/atheme/branches/release-2.2 atheme-stable
+
+The development version has moved to Mercurial, it can be checked out using
+the following command:
+	hg clone http://hg.atheme.org/atheme atheme-devel
+
+Atheme's SVN repository can be browsed over the internet at the 
+following address:
+	http://viewsvn.atheme.org/

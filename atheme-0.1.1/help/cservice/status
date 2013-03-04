@@ -1,0 +1,15 @@
+Help for STATUS:
+
+STATUS returns information about your current
+state as far as services is concerned.  If
+you're logged in, an IRC operator, an SRA, among
+other information.
+
+If the last parameter is specified your status
+on the given channel is returned.
+
+Syntax: STATUS [#channel]
+
+Example:
+    /msg &nick& STATUS
+    /msg &nick& STATUS #foo

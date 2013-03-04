@@ -1,0 +1,314 @@
+nenolod     2005/08/27 20:24:07 UTC	(20050827-1873)
+  Log:
+  Remove TODO file, we use a bugtracker now.
+  
+
+  Modified:
+	branches/release-0.2/TODO (File Deleted) 
+
+
+nenolod     2005/08/27 20:20:25 UTC	(20050827-1871)
+  Log:
+  * Remove obsolete 'atheme-ratbox-services.patch'.
+  * Remove question asking if you want to read the release notes in 
+    'setup'.
+  
+
+  Modified:
+	branches/release-0.2/patches/README (File Modified) 
+	branches/release-0.2/patches/atheme-ratbox-services.patch (File Deleted) 
+	branches/release-0.2/setup (File Modified) 
+
+
+w00t        2005/08/26 10:00:28 UTC	(20050826-1867)
+  Log:
+  RELEASE now refers to tracker and changelog.
+
+  Modified:
+	branches/release-0.2/doc/RELEASE (File Modified) 
+
+
+pfish       2005/08/26 09:52:22 UTC	(20050826-1865)
+  Log:
+  0.2.1
+  
+
+  Modified:
+	branches/release-0.2/configure (File Modified) 
+
+
+w00t        2005/08/25 13:03:53 UTC	(20050825-1859)
+  Log:
+  Backported something from trunk that some wanker forgot about..
+
+  Modified:
+	branches/release-0.2/modules/cs_xop.c (File Modified) 
+
+
+w00t        2005/08/24 10:17:45 UTC	(20050824-1851)
+  Log:
+  typos--
+
+  Modified:
+	branches/release-0.2/src/parse.c (File Modified) 
+
+
+w00t        2005/08/20 01:05:59 UTC	(20050820-1819)
+  Log:
+  OpenBSD sucks. Nuff said.
+
+  Modified:
+	branches/release-0.2/src/version.sh (File Modified) 
+
+
+pfish       2005/08/12 10:45:42 UTC	(20050812-1682)
+  Log:
+  snoop denied commands
+  
+
+  Modified:
+	branches/release-0.2/src/commandtree.c (File Modified) 
+	branches/release-0.2/src/services.c (File Modified) 
+
+
+pfish       2005/08/12 10:07:37 UTC	(20050812-1680)
+  Log:
+  add ban/unban help files to 0.2. fun stuff
+  
+
+  Modified:
+	branches/release-0.2/help/cservice/ban (File Added) 
+	branches/release-0.2/help/cservice/unban (File Added) 
+
+
+pfish       2005/08/12 09:42:39 UTC	(20050812-1676)
+  Log:
+  backport 1672, make services aware of unreal's +j
+  
+
+  Modified:
+	branches/release-0.2/include/protocol/unreal.h (File Modified) 
+	branches/release-0.2/protocol/unreal.c (File Modified) 
+
+
+pfish       2005/08/11 21:15:28 UTC	(20050811-1624)
+  Log:
+  backport several fixes from cs_topic.c to 0.2.1
+
+  Modified:
+	branches/release-0.2/modules/cs_topic.c (File Modified) 
+
+
+pfish       2005/08/10 20:50:49 UTC	(20050810-1616)
+  Log:
+  add logout help
+
+  Modified:
+	branches/release-0.2/modules/ns_help.c (File Modified) 
+
+
+pfish       2005/08/10 09:06:07 UTC	(20050810-1592)
+  Log:
+  help files
+
+  Modified:
+	branches/release-0.2/help/nickserv/logout (File Added) 
+
+
+nenolod     2005/08/09 02:58:19 UTC	(20050809-1580)
+  Log:
+  backport cmode.c from 0.3, should fix crash with TSMODE banning.
+  
+
+  Modified:
+	branches/release-0.2/src/cmode.c (File Modified) 
+
+
+pfish       2005/08/04 10:49:08 UTC	(20050804-1508)
+  Log:
+  Backport the last few fixes to os_kline.c to 0.2
+
+  Modified:
+	branches/release-0.2/modules/os_kline.c (File Modified) 
+
+
+pfish       2005/08/04 10:06:26 UTC	(20050804-1500)
+  Log:
+  Backport r1498. 2 NOOP crashes
+
+  Modified:
+	branches/release-0.2/modules/os_noop.c (File Modified) 
+
+
+pfish       2005/08/04 09:52:53 UTC	(20050804-1496)
+  Log:
+  Backport NOOP crash from r1494 \
+  Also add user_delete() after skill()
+  
+
+  Modified:
+	branches/release-0.2/modules/os_noop.c (File Modified) 
+
+
+pfish       2005/08/04 08:45:25 UTC	(20050804-1490)
+  Log:
+  Backport 2 crashes from 0.3/AKILL synonym support
+
+  Modified:
+	branches/release-0.2/modules/os_kline.c (File Modified) 
+
+
+pfish       2005/08/04 08:03:26 UTC	(20050804-1486)
+  Log:
+  Backport NS ID alias from r1082
+
+  Modified:
+	branches/release-0.2/modules/ns_identify.c (File Modified) 
+
+
+alambert    2005/08/04 01:07:18 UTC	(20050804-1474)
+  Log:
+  Backport 1472: Add help for NS INFO. Reported by <neo@liveharmony.org>.
+
+  Modified:
+	branches/release-0.2/help/nickserv/info (File Added) 
+	branches/release-0.2/modules/ns_help.c (File Modified) 
+
+
+alambert    2005/08/04 01:03:25 UTC	(20050804-1470)
+  Log:
+  Backport 1468: Add help to NS STATUS; revise help for CS STATUS. Reported by <neo@liveharmony.org>.
+
+  Modified:
+	branches/release-0.2/help/cservice/status (File Modified) 
+	branches/release-0.2/help/nickserv/status (File Added) 
+	branches/release-0.2/modules/ns_help.c (File Modified) 
+
+
+alambert    2005/08/04 00:52:38 UTC	(20050804-1466)
+  Log:
+  Backport 1464: Add help for NS LIST, CS LIST. Reported by <neo@liveharmony.org.
+
+  Modified:
+	branches/release-0.2/help/cservice/list (File Added) 
+	branches/release-0.2/help/nickserv/list (File Added) 
+	branches/release-0.2/modules/cs_help.c (File Modified) 
+	branches/release-0.2/modules/ns_help.c (File Modified) 
+
+
+alambert    2005/08/03 21:28:56 UTC	(20050803-1450)
+  Log:
+  Bring in XOP help from trunk -- includes HOP level
+
+  Modified:
+	branches/release-0.2/help/cservice/xop (File Modified) 
+
+
+alambert    2005/08/03 21:27:12 UTC	(20050803-1448)
+  Log:
+  Backport 1446: Add help for CS HOP. Reported by <neo@liveharmony.org>
+
+  Modified:
+	branches/release-0.2/modules/cs_help.c (File Modified) 
+
+
+alambert    2005/08/03 21:09:40 UTC	(20050803-1444)
+  Log:
+  Backport 1442: command_help(): Only show the commands that the user has access to.
+
+  Modified:
+	branches/release-0.2/src/commandtree.c (File Modified) 
+
+
+alambert    2005/08/03 20:19:39 UTC	(20050803-1440)
+  Log:
+  Backport 1436: Remove redundant chanuser_delete() -- kick() handles it. Fixes a crash when an op and CS are the only users in the channel and the op runs /CS KICKBAN against himself. Reported by <neo@liveharmony.org>.
+
+  Modified:
+	branches/release-0.2/modules/cs_kick.c (File Modified) 
+
+
+alambert    2005/08/03 20:10:37 UTC	(20050803-1434)
+  Log:
+  Add safety checks to chanuser_delete(): bail if chan or user are NULL
+
+  Modified:
+	branches/release-0.2/src/node.c (File Modified) 
+
+
+alambert    2005/08/03 19:36:14 UTC	(20050803-1432)
+  Log:
+  Backport 1181, 1427: CS OP/HALFOP/VOICE access checking fixes.
+
+  Modified:
+	branches/release-0.2/modules/cs_halfop.c (File Modified) 
+	branches/release-0.2/modules/cs_op.c (File Modified) 
+	branches/release-0.2/modules/cs_voice.c (File Modified) 
+
+
+alambert    2005/08/03 19:28:38 UTC	(20050803-1430)
+  Log:
+  Backport 1177: Add chanacs_user_has_flag(): checks both myuser and host for a given flag.
+
+  Modified:
+	branches/release-0.2/backend/flatfile.c (File Modified) 
+	branches/release-0.2/backend/postgresql.c (File Modified) 
+	branches/release-0.2/include/phandler.h (File Modified) 
+	branches/release-0.2/src/dbhandler.c (File Modified) 
+
+
+alambert    2005/08/03 19:15:17 UTC	(20050803-1428)
+  Log:
+  Backport 1124 and 1125 to release-0.2: introduce  chanacs_find_host_by_user: like chanacs_find_host() but automatically constructs the host buffer, given the user
+
+  Modified:
+	branches/release-0.2/backend/flatfile.c (File Modified) 
+	branches/release-0.2/backend/postgresql.c (File Modified) 
+	branches/release-0.2/include/phandler.h (File Modified) 
+	branches/release-0.2/src/dbhandler.c (File Modified) 
+
+
+w00t        2005/08/03 06:49:21 UTC	(20050803-1420)
+  Log:
+  Backported 0.3 patch to ignore +I/+e in Unreal, was blocking release.
+
+  Modified:
+	branches/release-0.2/protocol/unreal.c (File Modified) 
+
+
+nenolod     2005/08/02 00:35:40 UTC	(20050802-1386)
+  Log:
+  Backport bug 44 fix (build 1382) to 0.2.1 branch.
+  
+
+  Modified:
+	branches/release-0.2/modules/os_kline.c (File Modified) 
+
+
+alambert    2005/08/01 06:31:33 UTC	(20050801-1360)
+  Log:
+  Backport 1274: Don't let users change their e-mail address before they perform the initial verification.
+
+  Modified:
+	branches/release-0.2/modules/cs_set.c (File Modified) 
+	branches/release-0.2/modules/ns_set.c (File Modified) 
+
+
+alambert    2005/08/01 06:30:38 UTC	(20050801-1358)
+  Log:
+  Backport 1196 to CS usernames: don't leak user e-mail addresses
+
+  Modified:
+	branches/release-0.2/modules/cs_register.c (File Modified) 
+
+
+nenolod     2005/08/01 05:34:54 UTC	(20050801-1342)
+  Log:
+  should work now...
+  
+
+  Modified:
+	branches/release-0.2/ChangeLog (File Modified) 
+
+
+ 

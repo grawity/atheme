@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Copyright (c) 2003-2004 E. Will et al.
+# Rights to this code are documented in doc/LICENSE.
+#
+# This file is a script for svn commit.
+#
+# $Id: commit 154 2005-05-29 06:42:48Z nenolod $
+#
+
+svn update
+echo "# ." >> src/version.sh
+svn log src/version.sh > ChangeLog
+svn commit
+
+exit 0

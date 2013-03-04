@@ -1,0 +1,43 @@
+Help for TEMPLATE:
+
+The TEMPLATE command allows definition of sets of flags,
+simplifying the use of the FLAGS command.
+
+Without arguments, network wide templates are shown.
+These include at least SOP/AOP/HOP/VOP.
+
+Syntax: TEMPLATE
+
+When given only the channel argument, a listing of
+templates for the channel will be displayed.
+
+Syntax: TEMPLATE <#channel>
+
+Otherwise, a template is modified. A modification may be
+specified by a template name (copies the template) or a
+flags change (starts with + or -, optionally preceded by
+an !). Templates cannot be the empty set (making a
+template empty deletes it).
+
+If the ! form is used, all access entries which exactly
+match the template are changed accordingly, with the
+exception that it is not possible to remove the
+founder's +f access.
+
+There is a limit on the length of all templates on a
+channel.
+
+If you are not the founder, similar restrictions apply
+as in FLAGS.
+
+Syntax: TEMPLATE <#channel> [template oldtemplate]
+Syntax: TEMPLATE <#channel> [template flag_changes]
+Syntax: TEMPLATE <#channel> [template !flag_changes]
+
+Examples:
+    /msg &nick& TEMPLATE #foo
+    /msg &nick& TEMPLATE #foo user VOP
+    /msg &nick& TEMPLATE #foo user !+A
+    /msg &nick& TEMPLATE #foo co-founder +*-OH
+    /msg &nick& TEMPLATE #foo op -*+vVhoti
+    /msg &nick& TEMPLATE #foo obsoletetemplate -*

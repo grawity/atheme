@@ -1,0 +1,8 @@
+Help for HOLD:
+
+HOLD prevents an account from expiring.
+
+Syntax: HOLD <account> ON|OFF
+
+Examples:
+    /msg &nick& HOLD jilles ON

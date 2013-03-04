@@ -1,0 +1,161 @@
+#!/bin/sh
+#
+# Copyright (c) 2003-2004 E. Will et al.
+# Rights to this code are documented in doc/LICENSE.
+#
+# This file is a simple setup script.
+#
+# $Id: setup 351 2002-03-13 16:39:51Z nenolod $
+
+PREFIX="$HOME/atheme"
+LARGENET="no"
+
+export ok INPUT
+
+echo "----------------------------------------------------------------"
+echo ">>> Atheme setup started on `date`"
+echo "----------------------------------------------------------------"
+
+if [ -f doc/RELEASE ] ; then
+  ok=0
+  echo "Would you like to read the release notes (recommended)?"
+  while [ $ok -eq 0 ] ; do
+    echo -n "[Yes] "
+    if read INPUT ; then : ; else echo "" ; exit 1 ; fi
+      if [ ! "$INPUT" ] ; then
+        echo ""
+        more doc/RELEASE
+        echo ""
+        echo "-----"
+        ok=1
+      fi
+      case $INPUT in
+        [Yy]*)
+          echo ""
+          more doc/RELEASE
+          ok=1
+          ;;
+        [Nn]*)
+          ok=1
+          ;;
+      esac
+  done
+  echo ""
+fi
+
+ok=0
+echo "What type of IRCd would you like to compile Atheme for?"
+echo ""
+echo "1) ircd-ratbox                       [1.0 or later]"
+echo "2) hybrid                            [7.0 or later]"
+echo "3) csircd                            [1.15 or later]"
+echo "4) bahamut                           [1.8 or later]"
+echo "5) unrealircd                        [3.1 or later]"
+echo "6) inspircd                          [1.0b5 or later]"
+echo "7) dancer-ircd  ** EXPERIMENTAL **   [1.0.35 or later]"
+echo "8) hyperion     ** EXPERIMENTAL **   [svn 91 or later]"
+echo "9) monkeyircd   ** EXPERIMENTAL **   [1.0.5 or later]"
+echo ""
+while [ $ok -eq 0 ] ; do
+  echo -n "[no default option] "
+  if read INPUT ; then : ; else echo "" ; exit 1 ; fi
+    case $INPUT in
+      [123])
+	  TYPE=ratbox
+          ok=1
+          ;;
+      4)
+	  TYPE=bahamut
+          ok=1
+          ;;
+      5)
+	  TYPE=unreal
+	  ok=1
+	  ;;
+      6)
+	  TYPE=inspircd
+	  ok=1
+	  ;;
+      [78])
+	  TYPE=hyperion
+	  ok=1
+	  ;;
+      9)
+	  TYPE=monkey
+	  ok=1
+	  ;;
+    esac
+done
+echo ""
+
+ok=0
+echo "Where do you want Atheme to be installed?"
+echo "Press enter for the default, or type a new destination."
+while [ $ok -eq 0 ] ; do
+  echo -n "[$PREFIX] "
+  if read INPUT ; then : ; else echo "" ; exit 1 ; fi
+  if [ ! "$INPUT" ] ; then
+    INPUT=$PREFIX
+    ok=1
+  else
+    ok=1
+  fi
+done
+PREFIX=$INPUT
+
+echo ""
+
+ok=0
+echo "Are you running a large network (more than 2000 users)?"
+while [ $ok -eq 0 ] ; do
+  echo -n "[$LARGENET] "
+  if read INPUT ; then : ; else echo "" ; exit 1 ; fi
+  if [ ! "$INPUT" ] ; then
+    INPUT=$LARGENET
+    ok=1
+  else
+    ok=1
+  fi
+done
+LARGENET=$INPUT
+
+echo ""
+echo "Press enter to begin configuration."
+echo -n ""
+if read INPUT ; then : ; else echo "" ; exit 1 ; fi
+
+ARGS="--prefix=$PREFIX"
+
+case "$LARGENET" in
+  [Yy])
+    ARGS="--prefix=$PREFIX --enable-large-net"
+    ;;
+  Yes)
+    ARGS="--prefix=$PREFIX --enable-large-net"
+    ;;
+  yes)
+    ARGS="--prefix=$PREFIX --enable-large-net"
+    ;;
+esac
+
+sh configure $ARGS --with-protocol=$TYPE
+
+echo ""
+echo "Press enter to begin compilation."
+echo -n ""
+if read INPUT ; then : ; else echo "" ; exit 1 ; fi
+
+make
+
+echo ""
+echo "Press enter to begin installation."
+echo -n ""
+if read INPUT ; then : ; else echo "" ; exit 1 ; fi
+
+make install
+
+echo "----------------------------------------------------------------"
+echo ">>> Atheme setup completed on `date`"
+echo "----------------------------------------------------------------"
+
+exit 0

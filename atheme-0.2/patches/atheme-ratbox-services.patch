@@ -1,0 +1,117 @@
+Index: protocol/ratbox.c
+===================================================================
+--- protocol/ratbox.c	(revision 724)
++++ protocol/ratbox.c	(working copy)
+@@ -59,6 +59,8 @@
+   { '\0', 0 }
+ };
+ 
++static int use_rserv_support = 1;
++
+ /* *INDENT-ON* */
+ 
+ /* login to our uplink */
+@@ -72,7 +74,7 @@
+ 
+         me.bursting = TRUE;
+ 
+-        sts("CAPAB :QS KLN UNKLN");
++        sts("CAPAB :QS KLN UNKLN ENCAP SERVICES");
+         sts("SERVER %s 1 :%s", me.name, me.desc);
+         sts("SVINFO 5 3 0 :%ld", CURRTIME);
+ 
+@@ -86,7 +88,8 @@
+ {
+ 	user_t *u;
+ 
+-	sts("NICK %s 1 %ld +%s %s %s %s :%s", nick, CURRTIME, modes, user, host, me.name, real);
++	/* Note: using +D for now, this won't work with fantasy commands */
++	sts("NICK %s 1 %ld +%s%s %s %s %s :%s", nick, CURRTIME, modes, use_rserv_support ? "DS" : "", user, host, me.name, real);
+ 
+ 	u = user_add(nick, user, host, NULL, me.me);
+ 	if (strchr(modes, 'o'))
+@@ -280,15 +283,19 @@
+ /* protocol-specific stuff to do on login */
+ static void ratbox_on_login(char *origin, char *user, char *wantedhost)
+ {
+-	/* nothing to do on ratbox */
+-	return;
++	if (!me.connected || !use_rserv_support)
++		return;
++
++	sts(":%s ENCAP * SU %s %s", me.name, origin, user);
+ }
+ 
+ /* protocol-specific stuff to do on login */
+ static void ratbox_on_logout(char *origin, char *user, char *wantedhost)
+ {
+-	/* nothing to do on ratbox */
+-	return;
++	if (!me.connected || !use_rserv_support)
++		return;
++
++	sts(":%s ENCAP * SU %s", me.name, origin);
+ }
+ 
+ static void ratbox_jupe(char *server, char *reason)
+@@ -878,6 +885,52 @@
+ 	slog(LG_INFO, "m_error(): error from server: %s", parv[0]);
+ }
+ 
++static void m_encap(char *origin, uint8_t parc, char *parv[])
++{
++	user_t *u;
++	myuser_t *mu;
++
++	if (parc < 2)
++		return;
++	if (match(parv[0], me.name))
++		return;
++	if (!irccasecmp(parv[1], "LOGIN"))
++	{
++		/* :jilles ENCAP * LOGIN jilles */
++		/* XXX we've already given the "please identify" notice */
++		/* XXX some of this code doesn't belong here */
++		if (!use_rserv_support)
++			return;
++		if (parc < 3)
++			return;
++		u = user_find(origin);
++		if (u == NULL)
++			return;
++		/* XXX should only accept this if server is bursting */
++		mu = myuser_find(parv[2]);
++		if (mu == NULL)
++		{
++			/* account dropped during split... log them out */
++			slog(LG_DEBUG, "m_encap(): got nonexistent login %s for user %s", parv[2], origin);
++			ratbox_on_logout(origin, NULL, NULL);
++			return;
++		}
++		if (u->myuser != NULL) /* already logged in, hmm */
++			return;
++		if (mu->user != NULL)
++		{
++			/* sorry... */
++			notice(nicksvs.enable ? nicksvs.nick : chansvs.nick, origin, "\2%s\2 is already identified to \2%s\2.", mu->user->nick, mu->name);
++			ratbox_on_logout(origin, NULL, NULL);
++			return;
++		}
++		u->myuser = mu;
++		mu->user = u;
++		mu->identified = TRUE;
++		slog(LG_DEBUG, "m_encap(): automatically identified %s as %s", origin, parv[2]);
++	}
++}
++
+ void _modinit(module_t *m)
+ {
+ 	/* Symbol relocation voodoo. */
+@@ -928,6 +981,7 @@
+ 	pcommand_add("PASS", m_pass);
+ 	pcommand_add("ERROR", m_error);
+ 	pcommand_add("TOPIC", m_topic);
++	pcommand_add("ENCAP", m_encap);
+ 
+ 	m->mflags = MODTYPE_CORE;
+ 

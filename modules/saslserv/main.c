@@ -177,6 +177,31 @@ void destroy_session(sasl_session_t *p)
 	free(p);
 }
 
+/* send client a list of available SASL mechanisms */
+static void sasl_send_mechlist(sasl_session_t *p)
+{
+	char temp[400], *ptr = temp;
+	int l = 0;
+	mowgli_node_t *n;
+
+	MOWGLI_ITER_FOREACH(n, sasl_mechanisms.head)
+	{
+		sasl_mechanism_t *mptr = n->data;
+		if(l + strlen(mptr->name) > 510)
+			break;
+		strcpy(ptr, mptr->name);
+		ptr += strlen(mptr->name);
+		*ptr++ = ',';
+		l += strlen(mptr->name) + 1;
+	}
+
+	if(l)
+		ptr--;
+	*ptr = '\0';
+
+	sasl_sts(p->uid, 'M', temp);
+}
+
 /* interpret an AUTHENTICATE message */
 static void sasl_input(sasl_message_t *smsg)
 {
@@ -285,26 +310,7 @@ static void sasl_packet(sasl_session_t *p, char *buf, int len)
 
 		if(!(p->mechptr = find_mechanism(mech)))
 		{
-			char temp[400], *ptr = temp;
-			int l = 0;
-			mowgli_node_t *n;
-
-			MOWGLI_ITER_FOREACH(n, sasl_mechanisms.head)
-			{
-				sasl_mechanism_t *mptr = n->data;
-				if(l + strlen(mptr->name) > 510)
-					break;
-				strcpy(ptr, mptr->name);
-				ptr += strlen(mptr->name);
-				*ptr++ = ',';
-				l += strlen(mptr->name) + 1;
-			}
-
-			if(l)
-				ptr--;
-			*ptr = '\0';
-
-			sasl_sts(p->uid, 'M', temp);
+			sasl_send_mechlist(p);
 
 			sasl_sts(p->uid, 'D', "F");
 			destroy_session(p);

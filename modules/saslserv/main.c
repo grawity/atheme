@@ -217,6 +217,13 @@ static void sasl_input(sasl_message_t *smsg)
 		return;
 	}
 
+	/* (M)echanism list request (e.g. when the server accepts CAP) */
+	if(smsg->mode == 'M')
+	{
+		sasl_send_mechlist(p);
+		return;
+	}
+
 	if(smsg->mode != 'S' && smsg->mode != 'C')
 		return;
 

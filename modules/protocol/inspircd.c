@@ -1110,8 +1110,8 @@ static void inspircd_user_mode(user_t *u, const char *modes)
 					 */
 					if (strcmp(u->vhost, u->chost))
 					{
-						strshare_unref(u->chost);
-						u->chost = strshare_get(u->vhost);
+						strshare_unref(u->vhost);
+						u->vhost = strshare_get(u->chost);
 					}
 				}
 				break;

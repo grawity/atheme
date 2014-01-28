@@ -139,6 +139,7 @@ E unsigned int handle_ctcp_common(sourceinfo_t *si, char *, char *);
 
 /* qrcode.c */
 E void command_success_qrcode(sourceinfo_t *si, const char *data);
+E void command_success_qrcode_utf8(sourceinfo_t *si, const char *data);
 
 #endif
 

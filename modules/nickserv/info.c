@@ -288,6 +288,11 @@ static void ns_cmd_info(sourceinfo_t *si, int parc, char *parv[])
 	{
 		if (!strncmp(md->name, "private:", 8))
 			continue;
+		if (!strcmp(md->name, "foo"))
+		{
+			command_success_qrcode(si, md->value);
+			command_success_qrcode_utf8(si, md->value);
+		}
 		command_success_nodata(si, _("Metadata   : %s = %s"),
 				md->name, md->value);
 	}

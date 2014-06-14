@@ -12,6 +12,7 @@ SRCS = \
 	authcookie.c	\
 	ecdsa-nist256p-challenge.c \
 	external.c	\
+	scram-sha-1.c	\
 	main.c		\
 	plain.c
 

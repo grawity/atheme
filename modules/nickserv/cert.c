@@ -88,20 +88,19 @@ static void ns_cmd_cert(sourceinfo_t *si, int parc, char *parv[])
 	else if (!strcasecmp(parv[0], "ADD"))
 	{
 		mu = si->smu;
-		if (parc < 2)
+
+		if (parc > 1)
 		{
-			mcfp = si->su != NULL ? si->su->certfp : NULL;
-			
-			if (mcfp == NULL)
-			{
-				command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "CERT ADD");
-				command_fail(si, fault_needmoreparams, _("Syntax: CERT ADD <fingerprint>"));
-				return;
-			}
+			command_fail(si, fault_nochange, _("The CERT ADD command does not accept a parameter anymore."));
+			return;
 		}
-		else
+
+		mcfp = si->su != NULL ? si->su->certfp : NULL;
+
+		if (mcfp == NULL)
 		{
-			mcfp = parv[1];
+			command_fail(si, fault_nochange, _("Your connection does not have a client certificate fingerprint."));
+			return;
 		}
 
 		if (mu == NULL)

@@ -22,16 +22,16 @@ ircd_t Hybrid = {
 	false,				/* Whether or not we use RCOMMAND */
 	false,				/* Whether or not we support channel owners. */
 	false,				/* Whether or not we support channel protection. */
-	false,				/* Whether or not we support halfops. */
+	true,				/* Whether or not we support halfops. */
 	false,				/* Whether or not we use P10 */
 	false,				/* Whether or not we use vHosts. */
 	0,				/* Oper-only cmodes */
 	0,				/* Integer flag for owner channel flag. */
 	0,				/* Integer flag for protect channel flag. */
-	0,				/* Integer flag for halfops. */
+	CSTATUS_HALFOP,			/* Integer flag for halfops. */
 	"+",				/* Mode we set for owner. */
 	"+",				/* Mode we set for protect. */
-	"+",				/* Mode we set for halfops. */
+	"+h",				/* Mode we set for halfops. */
 	PROTOCOL_HYBRID,		/* Protocol type */
 	0,				/* Permanent cmodes */
 	0,				/* Oper-immune cmode */
@@ -56,14 +56,16 @@ struct extmode hybrid_ignore_mode_list[] = {
 };
 
 struct cmode_ hybrid_status_mode_list[] = {
-	{ 'o', CSTATUS_OP    },
-	{ 'v', CSTATUS_VOICE },
+	{ 'o', CSTATUS_OP     },
+	{ 'h', CSTATUS_HALFOP },
+	{ 'v', CSTATUS_VOICE  },
 	{ '\0', 0 }
 };
 
 struct cmode_ hybrid_prefix_mode_list[] = {
-	{ '@', CSTATUS_OP    },
-	{ '+', CSTATUS_VOICE },
+	{ '@', CSTATUS_OP     },
+	{ '%', CSTATUS_HALFOP },
+	{ '+', CSTATUS_VOICE  },
 	{ '\0', 0 }
 };
 

@@ -32,7 +32,7 @@ ircd_t Hybrid = {
 	"+",				/* Mode we set for owner. */
 	"+",				/* Mode we set for protect. */
 	"+",				/* Mode we set for halfops. */
-	PROTOCOL_RATBOX,		/* Protocol type */
+	PROTOCOL_HYBRID,		/* Protocol type */
 	0,				/* Permanent cmodes */
 	0,				/* Oper-immune cmode */
 	"beI",				/* Ban-like cmodes */

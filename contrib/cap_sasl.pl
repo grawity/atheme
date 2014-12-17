@@ -242,6 +242,14 @@ sub cmd_sasl_mechanisms {
 	Irssi::print("SASL: mechanisms supported: " . join(", ", sort keys %mech));
 }
 
+sub in_path {
+	my $exe = shift;
+	return grep {-x "$_/$exe"}
+	       map {length $_ ? $_ : "."}
+	       split(":", $ENV{PATH});
+}
+-
+
 Irssi::settings_add_bool('server', 'sasl_disconnect_on_fail', 1);
 
 Irssi::signal_add_first('server connected', \&server_connected);
@@ -272,7 +280,40 @@ $mech{EXTERNAL} = sub {
 	return $sasl->{user} // "";
 };
 
+my $ecdsa_load;
+my $ecdsa_sign;
+
 if (eval {require Crypt::PK::ECC}) {
+	$ecdsa_load = sub {
+		my ($k) = @_;
+		my $pk = eval {Crypt::PK::ECC->new($k)};
+		if ($@ || !$pk || !$pk->is_private) {
+			return;
+		} else {
+			return $pk;
+		}
+	};
+	$ecdsa_sign = sub {
+		my ($pk, $in) = @_;
+		return $pk->sign_hash($in);
+	};
+} elsif (in_path("ecdsatool")) {
+	$ecdsa_load = sub { @_; };
+	$ecdsa_sign = sub {
+		my ($pk, $in) = @_;
+		my $in_enc = encode_base64($in, "");
+		if (open(my $proc, "-|", "ecdsatool", "sign", $pk, $in_enc)) {
+			chomp(my $out_enc = <$proc>);
+			close($proc);
+			return decode_base64($out_enc);
+		} else {
+			Irssi::print("SASL: could not run 'ecdsatool': $!");
+			return;
+		}
+	};
+}
+
+if ($ecdsa_load) {
 	$mech{'ECDSA-NIST256P-CHALLENGE'} = sub {
 		my ($sasl, $data) = @_;
 		my $u = $sasl->{user};
@@ -284,15 +325,15 @@ if (eval {require Crypt::PK::ECC}) {
 			Irssi::print("SASL: key file '$k' not found", MSGLEVEL_CLIENTERROR);
 			return;
 		}
-		my $pk = eval {Crypt::PK::ECC->new($k)};
-		if ($@ || !$pk || !$pk->is_private) {
+		my $pk = $ecdsa_load->($k);
+		if (!$pk) {
 			Irssi::print("SASL: no private key in file '$k'", MSGLEVEL_CLIENTERROR);
 			return;
 		}
 		my $step = ++$sasl->{step};
 		if ($step == 1) {
 			if (length $data == CHALLENGE_SIZE) {
-				my $sig = $pk->sign_hash($data);
+				my $sig = $ecdsa_sign->($pk, $data);
 				return $u."\0".$u."\0".$sig;
 			} elsif (length $data) {
 				return;
@@ -302,7 +343,7 @@ if (eval {require Crypt::PK::ECC}) {
 		}
 		elsif ($step == 2) {
 			if (length $data == CHALLENGE_SIZE) {
-				return $pk->sign_hash($data);
+				return $ecdsa_sign->($pk, $data);
 			} else {
 				return;
 			}

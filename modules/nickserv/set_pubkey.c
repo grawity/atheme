@@ -4,7 +4,7 @@
  * Copyright (c) 2014 Zohlai Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
- * Sets the public key (for SASL ECDSA-NIST256p-CHALLENGE) of a user.
+ * Sets the public key (for SASL ECDSA-NIST256P-CHALLENGE) of a user.
  *
  */
 
@@ -22,7 +22,7 @@ mowgli_patricia_t **ns_set_cmdtree;
 
 static void ns_cmd_set_pubkey(sourceinfo_t *si, int parc, char *parv[]);
 
-command_t ns_set_pubkey = { "PUBKEY", N_("Changes your ECDSA-NIST256p-CHALLENGE public key."), AC_NONE, 1, ns_cmd_set_pubkey, { .path = "nickserv/set_pubkey" } };
+command_t ns_set_pubkey = { "PUBKEY", N_("Changes your ECDSA-NIST256P-CHALLENGE public key."), AC_NONE, 1, ns_cmd_set_pubkey, { .path = "nickserv/set_pubkey" } };
 
 void _modinit(module_t *m)
 {

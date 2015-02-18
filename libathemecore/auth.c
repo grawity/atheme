@@ -31,6 +31,8 @@ void set_password(myuser_t *mu, const char *newpassword)
 	if (mu == NULL || newpassword == NULL)
 		return;
 
+	mu->flags &= ~MU_NOPASSWORD;
+
 	/* if we can, try to crypt it */
 	if (crypto_module_loaded)
 	{

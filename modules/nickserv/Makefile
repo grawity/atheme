@@ -36,6 +36,7 @@ BASE_SRCS =			\
 	register.c	\
 	regnolimit.c	\
 	resetpass.c	\
+	resetverify.c	\
 	restrict.c	\
 	return.c	\
 	sendpass.c	\
@@ -60,7 +61,6 @@ BASE_SRCS =			\
 	set_property.c	\
 	set_pubkey.c	\
 	set_quietchg.c	\
-	setpass.c	\
 	status.c	\
 	taxonomy.c	\
 	vacation.c	\

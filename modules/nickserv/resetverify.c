@@ -2,7 +2,7 @@
  * Copyright (c) 2007 Atheme Development Group
  * Rights to this code are as documented in doc/LICENSE.
  *
- * This file contains code for the NickServ SETPASS function.
+ * This file contains code for the NickServ RESETVERIFY function.
  *
  */
 
@@ -10,34 +10,34 @@
 
 DECLARE_MODULE_V1
 (
-	"nickserv/setpass", false, _modinit, _moddeinit,
+	"nickserv/resetverify", false, _modinit, _moddeinit,
 	PACKAGE_STRING,
 	"Atheme Development Group <http://www.atheme.org>"
 );
 
-static void clear_setpass_key(user_t *u);
-static void ns_cmd_setpass(sourceinfo_t *si, int parc, char *parv[]);
-static void show_setpass(hook_user_req_t *hdata);
+static void clear_resetverify_key(user_t *u);
+static void ns_cmd_resetverify(sourceinfo_t *si, int parc, char *parv[]);
+static void show_resetverify(hook_user_req_t *hdata);
 
-command_t ns_setpass = { "SETPASS", N_("Changes a password using an authcode."), AC_NONE, 3, ns_cmd_setpass, { .path = "nickserv/setpass" } };
+command_t ns_resetverify = { "RESETVERIFY", N_("Changes a password using an authcode."), AC_NONE, 3, ns_cmd_resetverify, { .path = "nickserv/resetverify" } };
 
 void _modinit(module_t *m)
 {
 	hook_add_event("user_identify");
-	hook_add_user_identify(clear_setpass_key);
+	hook_add_user_identify(clear_resetverify_key);
 	hook_add_event("user_info");
-	hook_add_user_info(show_setpass);
-	service_named_bind_command("nickserv", &ns_setpass);
+	hook_add_user_info(show_resetverify);
+	service_named_bind_command("nickserv", &ns_resetverify);
 }
 
 void _moddeinit(module_unload_intent_t intent)
 {
-	hook_del_user_identify(clear_setpass_key);
-	hook_del_user_info(show_setpass);
-	service_named_unbind_command("nickserv", &ns_setpass);
+	hook_del_user_identify(clear_resetverify_key);
+	hook_del_user_info(show_resetverify);
+	service_named_unbind_command("nickserv", &ns_resetverify);
 }
 
-static void ns_cmd_setpass(sourceinfo_t *si, int parc, char *parv[])
+static void ns_cmd_resetverify(sourceinfo_t *si, int parc, char *parv[])
 {
 	myuser_t *mu;
 	metadata_t *md;
@@ -47,15 +47,15 @@ static void ns_cmd_setpass(sourceinfo_t *si, int parc, char *parv[])
 
 	if (!nick || !key || !password)
 	{
-		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "SETPASS");
-		command_fail(si, fault_needmoreparams, _("Syntax: SETPASS <account> <key> <newpass>"));
+		command_fail(si, fault_needmoreparams, STR_INSUFFICIENT_PARAMS, "RESETVERIFY");
+		command_fail(si, fault_needmoreparams, _("Syntax: RESETVERIFY <account> <key> <newpass>"));
 		return;
 	}
 
 	if (strchr(password, ' '))
 	{
-		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "SETPASS");
-		command_fail(si, fault_badparams, _("Syntax: SETPASS <account> <key> <newpass>"));
+		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "RESETVERIFY");
+		command_fail(si, fault_badparams, _("Syntax: RESETVERIFY <account> <key> <newpass>"));
 		return;
 	}
 
@@ -67,7 +67,7 @@ static void ns_cmd_setpass(sourceinfo_t *si, int parc, char *parv[])
 
 	if (strlen(password) >= PASSLEN)
 	{
-		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "SETPASS");
+		command_fail(si, fault_badparams, STR_INVALID_PARAMS, "RESETVERIFY");
 		command_fail(si, fault_badparams, _("Registration passwords may not be longer than \2%d\2 characters."), PASSLEN - 1);
 		return;
 	}
@@ -75,7 +75,7 @@ static void ns_cmd_setpass(sourceinfo_t *si, int parc, char *parv[])
 	if (!strcasecmp(password, entity(mu)->name))
 	{
 		command_fail(si, fault_badparams, _("You cannot use your nickname as a password."));
-		command_fail(si, fault_badparams, _("Syntax: SETPASS <account> <key> <newpass>"));
+		command_fail(si, fault_badparams, _("Syntax: RESETVERIFY <account> <key> <newpass>"));
 		return;
 	}
 
@@ -83,12 +83,12 @@ static void ns_cmd_setpass(sourceinfo_t *si, int parc, char *parv[])
 	if (md == NULL || crypt_verify_password(key, md->value) == NULL)
 	{
 		if (md != NULL)
-			logcommand(si, CMDLOG_SET, "failed SETPASS (invalid key)");
+			logcommand(si, CMDLOG_SET, "failed RESETVERIFY (invalid key)");
 		command_fail(si, fault_badparams, _("Verification failed. Invalid key for \2%s\2."), entity(mu)->name);
 		return;
 	}
 
-	logcommand(si, CMDLOG_SET, "SETPASS: \2%s\2", entity(mu)->name);
+	logcommand(si, CMDLOG_SET, "RESETVERIFY: \2%s\2", entity(mu)->name);
 
 	metadata_delete(mu, "private:setpass:key");
 	metadata_delete(mu, "private:sendpass:sender");
@@ -104,7 +104,7 @@ static void ns_cmd_setpass(sourceinfo_t *si, int parc, char *parv[])
 	}
 }
 
-static void clear_setpass_key(user_t *u)
+static void clear_resetverify_key(user_t *u)
 {
 	myuser_t *mu = u->myuser;
 
@@ -119,7 +119,7 @@ static void clear_setpass_key(user_t *u)
 		"key. Since you have identified, that key is no longer valid.");
 }
 
-static void show_setpass(hook_user_req_t *hdata)
+static void show_resetverify(hook_user_req_t *hdata)
 {
 	if (has_priv(hdata->si, PRIV_USER_AUSPEX))
 	{

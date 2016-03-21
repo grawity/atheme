@@ -1,6 +1,6 @@
 Aide pour SENDPASS:
 
-#if !module nickserv/setpass
+#if !module nickserv/resetverify
 SENDPASS envoie par email le mot de passe pour le nickname
 spécifié.
 #else
@@ -15,7 +15,7 @@ Si le pseudo est marqué, vous pouvez l'outrepasser
 en utilisant le mot clé FORCE.
 
 Syntaxe : SENDPASS <nickname> FORCE
-#if module nickserv/setpass
+#if module nickserv/resetverify
 
 Si une clé a été envoyée par email mais pas encore utilisée
 vous pouvez la remettre à zéro en utilisant

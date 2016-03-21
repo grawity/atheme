@@ -1,6 +1,6 @@
 Ayuda para SENDPASS:
 
-#if !module nickserv/setpass
+#if !module nickserv/resetverify
 SENDPASS envía la contraseña para la cuenta
 especificada a la dirección de e-mail que
 le corresponde.
@@ -17,7 +17,7 @@ Si la cuenta está marcada, puede ignorar esta
 restricción usando el parámetro FORCE.
 
 Sintaxis: SENDPASS <cuenta> FORCE
-#if module nickserv/setpass
+#if module nickserv/resetverify
 
 Si una clave ha sido enviada pero no
 utilizada aún, es posible anularla mediante

@@ -388,8 +388,8 @@ static int show_channel(channel_t *chptr, struct alis_query *query)
 	   (query->max && (int)MOWGLI_LIST_LENGTH(&chptr->members) > query->max))
 		return 0;
 
-	if ((query->modes_present && (chptr->modes & query->modes_present) != query->modes_present) ||
-	    (query->modes_absent && (chptr->modes & query->modes_absent) != 0) ||
+	if (((chptr->modes & query->modes_present) != query->modes_present) ||
+	    ((chptr->modes & query->modes_absent) != 0) ||
 	    (query->key_present && chptr->key == NULL) ||
 	    (query->key_absent && chptr->key != NULL) ||
 	    (query->limit_present && !chptr->limit) ||

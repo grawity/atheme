@@ -169,10 +169,7 @@ static int alis_parse_mode(const char *text, struct alis_query *query)
 		query->key_absent = !query->key_present;
 		query->limit_absent = !query->limit_present;
 		for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
-		{
-			if (!query->modes_ext_present[i])
-				query->modes_ext_absent[i] = 1;
-		}
+			query->modes_ext_absent[i] = !query->modes_ext_present[i];
 	}
 
 	return true;
@@ -391,12 +388,9 @@ static int show_channel(channel_t *chptr, struct alis_query *query)
 	   (query->max && (int)MOWGLI_LIST_LENGTH(&chptr->members) > query->max))
 		return 0;
 
-	if (query->modes_present && (chptr->modes & query->modes_present) != query->modes_present)
-		return 0;
-	if (query->modes_absent && (chptr->modes & query->modes_absent) != 0)
-		return 0;
-
-	if ((query->key_present && chptr->key == NULL) ||
+	if ((query->modes_present && (chptr->modes & query->modes_present) != query->modes_present) ||
+	    (query->modes_absent && (chptr->modes & query->modes_absent) != 0) ||
+	    (query->key_present && chptr->key == NULL) ||
 	    (query->key_absent && chptr->key != NULL) ||
 	    (query->limit_present && !chptr->limit) ||
 	    (query->limit_absent && chptr->limit))
@@ -404,9 +398,8 @@ static int show_channel(channel_t *chptr, struct alis_query *query)
 
 	for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
 	{
-		if (query->modes_ext_present[i] && !chptr->extmodes[i])
-			return 0;
-		if (query->modes_ext_absent[i] && chptr->extmodes[i])
+		if ((query->modes_ext_present[i] && !chptr->extmodes[i]) ||
+		    (query->modes_ext_absent[i] && chptr->extmodes[i]))
 			return 0;
 	}
 

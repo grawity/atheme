@@ -67,19 +67,19 @@ struct alis_query
 	char *topic;
 	int min;
 	int max;
-	int show_mode;
-	int show_topicwho;
 	unsigned int modes_present;
 	unsigned int modes_absent;
-	bool key_present:1;
-	bool key_absent:1;
-	bool limit_present:1;
-	bool limit_absent:1;
 	int modes_ext_present[256];
 	int modes_ext_absent[256];
 	int skip;
 	int maxmatches;
-	int showsecret;
+	bool key_present:1;
+	bool key_absent:1;
+	bool limit_present:1;
+	bool limit_absent:1;
+	bool show_mode:1;
+	bool show_topicwho:1;
+	bool showsecret:1;
 };
 
 void _modinit(module_t *m)

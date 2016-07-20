@@ -69,11 +69,14 @@ struct alis_query
 	int max;
 	int show_mode;
 	int show_topicwho;
-	unsigned int mode;
-	int mode_dir;
-	int mode_key;
-	int mode_limit;
-	int mode_ext[256];
+	unsigned int modes_present;
+	unsigned int modes_absent;
+	bool key_present:1;
+	bool key_absent:1;
+	bool limit_present:1;
+	bool limit_absent:1;
+	int modes_ext_present[256];
+	int modes_ext_absent[256];
 	int skip;
 	int maxmatches;
 	int showsecret;
@@ -94,9 +97,11 @@ void _moddeinit(module_unload_intent_t intent)
 	service_delete(alis);
 }
 
-static int alis_parse_mode(const char *text, int *key, int *limit, int *ext)
+static int alis_parse_mode(const char *text, struct alis_query *query)
 {
-	int mode = 0, i;
+	int dir = DIR_NONE;
+	int mode;
+	int i;
 
 	if(!text)
 		return 0;
@@ -105,24 +110,72 @@ static int alis_parse_mode(const char *text, int *key, int *limit, int *ext)
 	{
 		switch(*text)
 		{
-			case 'l':
-				*limit = 1;
+			case '+':
+				if (dir == DIR_EQUAL)
+					return false;
+				dir = DIR_SET;
+				break;
+			case '-':
+				if (dir == DIR_EQUAL)
+					return false;
+				dir = DIR_UNSET;
+				break;
+			case '=':
+				if (dir != DIR_NONE)
+					return false;
+				dir = DIR_EQUAL;
 				break;
 			case 'k':
-				*key = 1;
+				if (dir == DIR_UNSET)
+					query->key_absent = 1;
+				else
+					query->key_present = 1;
+				break;
+			case 'l':
+				if (dir == DIR_UNSET)
+					query->limit_absent = 1;
+				else
+					query->limit_present = 1;
 				break;
 			default:
-				mode |= mode_to_flag(*text);
-				for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
-					if (*text == ignore_mode_list[i].mode)
-						ext[i] = 1;
+				mode = mode_to_flag(*text);
+				if (dir == DIR_UNSET)
+				{
+					query->modes_absent |= mode;
+					for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
+					{
+						if (*text == ignore_mode_list[i].mode)
+							query->modes_ext_absent[i] = 1;
+					}
+				}
+				else
+				{
+					query->modes_present |= mode;
+					for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
+					{
+						if (*text == ignore_mode_list[i].mode)
+							query->modes_ext_present[i] = 1;
+					}
+				}
 				break;
 		}
 
 		text++;
 	}
 
-	return mode;
+	if (dir == DIR_EQUAL)
+	{
+		query->modes_absent = ~query->modes_present;
+		query->key_absent = !query->key_present;
+		query->limit_absent = !query->limit_present;
+		for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
+		{
+			if (!query->modes_ext_present[i])
+				query->modes_ext_absent[i] = 1;
+		}
+	}
+
+	return true;
 }
 
 static int parse_alis(sourceinfo_t *si, int parc, char *parv[], struct alis_query *query)
@@ -141,7 +194,6 @@ static int parse_alis(sourceinfo_t *si, int parc, char *parv[], struct alis_quer
 	else
 		query->mask = sstrdup(parv[0]);
 
-	query->mode_dir = DIR_NONE;
 	while ((opt = parv[i++]))
 	{
 		if(!strcasecmp(opt, "-min"))
@@ -245,26 +297,11 @@ static int parse_alis(sourceinfo_t *si, int parc, char *parv[], struct alis_quer
 				return 0;
 			}
 
-			switch(*arg)
+			if (!alis_parse_mode(arg, query))
 			{
-				case '+':
-					query->mode_dir = DIR_SET;
-					break;
-				case '-':
-					query->mode_dir = DIR_UNSET;
-					break;
-				case '=':
-					query->mode_dir = DIR_EQUAL;
-					break;
-				default:
 					command_fail(si, fault_badparams, "Invalid -mode option");
 					return 0;
 			}
-
-			query->mode = alis_parse_mode(arg+1,
-					&query->mode_key,
-					&query->mode_limit,
-					query->mode_ext);
 		}
 		else if (!strcasecmp(opt, "-showsecret"))
 		{
@@ -354,35 +391,23 @@ static int show_channel(channel_t *chptr, struct alis_query *query)
 	   (query->max && (int)MOWGLI_LIST_LENGTH(&chptr->members) > query->max))
 		return 0;
 
-	if(query->mode_dir == DIR_SET)
+	if (query->modes_present && (chptr->modes & query->modes_present) != query->modes_present)
+		return 0;
+	if (query->modes_absent && (chptr->modes & query->modes_absent) != 0)
+		return 0;
+
+	if ((query->key_present && chptr->key == NULL) ||
+	    (query->key_absent && chptr->key != NULL) ||
+	    (query->limit_present && !chptr->limit) ||
+	    (query->limit_absent && chptr->limit))
+		return 0;
+
+	for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
 	{
-		if(((chptr->modes & query->mode) != query->mode) ||
-		   (query->mode_key && chptr->key == NULL) ||
-		   (query->mode_limit && !chptr->limit))
+		if (query->modes_ext_present[i] && !chptr->extmodes[i])
 			return 0;
-		for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
-			if (query->mode_ext[i] && !chptr->extmodes[i])
-				return 0;
-	}
-	else if(query->mode_dir == DIR_UNSET)
-	{
-		if((chptr->modes & query->mode) ||
-		   (query->mode_key && chptr->key != NULL) ||
-		   (query->mode_limit && chptr->limit))
+		if (query->modes_ext_absent[i] && chptr->extmodes[i])
 			return 0;
-		for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
-			if (query->mode_ext[i] && chptr->extmodes[i])
-				return 0;
-	}
-	else if(query->mode_dir == DIR_EQUAL)
-	{
-		if(((chptr->modes & ~(CMODE_LIMIT | CMODE_KEY)) != query->mode) ||
-		   (query->mode_key && chptr->key == NULL) ||
-		   (query->mode_limit && !chptr->limit))
-			return 0;
-		for (i = 0; ignore_mode_list[i].mode != '\0'; i++)
-			if (query->mode_ext[i] && !chptr->extmodes[i])
-				return 0;
 	}
 
 	if(match(query->mask, chptr->name))
